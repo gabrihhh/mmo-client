@@ -26,13 +26,13 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 60.0
-offset_top = 200.0
+offset_top = 140.0
 offset_right = -60.0
-offset_bottom = -200.0
+offset_bottom = -140.0
 grow_horizontal = 2
 grow_vertical = 2
 alignment = 1
-theme_override_constants/separation = 40
+theme_override_constants/separation = 28
 
 [node name="Title" type="Label" parent="Center"]
 layout_mode = 2
@@ -40,28 +40,101 @@ theme_override_font_sizes/font_size = 96
 text = "MMO"
 horizontal_alignment = 1
 
-[node name="Subtitle" type="Label" parent="Center"]
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 1, 1, 0.6)
-theme_override_font_sizes/font_size = 28
-text = "protótipo"
-horizontal_alignment = 1
-
-[node name="Spacer" type="Control" parent="Center"]
-custom_minimum_size = Vector2(0, 120)
-layout_mode = 2
-
-[node name="EnterButton" type="Button" parent="Center"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 120)
-layout_mode = 2
-theme_override_font_sizes/font_size = 44
-text = "Entrar"
-
 [node name="StatusLabel" type="Label" parent="Center"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 80)
 layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.6, 1)
 theme_override_font_sizes/font_size = 26
 horizontal_alignment = 1
 autowrap_mode = 3
+
+[node name="LoginForm" type="VBoxContainer" parent="Center"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="LoginField" type="LineEdit" parent="Center/LoginForm"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+placeholder_text = "Usuário ou e-mail"
+
+[node name="PasswordField" type="LineEdit" parent="Center/LoginForm"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+placeholder_text = "Senha"
+secret = true
+virtual_keyboard_type = 6
+
+[node name="LoginButton" type="Button" parent="Center/LoginForm"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 110)
+layout_mode = 2
+theme_override_font_sizes/font_size = 40
+text = "Entrar"
+
+[node name="ToRegisterButton" type="Button" parent="Center/LoginForm"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Não tem conta? Criar conta"
+flat = true
+
+[node name="RegisterForm" type="VBoxContainer" parent="Center"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="UsernameField" type="LineEdit" parent="Center/RegisterForm"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+placeholder_text = "Username (aparece no jogo)"
+
+[node name="EmailField" type="LineEdit" parent="Center/RegisterForm"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+placeholder_text = "E-mail"
+virtual_keyboard_type = 5
+
+[node name="NewPasswordField" type="LineEdit" parent="Center/RegisterForm"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+placeholder_text = "Senha (mín. 8)"
+secret = true
+virtual_keyboard_type = 6
+
+[node name="ConfirmField" type="LineEdit" parent="Center/RegisterForm"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+placeholder_text = "Confirmar senha"
+secret = true
+virtual_keyboard_type = 6
+
+[node name="RegisterButton" type="Button" parent="Center/RegisterForm"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 110)
+layout_mode = 2
+theme_override_font_sizes/font_size = 40
+text = "Criar conta"
+
+[node name="ToLoginButton" type="Button" parent="Center/RegisterForm"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Já tem conta? Entrar"
+flat = true

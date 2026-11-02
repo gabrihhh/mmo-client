@@ -41,6 +41,7 @@ class PendingInput:
 
 
 @onready var _camera: IsometricCamera = $Camera
+@onready var _name_label: Label3D = $NameLabel
 
 ## Estado previsto agora e o do tick anterior (o desenho interpola entre os dois).
 var _sim: Movement.State = Movement.State.new()
@@ -62,6 +63,8 @@ var _correction_sum: float = 0.0
 func _ready() -> void:
 	InputActions.register_defaults()
 	Network.instance.snapshot_received.connect(_on_snapshot_received)
+	# Username exatamente como foi cadastrado.
+	_name_label.text = Network.instance.username
 	_bot_walk = BOT_WALK_ARG in OS.get_cmdline_user_args()
 
 

@@ -6,7 +6,7 @@ extends Node3D
 ## [method Network.render_tick] (alguns ticks no PASSADO), interpolando entre dois snapshots reais.
 ## Isso troca ~100 ms de atraso por movimento suave e sem "adivinhação".
 
-## Session id do jogador no servidor.
+## Id do jogador no servidor (playerId).
 var session_id: String = ""
 
 ## Estado vivo do jogador (o [Network] guarda o histórico de snapshots nele).
@@ -22,7 +22,8 @@ func setup(id: String, state: PlayerState) -> void:
 
 
 func _ready() -> void:
-	_name_label.text = session_id
+	# Username exatamente como foi cadastrado (o id é interno).
+	_name_label.text = _state.name if _state != null and not _state.name.is_empty() else session_id
 	if _state != null:
 		position = _state.position
 		rotation.y = _state.rot_y

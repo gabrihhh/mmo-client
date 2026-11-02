@@ -4,24 +4,36 @@ extends RefCounted
 ##
 ## Transporte: WebSocket, um objeto JSON por mensagem de texto: { "type": String, "data": Dictionary }.
 ## Posições em metros, rotações em radianos.
+## Fluxo: conectar → register/login/resume → auth_ok → join → welcome → input/snapshot.
 ##
-## ATENÇÃO: espelho de mmo-server/src/net/protocol.ts. Mudou lá → mude aqui e atualize mmo-docs [INFRA-04].
+## ATENÇÃO: espelho de mmo-server/src/net/protocol.ts (e das regras de conta em
+## mmo-server/src/accounts/credentials.ts). Mudou lá → mude aqui e atualize mmo-docs [INFRA-04], [INFRA-07].
 
-## Versão do protocolo enviada no join. Precisa ser igual a PROTOCOL_VERSION do servidor.
-const VERSION: int = 3
+## Versão do protocolo enviada ao autenticar. Precisa ser igual a PROTOCOL_VERSION do servidor.
+const VERSION: int = 4
 
 # --- Cliente → servidor ---
-## Pede para entrar numa zona. data: { zone: String, version: int, guestToken: String ou null }.
+## Cria conta. data: { version, username, email, password }.
+const MSG_REGISTER: String = "register"
+## Entra com username OU e-mail + senha. data: { version, login, password }.
+const MSG_LOGIN: String = "login"
+## Entra com o token de sessão salvo no aparelho. data: { version, sessionToken }.
+const MSG_RESUME: String = "resume"
+## Encerra a sessão deste aparelho e fecha a conexão. data: {}.
+const MSG_LOGOUT: String = "logout"
+## Pede para entrar numa zona (depois de autenticar). data: { zone: String }.
 const MSG_JOIN: String = "join"
 ## Intenção de movimento de UM tick (o servidor simula; o cliente não manda posição).
 ## data: { seq: int crescente, x, z: direção no mundo, comprimento até 1 }. Ver mmo-docs [INFRA-09].
 const MSG_INPUT: String = "input"
 
 # --- Servidor → cliente ---
-## Entrada aceita. data: { playerId, guestToken, zone, tick: int, sim: { tickRate, moveSpeed, zoneHalfSize },
-## players: Array[PlayerSnapshot] }.
+## Autenticação aceita. data: { playerId, username (como foi cadastrado), sessionToken }.
+const MSG_AUTH_OK: String = "auth_ok"
+## Entrada na zona aceita. data: { playerId, zone, tick: int, sim: { tickRate, moveSpeed, zoneHalfSize },
+## players: Array[PlayerInfo] } (PlayerInfo = PlayerSnapshot + name).
 const MSG_WELCOME: String = "welcome"
-## Outro jogador entrou. data: { player: PlayerSnapshot }.
+## Outro jogador entrou. data: { player: PlayerInfo }.
 const MSG_PLAYER_JOINED: String = "player_joined"
 ## Um jogador saiu. data: { id: String }.
 const MSG_PLAYER_LEFT: String = "player_left"
@@ -37,6 +49,39 @@ const CLOSE_REJECTED: int = 4000
 const CLOSE_TIMEOUT: int = 4001
 ## Close code quando a mesma conta entrou por outra conexão (outro aparelho/janela).
 const CLOSE_REPLACED: int = 4002
+
+## Erro: token de sessão não vale mais (o cliente apaga o token e mostra o formulário).
+const ERR_INVALID_SESSION: String = "invalid_session"
+
+# --- Regras de conta (só para avisar na hora; quem decide é o servidor) ---
+## Username: 3 a 16 caracteres, letras sem acento, números e _. Único sem diferenciar maiúsculas,
+## mas exibido exatamente como foi digitado.
+const USERNAME_MIN_LENGTH: int = 3
+const USERNAME_MAX_LENGTH: int = 16
+## Senha: 8 a 72 caracteres.
+const PASSWORD_MIN_LENGTH: int = 8
+const PASSWORD_MAX_LENGTH: int = 72
+
+
+## Mensagem de erro para o username, ou "" se estiver válido.
+static func username_problem(username: String) -> String:
+	var regex: RegEx = RegEx.create_from_string("^[A-Za-z0-9_]+$")
+	if username.length() < USERNAME_MIN_LENGTH or username.length() > USERNAME_MAX_LENGTH or regex.search(username) == null:
+		return "Username deve ter de %d a %d caracteres: letras, números ou _." % [USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH]
+	return ""
+
+
+## Mensagem de erro para o e-mail, ou "" se estiver válido.
+static func email_problem(email: String) -> String:
+	var regex: RegEx = RegEx.create_from_string("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
+	return "" if regex.search(email) != null else "E-mail inválido."
+
+
+## Mensagem de erro para a senha, ou "" se estiver válida.
+static func password_problem(password: String) -> String:
+	if password.length() < PASSWORD_MIN_LENGTH or password.length() > PASSWORD_MAX_LENGTH:
+		return "A senha deve ter de %d a %d caracteres." % [PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH]
+	return ""
 
 
 ## Monta o texto de uma mensagem para enviar.

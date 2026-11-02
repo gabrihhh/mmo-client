@@ -56,9 +56,9 @@ assets/            modelos/materiais exportados do Blender
 ```bash
 godot --path . --headless --editor --quit         # importa e acusa erros de script
 godot --path .                                    # roda o jogo (servidor precisa estar no ar)
-godot --path . --headless --quit-after 300 -- --autologin   # valida conexão sem clicar ([CLI-05])
-godot --path . -- --profile=2                     # outra conta de convidado (2ª janela no mesmo PC)
-godot --path . --headless --max-fps 60 -- --autologin --bot-walk   # anda sozinho e mede correções ([INFRA-09])
+godot --path . --headless --quit-after 300 -- --dev-user=Teste   # valida conexão sem clicar ([CLI-05])
+godot --path . -- --profile=2 --dev-user=Teste2   # 2ª janela no mesmo PC, outra conta
+godot --path . --headless --max-fps 60 -- --dev-user=Bot --bot-walk   # anda sozinho e mede correções ([INFRA-09])
 tools/publish_update.sh android                   # publica versão nova do jogo p/ celular ([INFRA-08])
 tools/build_apk.sh --install                      # gera o APK e instala no aparelho do adb ([CLI-06])
 ```

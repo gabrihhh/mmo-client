@@ -8,11 +8,12 @@ Cliente Godot do MMO (Android/iOS). Documentação completa em `../mmo-docs` (co
 2. Suba o servidor (`../mmo-server`: `npm start`).
 3. Abra o projeto no Godot e aperte F5. Não há addons para instalar.
 
-O jogo abre na tela de login: aperte **Entrar** (conta de convidado, criada no primeiro acesso).
+O jogo abre na tela de login: crie uma conta (username, e-mail e senha) ou entre. O aparelho lembra a
+sessão; **Sair** no canto da tela desloga.
 
 Para testar o multiplayer no mesmo PC: **Debug > Customize Run Instances...** → 2 instâncias, e em cada uma
-coloque um perfil diferente em *Launch Arguments* (ex.: `-- --profile=1` e `-- --profile=2`); sem isso as
-duas janelas usam a mesma conta e uma derruba a outra.
+coloque um perfil diferente em *Launch Arguments* (ex.: `-- --profile=1 --dev-user=Ana` e
+`-- --profile=2 --dev-user=Bia`); sem isso as duas janelas usam a mesma sessão e uma derruba a outra.
 
 ## Controles
 

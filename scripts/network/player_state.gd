@@ -10,8 +10,10 @@ extends RefCounted
 ## Quantos snapshots guardar (~2 s a 20 Hz). Mais que o atraso de interpolação com folga.
 const _HISTORY_SIZE: int = 40
 
-## Id público do jogador (estável entre sessões; conta de convidado).
+## Id do jogador (playerId, estável).
 var id: String = ""
+## Nome exibido acima do personagem: o username exatamente como foi cadastrado.
+var name: String = ""
 ## Último estado autoritativo recebido, em float de 64 bits (usado na reconciliação do jogador local).
 var x: float = 0.0
 var y: float = 0.0
@@ -31,12 +33,14 @@ var _positions: Array[Vector3] = []
 var _rotations: Array[float] = []
 
 
-## Cria a partir de um PlayerSnapshot recebido no [param at_tick]. Retorna null se o formato for inválido.
+## Cria a partir de um PlayerInfo (snapshot + name) recebido no [param at_tick]. Retorna null se o
+## formato for inválido.
 static func from_snapshot(data: Dictionary, at_tick: int) -> PlayerState:
 	if not Protocol.is_player_snapshot(data):
 		return null
 	var state: PlayerState = PlayerState.new()
 	state.id = Protocol.read_string(data, "id")
+	state.name = Protocol.read_string(data, "name")
 	state.apply_snapshot(data, at_tick)
 	return state
 

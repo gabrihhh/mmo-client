@@ -6,8 +6,16 @@ extends Node
 ## porque autoloads ficam presos no APK e não poderiam ser atualizados (mmo-docs [INFRA-08]).
 ## Usa o [WebSocketPeer] nativo do Godot (sem SDK de terceiros). O resto do jogo não
 ## fala com o socket: usa os sinais e métodos daqui.
-## Login: conta de convidado (token guardado por [AccountStorage]). Ver mmo-docs [INFRA-04], [INFRA-07].
+##
+## Fluxo: [method login] / [method register] / [method resume_session] abrem a conexão e autenticam
+## ([signal authenticated]); em seguida o Network entra sozinho na zona ([signal joined_zone]).
+## Contas: mmo-docs [INFRA-07]. Protocolo: [INFRA-04]. Modelo autoritativo: [INFRA-09].
 
+## Autenticação aceita. [member username] é o nome exatamente como foi cadastrado.
+signal authenticated(username: String)
+## Cadastro/login/sessão recusado (ex.: "username_taken", "invalid_credentials"). [param message] já vem
+## em português do servidor. A conexão continua aberta para tentar de novo (salvo "too_many_attempts").
+signal auth_failed(code: String, message: String)
 ## Entrou na zona. A partir daqui [member player_id] é válido e [method get_players] tem a lista inicial.
 signal joined_zone(player_id: String)
 ## Um jogador (inclusive o local) está na zona. [param state] é atualizado ao vivo pelo Network.
@@ -16,10 +24,10 @@ signal player_added(player_id: String, state: PlayerState)
 signal player_removed(player_id: String)
 ## Não foi possível conectar (servidor fora do ar, URL errada...).
 signal connection_error(code: int, message: String)
-## O servidor recusou um pedido ou uma mensagem. [param code] é um código de erro do protocolo
-## (ex.: "version_mismatch", "zone_full"); a lista está em mmo-server/src/net/protocol.ts.
+## O servidor recusou algo que não é autenticação (ex.: "zone_full"). Lista em mmo-server/src/net/protocol.ts.
 signal server_error(code: String, message: String)
-## A conexão fechou depois de aberta (saída, queda ou recusa). [param code] é o close code do WebSocket.
+## A conexão fechou depois de aberta (logout, queda, recusa ou outra conexão da mesma conta).
+## [param code] é o close code do WebSocket.
 signal left_zone(code: int, reason: String)
 ## Chegou um snapshot do servidor (já aplicado nos [PlayerState]). [param ack] = último input DESTE
 ## cliente que o servidor aplicou; o [LocalPlayer] usa para reconciliar. Ver mmo-docs [INFRA-09].
@@ -32,12 +40,19 @@ const INTERPOLATION_DELAY_TICKS: float = 2.0
 const _CLOCK_SNAP_TICKS: float = 10.0
 ## Fração do erro do relógio corrigida a cada snapshot (ajuste suave, sem trancos).
 const _CLOCK_CORRECTION: float = 0.1
+## Códigos de erro que são resposta a cadastro/login/sessão (viram [signal auth_failed]).
+const _AUTH_ERROR_CODES: Array[String] = [
+	"invalid_username", "invalid_email", "invalid_password", "username_taken", "email_taken",
+	"invalid_credentials", "invalid_session", "too_many_attempts", "version_mismatch",
+]
 
 ## A instância viva (criada pelo [GameBoot]); null antes do boot.
 static var instance: Network = null
 
-## Id público do jogador deste aparelho (estável entre sessões); vazio enquanto não entrou.
+## Id do jogador desta conta (estável); vazio enquanto não autenticou.
 var player_id: String = ""
+## Username desta conta, exatamente como foi cadastrado; vazio enquanto não autenticou.
+var username: String = ""
 ## Última mensagem de erro/desconexão, em português, para a tela de login mostrar. Vazio = nenhuma.
 var last_error: String = ""
 ## Parâmetros da simulação recebidos no welcome (o servidor manda; o cliente não decide).
@@ -51,6 +66,12 @@ var _clock_tick: float = 0.0
 var _socket: WebSocketPeer = null
 ## A conexão chegou a abrir (diferencia "não conectou" de "caiu depois").
 var _was_open: bool = false
+## Autenticado nesta conexão.
+var _authenticated: bool = false
+## Já recebeu o welcome (está dentro da zona).
+var _in_zone: bool = false
+## Mensagem de autenticação esperando a conexão abrir: { "type": String, "data": Dictionary } ou {}.
+var _pending_auth: Dictionary = {}
 ## Estados vivos dos jogadores da zona, por player id.
 var _players: Dictionary[String, PlayerState] = {}
 
@@ -68,21 +89,41 @@ func _ready() -> void:
 	set_process(false)
 
 
-## Conecta ao servidor e entra na zona [constant NetworkConfig.ZONE_ID] com a conta de convidado
-## deste aparelho (criada no primeiro acesso). Chamadas repetidas são ignoradas.
-func connect_to_zone() -> void:
-	if _socket != null:
-		return
+## true se o aparelho tem uma sessão salva (dá para entrar direto com [method resume_session]).
+func has_saved_session() -> bool:
+	return not AccountStorage.load_session_token().is_empty()
+
+
+## Entra com a sessão salva no aparelho. Sem sessão salva, não faz nada.
+func resume_session() -> void:
+	var token: String = AccountStorage.load_session_token()
+	if not token.is_empty():
+		_request_auth(Protocol.MSG_RESUME, {"version": Protocol.VERSION, "sessionToken": token})
+
+
+## Entra com username OU e-mail + senha.
+func login(login_name: String, password: String) -> void:
+	_request_auth(Protocol.MSG_LOGIN, {"version": Protocol.VERSION, "login": login_name.strip_edges(), "password": password})
+
+
+## Cria a conta e já entra nela. O username fica exatamente como foi digitado (sem espaços nas pontas).
+func register(new_username: String, email: String, password: String) -> void:
+	_request_auth(Protocol.MSG_REGISTER, {
+		"version": Protocol.VERSION,
+		"username": new_username.strip_edges(),
+		"email": email.strip_edges(),
+		"password": password,
+	})
+
+
+## Sai da conta: o servidor invalida a sessão deste aparelho e fecha a conexão; o token local é apagado.
+func logout() -> void:
+	AccountStorage.clear_session_token()
 	last_error = ""
-	_socket = WebSocketPeer.new()
-	var url: String = NetworkConfig.server_url()
-	var error: Error = _socket.connect_to_url(url)
-	if error != OK:
-		_socket = null
-		_fail_connection(error, "URL do servidor inválida: %s" % url)
-		return
-	_was_open = false
-	set_process(true)
+	if _socket != null and _socket.get_ready_state() == WebSocketPeer.STATE_OPEN:
+		_send(Protocol.MSG_LOGOUT, {})
+	elif _socket != null:
+		_socket.close(1000, "logout")
 
 
 ## true enquanto conecta ou está conectado.
@@ -92,7 +133,7 @@ func is_connecting_or_connected() -> bool:
 
 ## true quando está dentro da zona com o WebSocket aberto.
 func is_in_zone() -> bool:
-	return _socket != null and _socket.get_ready_state() == WebSocketPeer.STATE_OPEN and not player_id.is_empty()
+	return _socket != null and _socket.get_ready_state() == WebSocketPeer.STATE_OPEN and _in_zone
 
 
 ## Jogadores atualmente na zona (inclusive o local). Usado por quem entra depois do [signal joined_zone],
@@ -129,15 +170,35 @@ func send_input(seq: int, direction_x: float, direction_z: float) -> void:
 	_send(Protocol.MSG_INPUT, {"seq": seq, "x": direction_x, "z": direction_z})
 
 
-## Sai da zona fechando a conexão (o servidor salva a posição e remove o jogador).
-func leave_zone() -> void:
-	if _socket != null:
-		_socket.close(1000, "leave")
-
-
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_EXIT_TREE:
-		leave_zone()
+	if (what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_EXIT_TREE) and _socket != null:
+		# Fechar o app não é logout: a sessão continua salva para entrar direto da próxima vez.
+		_socket.close(1000, "app fechado")
+
+
+## Manda a mensagem de autenticação agora (conexão aberta) ou guarda e abre a conexão.
+func _request_auth(type: String, data: Dictionary) -> void:
+	last_error = ""
+	if _authenticated:
+		return
+	if _socket != null and _socket.get_ready_state() == WebSocketPeer.STATE_OPEN:
+		_send(type, data)
+		return
+	_pending_auth = {"type": type, "data": data}
+	if _socket == null:
+		_open_socket()
+
+
+func _open_socket() -> void:
+	_socket = WebSocketPeer.new()
+	var url: String = NetworkConfig.server_url()
+	var error: Error = _socket.connect_to_url(url)
+	if error != OK:
+		_socket = null
+		_fail_connection(error, "URL do servidor inválida: %s" % url)
+		return
+	_was_open = false
+	set_process(true)
 
 
 func _process(delta: float) -> void:
@@ -147,12 +208,9 @@ func _process(delta: float) -> void:
 
 	if state == WebSocketPeer.STATE_OPEN and not _was_open:
 		_was_open = true
-		var token: String = AccountStorage.load_guest_token()
-		_send(Protocol.MSG_JOIN, {
-			"zone": NetworkConfig.ZONE_ID,
-			"version": Protocol.VERSION,
-			"guestToken": token if not token.is_empty() else null,
-		})
+		if not _pending_auth.is_empty():
+			_send(Protocol.read_string(_pending_auth, "type"), Protocol.read_dict(_pending_auth, "data"))
+			_pending_auth = {}
 
 	# Lê também depois de fechado: o "error" que precede uma recusa pode ainda estar na fila.
 	while _socket.get_available_packet_count() > 0:
@@ -175,19 +233,25 @@ func _handle_message(text: String) -> void:
 	var data: Dictionary = Protocol.read_dict(message, "data")
 
 	match type:
-		Protocol.MSG_WELCOME:
+		Protocol.MSG_AUTH_OK:
+			_authenticated = true
 			player_id = Protocol.read_string(data, "playerId")
-			var token: String = Protocol.read_string(data, "guestToken")
+			username = Protocol.read_string(data, "username")
+			var token: String = Protocol.read_string(data, "sessionToken")
 			if not token.is_empty():
-				AccountStorage.save_guest_token(token)
+				AccountStorage.save_session_token(token)
+			authenticated.emit(username)
+			_send(Protocol.MSG_JOIN, {"zone": NetworkConfig.ZONE_ID})
+		Protocol.MSG_WELCOME:
 			var sim: Dictionary = Protocol.read_dict(data, "sim")
 			tick_rate = Protocol.read_float(sim, "tickRate", tick_rate)
 			move_speed = Protocol.read_float(sim, "moveSpeed", move_speed)
 			zone_half_size = Protocol.read_float(sim, "zoneHalfSize", zone_half_size)
 			_clock_tick = float(Protocol.read_int(data, "tick"))
+			_in_zone = true
 			# Lista primeiro: quem reagir ao joined_zone já encontra os jogadores em get_players().
-			for snapshot: Dictionary in Protocol.read_dict_array(data, "players"):
-				_add_player(snapshot)
+			for info: Dictionary in Protocol.read_dict_array(data, "players"):
+				_add_player(info)
 			joined_zone.emit(player_id)
 		Protocol.MSG_PLAYER_JOINED:
 			_add_player(Protocol.read_dict(data, "player"))
@@ -196,17 +260,24 @@ func _handle_message(text: String) -> void:
 		Protocol.MSG_SNAPSHOT:
 			_apply_snapshot(data)
 		Protocol.MSG_ERROR:
-			var code: String = Protocol.read_string(data, "code")
-			var reason: String = Protocol.read_string(data, "message")
-			push_warning("Network: servidor recusou (%s): %s" % [code, reason])
-			last_error = "Servidor recusou: %s" % reason
-			server_error.emit(code, reason)
+			_handle_error(Protocol.read_string(data, "code"), Protocol.read_string(data, "message"))
 		_:
 			push_warning("Network: tipo de mensagem desconhecido: %s" % type)
 
 
-func _add_player(snapshot: Dictionary) -> void:
-	var state: PlayerState = PlayerState.from_snapshot(snapshot, int(_clock_tick))
+func _handle_error(code: String, message: String) -> void:
+	push_warning("Network: servidor recusou (%s): %s" % [code, message])
+	last_error = message
+	if code in _AUTH_ERROR_CODES:
+		if code == Protocol.ERR_INVALID_SESSION:
+			AccountStorage.clear_session_token()
+		auth_failed.emit(code, message)
+	else:
+		server_error.emit(code, message)
+
+
+func _add_player(info: Dictionary) -> void:
+	var state: PlayerState = PlayerState.from_snapshot(info, int(_clock_tick))
 	if state == null or _players.has(state.id):
 		return
 	_players[state.id] = state
@@ -248,7 +319,11 @@ func _on_closed() -> void:
 	var was_open: bool = _was_open
 	_socket = null
 	_was_open = false
+	_authenticated = false
+	_in_zone = false
+	_pending_auth = {}
 	player_id = ""
+	username = ""
 	set_process(false)
 
 	for id: String in _players.keys():

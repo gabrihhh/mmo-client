@@ -15,6 +15,7 @@ const LOGIN_SCENE: String = "res://scenes/ui/login.tscn"
 @onready var _players_root: Node3D = $Players
 @onready var _joystick: TouchJoystick = $HUD/TouchJoystick
 @onready var _status_label: Label = $HUD/StatusLabel
+@onready var _logout_button: Button = $HUD/LogoutButton
 
 var _local_player: LocalPlayer = null
 var _remote_players: Dictionary[String, RemotePlayer] = {}
@@ -28,6 +29,7 @@ func _ready() -> void:
 	Network.instance.player_added.connect(_on_player_added)
 	Network.instance.player_removed.connect(_on_player_removed)
 	Network.instance.left_zone.connect(_on_left_zone)
+	_logout_button.pressed.connect(_on_logout_pressed)
 	for state: PlayerState in Network.instance.get_players():
 		_on_player_added(state.id, state)
 	_update_online_status()
@@ -58,6 +60,12 @@ func _on_left_zone(_code: int, _reason: String) -> void:
 	_back_to_login()
 
 
+## "Sair": encerra a sessão (no aparelho e no servidor); a queda da conexão traz de volta ao login.
+func _on_logout_pressed() -> void:
+	_logout_button.disabled = true
+	Network.instance.logout()
+
+
 func _back_to_login() -> void:
 	get_tree().change_scene_to_file(LOGIN_SCENE)
 
@@ -74,4 +82,4 @@ func _spawn_local_player(state: PlayerState) -> void:
 
 func _update_online_status() -> void:
 	var online: int = _remote_players.size() + (1 if _local_player != null else 0)
-	_status_label.text = "%s · Online: %d" % [Network.instance.player_id, online]
+	_status_label.text = "%s · Online: %d" % [Network.instance.username, online]

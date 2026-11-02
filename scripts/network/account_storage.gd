@@ -1,14 +1,15 @@
 class_name AccountStorage
 extends RefCounted
-## Guarda no aparelho o token da conta de convidado. Ver mmo-docs [INFRA-07].
+## Guarda no aparelho o token de SESSÃO da conta (para entrar direto, sem digitar a senha de novo).
+## Ver mmo-docs [INFRA-07].
 ##
-## O token é o "login" do jogador: quem tiver o token entra na conta. Fica em user://
-## (pasta privada do app no Android/iOS). Apagar o app ou os dados = conta nova.
+## O token é recebido no auth_ok depois do cadastro/login. Fica em user:// (pasta privada do app no
+## Android/iOS). A senha NUNCA é salva. "Sair" apaga o token (e o servidor o invalida).
 ##
 ## Dev: várias janelas no mesmo PC dividiriam o mesmo arquivo (e a mesma conta, que derruba a
 ## outra janela). Rode cada uma com um perfil: `godot --path . -- --profile=2`.
 
-const _SECTION: String = "guest"
+const _SECTION: String = "session"
 const _KEY: String = "token"
 ## Prefixo do argumento de linha de comando que escolhe o perfil (depois do `--`).
 const _PROFILE_ARG: String = "--profile="
@@ -24,8 +25,8 @@ static func _path() -> String:
 	return "user://account.cfg"
 
 
-## Token salvo, ou "" se ainda não existe (primeiro acesso).
-static func load_guest_token() -> String:
+## Token de sessão salvo, ou "" se não houver (nunca entrou, ou saiu).
+static func load_session_token() -> String:
 	var config: ConfigFile = ConfigFile.new()
 	if config.load(_path()) != OK:
 		return ""
@@ -36,10 +37,16 @@ static func load_guest_token() -> String:
 	return ""
 
 
-## Salva o token recebido do servidor no welcome.
-static func save_guest_token(token: String) -> void:
+## Salva o token recebido no auth_ok.
+static func save_session_token(token: String) -> void:
 	var config: ConfigFile = ConfigFile.new()
 	config.set_value(_SECTION, _KEY, token)
 	var error: Error = config.save(_path())
 	if error != OK:
-		push_warning("AccountStorage: não foi possível salvar o token (%s)" % error_string(error))
+		push_warning("AccountStorage: não foi possível salvar a sessão (%s)" % error_string(error))
+
+
+## Apaga o token (logout ou sessão recusada pelo servidor).
+static func clear_session_token() -> void:
+	if FileAccess.file_exists(_path()):
+		DirAccess.remove_absolute(_path())
