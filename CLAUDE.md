@@ -8,7 +8,7 @@ Repositórios irmãos em `../`: `mmo-server` (Node + ws), `mmo-docs` (documenta�
 Toda decisão de design/arquitetura vive em `../mmo-docs`. Siga o protocolo de busca de lá:
 leia `../mmo-docs/INDICE.md` e depois `../mmo-docs/tools/secao.sh <ID>`. Não abra os arquivos de `docs/` inteiros.
 Seções-chave deste repo: [CLI-02] câmera, [CLI-03] estrutura do cliente, [CLI-04] jogador/controles,
-[INFRA-04] protocolo de rede, [VIS-04] plataformas mobile.
+[INFRA-04] protocolo de rede, [INFRA-07] contas, [CLI-05] login, [VIS-04] plataformas mobile (retrato).
 
 ## Regras OBRIGATÓRIAS
 
@@ -48,6 +48,8 @@ assets/            modelos/materiais exportados do Blender
 ```bash
 godot --path . --headless --editor --quit         # importa e acusa erros de script
 godot --path .                                    # roda o jogo (servidor precisa estar no ar)
+godot --path . --headless --quit-after 300 -- --autologin   # valida conexão sem clicar ([CLI-05])
+godot --path . -- --profile=2                     # outra conta de convidado (2ª janela no mesmo PC)
 ```
 
 Código e identificadores em inglês; comentários e docs em português.

@@ -5,7 +5,7 @@ extends RefCounted
 ## O [Network] mantém um objeto por jogador e o atualiza a cada mensagem "positions";
 ## quem guarda a referência (ex.: [RemotePlayer]) sempre lê o valor mais recente.
 
-## Id da sessão do jogador no servidor.
+## Id público do jogador (estável entre sessões; conta de convidado).
 var id: String = ""
 ## Última posição recebida, em metros.
 var position: Vector3 = Vector3.ZERO

@@ -8,16 +8,16 @@ extends RefCounted
 ## ATENÇÃO: espelho de mmo-server/src/net/protocol.ts. Mudou lá → mude aqui e atualize mmo-docs [INFRA-04].
 
 ## Versão do protocolo enviada no join. Precisa ser igual a PROTOCOL_VERSION do servidor.
-const VERSION: int = 1
+const VERSION: int = 2
 
 # --- Cliente → servidor ---
-## Pede para entrar numa zona. data: { zone: String, version: int }.
+## Pede para entrar numa zona. data: { zone: String, version: int, guestToken: String ou null }.
 const MSG_JOIN: String = "join"
 ## Posição/rotação do jogador local. data: { x, y, z, rotY }.
 const MSG_MOVE: String = "move"
 
 # --- Servidor → cliente ---
-## Entrada aceita. data: { sessionId: String, zone: String, players: Array[PlayerSnapshot] }.
+## Entrada aceita. data: { playerId: String, guestToken: String, zone: String, players: Array[PlayerSnapshot] }.
 const MSG_WELCOME: String = "welcome"
 ## Outro jogador entrou. data: { player: PlayerSnapshot }.
 const MSG_PLAYER_JOINED: String = "player_joined"
@@ -32,6 +32,8 @@ const MSG_ERROR: String = "error"
 const CLOSE_REJECTED: int = 4000
 ## Close code do servidor quando a conexão não respondeu ao heartbeat.
 const CLOSE_TIMEOUT: int = 4001
+## Close code quando a mesma conta entrou por outra conexão (outro aparelho/janela).
+const CLOSE_REPLACED: int = 4002
 
 
 ## Monta o texto de uma mensagem para enviar.
