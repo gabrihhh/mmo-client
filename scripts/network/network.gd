@@ -75,6 +75,10 @@ func leave_zone() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_EXIT_TREE:
 		leave_zone()
+		_release_room(_room)
+		_room = null
+		_callbacks = null
+		_client = null
 
 
 func _on_joined() -> void:
@@ -101,6 +105,29 @@ func _on_error(code: int, message: String) -> void:
 
 func _on_left(code: int, reason: String) -> void:
 	session_id = ""
+	# Adiado: liberar o nativo dentro da emissão do próprio sinal "left" não é seguro.
+	_release_room.call_deferred(_room)
 	_room = null
 	_callbacks = null
 	left_zone.emit(code, reason)
+
+
+## Quebra o ciclo de referências do SDK do Colyseus para a room poder ser liberada.
+##
+## ATENÇÃO: contorna um problema do addon (colyseus.gd, Room._init): o wrapper [Colyseus.Room]
+## guarda o objeto nativo em `_native` e conecta os sinais dele a lambdas que capturam o próprio
+## wrapper. Wrapper → nativo → lambdas → wrapper: nenhum dos dois chega a refcount 0 e vazam
+## (aviso "ObjectDB instances were leaked at exit"). Desconectar os sinais do nativo desfaz o ciclo.
+## Não resolve tudo: o `_ColyseusRoom` nativo continua preso dentro da extensão (ver mmo-docs [ROAD-03]).
+## Remover quando o SDK corrigir.
+func _release_room(room: Colyseus.Room) -> void:
+	if room == null:
+		return
+	var native: Object = room.get(&"_native")
+	if native == null:
+		return
+	for signal_info: Dictionary in native.get_signal_list():
+		var signal_name: StringName = signal_info["name"]
+		for connection: Dictionary in native.get_signal_connection_list(signal_name):
+			var callable: Callable = connection["callable"]
+			native.disconnect(signal_name, callable)
