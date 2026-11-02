@@ -1,0 +1,15 @@
+# Cache do editor Godot
+.godot/
+
+# SDK do Colyseus (binários ~420 MB). Instalar com tools/install_colyseus_sdk.sh
+/addons/colyseus/
+
+# Builds e exportação
+/android/
+/build/
+*.apk
+*.aab
+*.ipa
+
+# Pode conter senhas de keystore/certificados
+export_credentials.cfg

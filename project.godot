@@ -1,0 +1,50 @@
+; Engine configuration file.
+; Pode ser editado pelo editor (Project > Project Settings).
+; Regras do projeto: ver CLAUDE.md.
+
+config_version=5
+
+[application]
+
+config/name="MMO"
+config/description="MMORPG isométrico 3D low poly para Android/iOS."
+run/main_scene="res://scenes/world/zone_1.tscn"
+config/features=PackedStringArray("4.7", "Mobile")
+
+[autoload]
+
+Network="*res://scripts/network/network.gd"
+
+[debug]
+
+; Tipagem forte: declaração sem tipo vira ERRO (2). Ver CLAUDE.md.
+; Avisos de addons de terceiros são ignorados (exclude_addons=true é o padrão).
+gdscript/warnings/untyped_declaration=2
+gdscript/warnings/unsafe_property_access=1
+gdscript/warnings/unsafe_method_access=1
+gdscript/warnings/unsafe_cast=1
+gdscript/warnings/unsafe_call_argument=1
+gdscript/warnings/return_value_discarded=0
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=4
+
+[input_devices]
+
+; Permite testar os controles de toque com o mouse no desktop.
+pointing/emulate_touch_from_mouse=true
+
+[mmo]
+
+; Endereço do servidor Colyseus. Num celular, troque localhost pelo IP do PC na rede local.
+network/server_url="ws://localhost:2567"
+
+[rendering]
+
+renderer/rendering_method="mobile"
+textures/vram_compression/import_etc2_astc=true
