@@ -53,8 +53,6 @@ enum Shape { CARD, CIRCLE }
 @export var enabled: bool = true
 ## Cor do "relógio" de recarga (setor escuro que vai encolhendo).
 @export var cooldown_color: Color = Color(0.0, 0.0, 0.0, 0.62)
-## Cor do ponteiro do relógio de recarga.
-@export var cooldown_hand_color: Color = Color(1.0, 0.85, 0.6, 0.9)
 
 var _touch_index: int = -1
 var _aiming: bool = false
@@ -178,7 +176,7 @@ func _draw() -> void:
 
 
 ## Relógio de recarga: setor escuro que começa no "meio-dia" e cobre a fração [param fraction] que falta,
-## no sentido horário, recortado no formato do botão; um ponteiro claro marca a borda que avança.
+## no sentido horário, recortado no formato do botão.
 func _draw_cooldown_clock(fraction: float) -> void:
 	var center: Vector2 = size / 2.0
 	var radius: float = size.length()  # grande o bastante para cobrir o retângulo inteiro
@@ -192,10 +190,6 @@ func _draw_cooldown_clock(fraction: float) -> void:
 	var shape_polygon: PackedVector2Array = _shape_polygon()
 	for piece: PackedVector2Array in Geometry2D.intersect_polygons(sector, shape_polygon):
 		draw_colored_polygon(piece, cooldown_color)
-	# Ponteiro: do centro até a borda do botão, na direção do início do setor.
-	var hand_direction: Vector2 = Vector2(cos(start), sin(start))
-	var hand_length: float = minf(size.x, size.y) / 2.0 - 4.0
-	draw_line(center, center + hand_direction * hand_length, cooldown_hand_color, 3.0, true)
 
 
 ## Contorno do botão como polígono (retângulo ou círculo), para recortar o relógio.
