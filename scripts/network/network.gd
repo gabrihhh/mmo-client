@@ -1,64 +1,63 @@
 extends Node
-## Autoload "Network": única porta de entrada para o servidor Colyseus.
+## Autoload "Network": única porta de entrada para o servidor do jogo.
 ##
-## O resto do jogo não fala com o SDK diretamente: usa os sinais e métodos daqui.
-## Contrato de mensagens e estado: mmo-docs [INFRA-04].
+## Usa o [WebSocketPeer] nativo do Godot (sem SDK de terceiros). O resto do jogo não
+## fala com o socket: usa os sinais e métodos daqui.
+## Contrato de mensagens: [Protocol] e mmo-docs [INFRA-04].
 
 ## Entrou na zona. A partir daqui [member session_id] é válido.
 signal joined_zone(session_id: String)
-## Um jogador (inclusive o local) apareceu no estado da zona.
-signal player_added(session_id: String, state: ZoneSchema.PlayerState)
+## Um jogador (inclusive o local) está na zona. [param state] é atualizado ao vivo pelo Network.
+signal player_added(session_id: String, state: PlayerState)
 ## Um jogador saiu da zona.
 signal player_removed(session_id: String)
-## Falha ao conectar ou erro da room.
+## Não foi possível conectar (servidor fora do ar, URL errada...).
 signal connection_error(code: int, message: String)
-## Saiu da room (desconexão ou saída voluntária).
+## O servidor recusou um pedido ou uma mensagem. [param code] é um código de erro do protocolo
+## (ex.: "version_mismatch", "zone_full"); a lista está em mmo-server/src/net/protocol.ts.
+signal server_error(code: String, message: String)
+## A conexão fechou depois de aberta (saída, queda ou recusa). [param code] é o close code do WebSocket.
 signal left_zone(code: int, reason: String)
 
-## Tipo da mensagem de movimento (mmo-server/src/rooms/messages.ts → MessageType.Move).
-const MSG_MOVE: String = "move"
-
-## Id da sessão deste cliente na room; vazio enquanto não conectado.
+## Id da sessão deste cliente na zona; vazio enquanto não entrou.
 var session_id: String = ""
 
-var _client: Colyseus.Client = null
-var _room: Colyseus.Room = null
-var _callbacks: Colyseus.Callbacks = null
+var _socket: WebSocketPeer = null
+## A conexão chegou a abrir (diferencia "não conectou" de "caiu depois").
+var _was_open: bool = false
+## Estados vivos dos jogadores da zona, por session id.
+var _players: Dictionary[String, PlayerState] = {}
 
 
-## Conecta (ou cria) a room de zona. Chamadas repetidas são ignoradas.
+func _ready() -> void:
+	set_process(false)
+
+
+## Conecta ao servidor e entra na zona [constant NetworkConfig.ZONE_ID]. Chamadas repetidas são ignoradas.
 func connect_to_zone() -> void:
-	if _room != null:
+	if _socket != null:
 		return
-
-	_client = Colyseus.Client.new(NetworkConfig.server_url())
-	_room = _client.join_or_create(NetworkConfig.ZONE_ROOM_NAME)
-	if _room == null:
-		connection_error.emit(-1, "Não foi possível criar a conexão. O SDK do Colyseus está instalado?")
+	_socket = WebSocketPeer.new()
+	var url: String = NetworkConfig.server_url()
+	var error: Error = _socket.connect_to_url(url)
+	if error != OK:
+		_socket = null
+		connection_error.emit(error, "URL do servidor inválida: %s" % url)
 		return
-
-	# Precisa ser chamado antes do "joined" para o estado vir tipado.
-	_room.set_state_type(ZoneSchema.State)
-	_room.joined.connect(_on_joined)
-	_room.error.connect(_on_error)
-	_room.left.connect(_on_left)
-
-	# Registros feitos antes de entrar valem após o "joined" e repetem o que já existe.
-	_callbacks = Colyseus.Callbacks.of(_room)
-	_callbacks.on_add("players", _on_player_add)
-	_callbacks.on_remove("players", _on_player_remove)
+	_was_open = false
+	set_process(true)
 
 
-## true quando está dentro da room com o WebSocket aberto.
+## true quando está dentro da zona com o WebSocket aberto.
 func is_in_zone() -> bool:
-	return _room != null and _room.connected
+	return _socket != null and _socket.get_ready_state() == WebSocketPeer.STATE_OPEN and not session_id.is_empty()
 
 
-## Envia a posição/rotação do jogador local. Ignorado se não estiver conectado.
+## Envia a posição/rotação do jogador local. Ignorado se não estiver na zona.
 func send_move(world_position: Vector3, rot_y: float) -> void:
 	if not is_in_zone():
 		return
-	_room.send_message(MSG_MOVE, {
+	_send(Protocol.MSG_MOVE, {
 		"x": world_position.x,
 		"y": world_position.y,
 		"z": world_position.z,
@@ -66,68 +65,103 @@ func send_move(world_position: Vector3, rot_y: float) -> void:
 	})
 
 
-## Sai da room (o servidor remove o jogador na hora).
+## Sai da zona fechando a conexão (o servidor remove o jogador na hora).
 func leave_zone() -> void:
-	if is_in_zone():
-		_room.leave()
+	if _socket != null:
+		_socket.close(1000, "leave")
 
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_EXIT_TREE:
 		leave_zone()
-		_release_room(_room)
-		_room = null
-		_callbacks = null
-		_client = null
 
 
-func _on_joined() -> void:
-	session_id = _room.get_session_id()
-	joined_zone.emit(session_id)
+func _process(_delta: float) -> void:
+	_socket.poll()
+	var state: WebSocketPeer.State = _socket.get_ready_state()
+
+	if state == WebSocketPeer.STATE_OPEN and not _was_open:
+		_was_open = true
+		_send(Protocol.MSG_JOIN, {"zone": NetworkConfig.ZONE_ID, "version": Protocol.VERSION})
+
+	# Lê também depois de fechado: o "error" que precede uma recusa pode ainda estar na fila.
+	while _socket.get_available_packet_count() > 0:
+		_handle_message(_socket.get_packet().get_string_from_utf8())
+
+	if state == WebSocketPeer.STATE_CLOSED:
+		_on_closed()
 
 
-func _on_player_add(state: Variant, key: String) -> void:
-	if not state is ZoneSchema.PlayerState:
-		push_error("Network: estado de jogador sem tipo; set_state_type falhou?")
+func _send(type: String, data: Dictionary) -> void:
+	_socket.send_text(Protocol.encode(type, data))
+
+
+func _handle_message(text: String) -> void:
+	var message: Dictionary = Protocol.decode(text)
+	if message.is_empty():
+		push_warning("Network: mensagem fora do protocolo: %s" % text)
 		return
-	var player_state: ZoneSchema.PlayerState = state
-	player_added.emit(key, player_state)
+	var type: String = Protocol.read_string(message, "type")
+	var data: Dictionary = Protocol.read_dict(message, "data")
+
+	match type:
+		Protocol.MSG_WELCOME:
+			session_id = Protocol.read_string(data, "sessionId")
+			joined_zone.emit(session_id)
+			for snapshot: Dictionary in Protocol.read_dict_array(data, "players"):
+				_add_player(snapshot)
+		Protocol.MSG_PLAYER_JOINED:
+			_add_player(Protocol.read_dict(data, "player"))
+		Protocol.MSG_PLAYER_LEFT:
+			_remove_player(Protocol.read_string(data, "id"))
+		Protocol.MSG_POSITIONS:
+			for snapshot: Dictionary in Protocol.read_dict_array(data, "players"):
+				_update_player(snapshot)
+		Protocol.MSG_ERROR:
+			var code: String = Protocol.read_string(data, "code")
+			var reason: String = Protocol.read_string(data, "message")
+			push_warning("Network: servidor recusou (%s): %s" % [code, reason])
+			server_error.emit(code, reason)
+		_:
+			push_warning("Network: tipo de mensagem desconhecido: %s" % type)
 
 
-func _on_player_remove(_state: Variant, key: String) -> void:
-	player_removed.emit(key)
+func _add_player(snapshot: Dictionary) -> void:
+	var state: PlayerState = PlayerState.from_snapshot(snapshot)
+	if state == null or _players.has(state.id):
+		return
+	_players[state.id] = state
+	player_added.emit(state.id, state)
 
 
-func _on_error(code: int, message: String) -> void:
-	push_warning("Network: erro %d: %s" % [code, message])
-	connection_error.emit(code, message)
+func _update_player(snapshot: Dictionary) -> void:
+	if not Protocol.is_player_snapshot(snapshot):
+		return
+	var id: String = Protocol.read_string(snapshot, "id")
+	# O próprio jogador é autoritativo sobre a posição dele: ignora o eco do servidor.
+	if id == session_id or not _players.has(id):
+		return
+	_players[id].apply_snapshot(snapshot)
 
 
-func _on_left(code: int, reason: String) -> void:
+func _remove_player(id: String) -> void:
+	if _players.erase(id):
+		player_removed.emit(id)
+
+
+func _on_closed() -> void:
+	var code: int = _socket.get_close_code()
+	var reason: String = _socket.get_close_reason()
+	var was_open: bool = _was_open
+	_socket = null
+	_was_open = false
 	session_id = ""
-	# Adiado: liberar o nativo dentro da emissão do próprio sinal "left" não é seguro.
-	_release_room.call_deferred(_room)
-	_room = null
-	_callbacks = null
-	left_zone.emit(code, reason)
+	set_process(false)
 
+	for id: String in _players.keys():
+		_remove_player(id)
 
-## Quebra o ciclo de referências do SDK do Colyseus para a room poder ser liberada.
-##
-## ATENÇÃO: contorna um problema do addon (colyseus.gd, Room._init): o wrapper [Colyseus.Room]
-## guarda o objeto nativo em `_native` e conecta os sinais dele a lambdas que capturam o próprio
-## wrapper. Wrapper → nativo → lambdas → wrapper: nenhum dos dois chega a refcount 0 e vazam
-## (aviso "ObjectDB instances were leaked at exit"). Desconectar os sinais do nativo desfaz o ciclo.
-## Não resolve tudo: o `_ColyseusRoom` nativo continua preso dentro da extensão (ver mmo-docs [ROAD-03]).
-## Remover quando o SDK corrigir.
-func _release_room(room: Colyseus.Room) -> void:
-	if room == null:
-		return
-	var native: Object = room.get(&"_native")
-	if native == null:
-		return
-	for signal_info: Dictionary in native.get_signal_list():
-		var signal_name: StringName = signal_info["name"]
-		for connection: Dictionary in native.get_signal_connection_list(signal_name):
-			var callable: Callable = connection["callable"]
-			native.disconnect(signal_name, callable)
+	if was_open:
+		left_zone.emit(code, reason)
+	else:
+		connection_error.emit(code, "Não foi possível conectar a %s" % NetworkConfig.server_url())

@@ -41,7 +41,7 @@ pointing/emulate_touch_from_mouse=true
 
 [mmo]
 
-; Endereço do servidor Colyseus. Num celular, troque localhost pelo IP do PC na rede local.
+; Endereço do servidor do jogo (WebSocket). Num celular, troque localhost pelo IP do PC na rede local.
 network/server_url="ws://localhost:2567"
 
 [rendering]

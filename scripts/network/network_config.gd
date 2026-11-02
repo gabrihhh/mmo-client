@@ -11,13 +11,13 @@ const SERVER_URL_SETTING: String = "mmo/network/server_url"
 ## Valor usado se a configuração não existir.
 const DEFAULT_SERVER_URL: String = "ws://localhost:2567"
 
-## Nome da room de zona no servidor (mmo-server/src/app.config.ts).
-const ZONE_ROOM_NAME: String = "zone"
+## Id da zona enviado no join. ATENÇÃO: precisa existir em mmo-server/src/zones/zones.ts.
+const ZONE_ID: String = "zone_1"
 
 ## Quantas vezes por segundo o jogador local envia a própria posição.
 const MOVE_SEND_RATE_HZ: float = 15.0
 
 
-## Retorna a URL WebSocket do servidor Colyseus.
+## Retorna a URL WebSocket do servidor do jogo.
 static func server_url() -> String:
 	return str(ProjectSettings.get_setting(SERVER_URL_SETTING, DEFAULT_SERVER_URL))

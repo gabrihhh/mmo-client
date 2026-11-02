@@ -21,6 +21,7 @@ func _ready() -> void:
 	Network.player_added.connect(_on_player_added)
 	Network.player_removed.connect(_on_player_removed)
 	Network.connection_error.connect(_on_connection_error)
+	Network.server_error.connect(_on_server_error)
 	Network.left_zone.connect(_on_left_zone)
 
 	_set_status("Conectando a %s..." % NetworkConfig.server_url())
@@ -31,7 +32,7 @@ func _on_joined_zone(_session_id: String) -> void:
 	_update_online_status()
 
 
-func _on_player_added(session_id: String, state: ZoneSchema.PlayerState) -> void:
+func _on_player_added(session_id: String, state: PlayerState) -> void:
 	if session_id == Network.session_id:
 		_spawn_local_player(state)
 	elif not _remote_players.has(session_id):
@@ -56,18 +57,22 @@ func _on_connection_error(code: int, message: String) -> void:
 	_set_status("Erro de conexão (%d): %s" % [code, message])
 
 
+func _on_server_error(code: String, message: String) -> void:
+	_set_status("Servidor recusou (%s): %s" % [code, message])
+
+
 func _on_left_zone(code: int, reason: String) -> void:
 	_set_status("Desconectado (%d) %s" % [code, reason])
 
 
-func _spawn_local_player(state: ZoneSchema.PlayerState) -> void:
+func _spawn_local_player(state: PlayerState) -> void:
 	if _local_player != null:
 		return
 	_local_player = LOCAL_PLAYER_SCENE.instantiate() as LocalPlayer
 	_local_player.name = "LocalPlayer"
 	_local_player.joystick = _joystick
 	_players_root.add_child(_local_player)
-	_local_player.spawn_at(state.get_world_position(), state.get_rot_y())
+	_local_player.spawn_at(state.position, state.rot_y)
 
 
 func _update_online_status() -> void:
