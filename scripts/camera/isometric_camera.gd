@@ -14,10 +14,11 @@ enum ProjectionMode { PERSPECTIVE, ORTHOGRAPHIC }
 ## Giro (eixo Y), em graus. O movimento do jogador é relativo a este ângulo.
 @export var yaw_degrees: float = 45.0
 @export var projection_mode: ProjectionMode = ProjectionMode.PERSPECTIVE
-## Campo de visão quando em perspectiva.
-@export_range(35.0, 40.0) var perspective_fov: float = 38.0
-## Tamanho da área visível quando ortográfica.
-@export_range(18.0, 22.0) var orthographic_size: float = 20.0
+## Campo de visão HORIZONTAL (graus) quando em perspectiva. Horizontal porque o jogo é em retrato:
+## a largura é a dimensão curta, então é ela que fixamos (a altura visível cresce com a tela).
+@export_range(35.0, 60.0) var perspective_fov: float = 45.0
+## Largura da área visível (m) quando ortográfica.
+@export_range(14.0, 30.0) var orthographic_size: float = 22.0
 ## Distância da câmera até o ponto focado, em metros.
 @export var distance: float = 30.0
 ## Altura do ponto focado acima da origem do alvo (meio do personagem de 1.8 m).
@@ -37,6 +38,7 @@ func _ready() -> void:
 ## Aplica rotação e projeção a partir dos @export (chame após mudar algum).
 func apply_settings() -> void:
 	rotation_degrees = Vector3(pitch_degrees, yaw_degrees, 0.0)
+	keep_aspect = Camera3D.KEEP_WIDTH
 	match projection_mode:
 		ProjectionMode.PERSPECTIVE:
 			projection = Camera3D.PROJECTION_PERSPECTIVE

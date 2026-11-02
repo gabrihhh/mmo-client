@@ -28,11 +28,16 @@ gdscript/warnings/return_value_discarded=0
 
 [display]
 
-window/size/viewport_width=1280
-window/size/viewport_height=720
+; Jogo em RETRATO (celular na vertical). Ver mmo-docs [VIS-04].
+window/size/viewport_width=720
+window/size/viewport_height=1280
+; No desktop (dev) a janela abre menor para caber na tela; o conteúdo escala.
+window/size/window_width_override=405
+window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-window/handheld/orientation=4
+; 1 = retrato fixo.
+window/handheld/orientation=1
 
 [input_devices]
 
