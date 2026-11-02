@@ -8,12 +8,9 @@ config_version=5
 
 config/name="MMO"
 config/description="MMORPG isométrico 3D low poly para Android/iOS."
-run/main_scene="res://scenes/ui/login.tscn"
+run/main_scene="res://scenes/boot/updater.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 
-[autoload]
-
-Network="*res://scripts/network/network.gd"
 
 [debug]
 

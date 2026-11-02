@@ -1,6 +1,9 @@
+class_name Network
 extends Node
-## Autoload "Network": única porta de entrada para o servidor do jogo.
+## Única porta de entrada para o servidor do jogo. Acesso: [member Network.instance].
 ##
+## Não é autoload: é criado pelo [GameBoot] depois que o atualizador carrega o pacote do jogo,
+## porque autoloads ficam presos no APK e não poderiam ser atualizados (mmo-docs [INFRA-08]).
 ## Usa o [WebSocketPeer] nativo do Godot (sem SDK de terceiros). O resto do jogo não
 ## fala com o socket: usa os sinais e métodos daqui.
 ## Login: conta de convidado (token guardado por [AccountStorage]). Ver mmo-docs [INFRA-04], [INFRA-07].
@@ -19,6 +22,9 @@ signal server_error(code: String, message: String)
 ## A conexão fechou depois de aberta (saída, queda ou recusa). [param code] é o close code do WebSocket.
 signal left_zone(code: int, reason: String)
 
+## A instância viva (criada pelo [GameBoot]); null antes do boot.
+static var instance: Network = null
+
 ## Id público do jogador deste aparelho (estável entre sessões); vazio enquanto não entrou.
 var player_id: String = ""
 ## Última mensagem de erro/desconexão, em português, para a tela de login mostrar. Vazio = nenhuma.
@@ -29,6 +35,15 @@ var _socket: WebSocketPeer = null
 var _was_open: bool = false
 ## Estados vivos dos jogadores da zona, por player id.
 var _players: Dictionary[String, PlayerState] = {}
+
+
+func _enter_tree() -> void:
+	instance = self
+
+
+func _exit_tree() -> void:
+	if instance == self:
+		instance = null
 
 
 func _ready() -> void:

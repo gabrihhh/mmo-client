@@ -21,20 +21,20 @@ var _remote_players: Dictionary[String, RemotePlayer] = {}
 
 
 func _ready() -> void:
-	if not Network.is_in_zone():
+	if Network.instance == null or not Network.instance.is_in_zone():
 		# Aberta sem passar pelo login (ex.: F6 no editor): volta para lá.
 		_back_to_login.call_deferred()
 		return
-	Network.player_added.connect(_on_player_added)
-	Network.player_removed.connect(_on_player_removed)
-	Network.left_zone.connect(_on_left_zone)
-	for state: PlayerState in Network.get_players():
+	Network.instance.player_added.connect(_on_player_added)
+	Network.instance.player_removed.connect(_on_player_removed)
+	Network.instance.left_zone.connect(_on_left_zone)
+	for state: PlayerState in Network.instance.get_players():
 		_on_player_added(state.id, state)
 	_update_online_status()
 
 
 func _on_player_added(player_id: String, state: PlayerState) -> void:
-	if player_id == Network.player_id:
+	if player_id == Network.instance.player_id:
 		_spawn_local_player(state)
 	elif not _remote_players.has(player_id):
 		var remote: RemotePlayer = REMOTE_PLAYER_SCENE.instantiate() as RemotePlayer
@@ -74,4 +74,4 @@ func _spawn_local_player(state: PlayerState) -> void:
 
 func _update_online_status() -> void:
 	var online: int = _remote_players.size() + (1 if _local_player != null else 0)
-	_status_label.text = "%s · Online: %d" % [Network.player_id, online]
+	_status_label.text = "%s · Online: %d" % [Network.instance.player_id, online]

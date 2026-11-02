@@ -78,6 +78,6 @@ func _send_network_update(delta: float) -> void:
 	if not moved and not turned:
 		return
 
-	Network.send_move(global_position, rotation.y)
+	Network.instance.send_move(global_position, rotation.y)
 	_last_sent_position = global_position
 	_last_sent_rot_y = rotation.y

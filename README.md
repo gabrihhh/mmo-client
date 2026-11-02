@@ -23,3 +23,8 @@ duas janelas usam a mesma conta e uma derruba a outra.
 
 Em **Project Settings > mmo/network/server_url** troque `localhost` pelo IP do PC na rede local
 (ex.: `ws://192.168.0.10:2567`). Android: habilite a permissão *Internet* no preset de exportação.
+
+## Publicar uma atualização
+
+O APK só traz o atualizador; o jogo é baixado do servidor (mmo-docs [INFRA-08]).
+Com o servidor rodando: `tools/publish_update.sh`. Quem abrir o app depois disso recebe a versão nova.

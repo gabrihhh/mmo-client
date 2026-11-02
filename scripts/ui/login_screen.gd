@@ -16,22 +16,26 @@ const AUTOLOGIN_ARG: String = "--autologin"
 
 
 func _ready() -> void:
+	if Network.instance == null:
+		# Aberta sem passar pelo boot (ex.: F6 no editor): o boot cria o Network e volta para cá.
+		get_tree().change_scene_to_file.call_deferred(GameBoot.SCENE)
+		return
 	_enter_button.pressed.connect(_on_enter_pressed)
-	Network.joined_zone.connect(_on_joined_zone)
-	Network.connection_error.connect(_on_connection_failed)
-	Network.left_zone.connect(_on_left_zone)
+	Network.instance.joined_zone.connect(_on_joined_zone)
+	Network.instance.connection_error.connect(_on_connection_failed)
+	Network.instance.left_zone.connect(_on_left_zone)
 	# Volta de uma desconexão: mostra o motivo.
-	_status_label.text = Network.last_error
-	_set_busy(Network.is_connecting_or_connected())
+	_status_label.text = Network.instance.last_error
+	_set_busy(Network.instance.is_connecting_or_connected())
 	# Só na primeira abertura: se voltou por desconexão, espera o jogador apertar.
-	if AUTOLOGIN_ARG in OS.get_cmdline_user_args() and Network.last_error.is_empty():
+	if AUTOLOGIN_ARG in OS.get_cmdline_user_args() and Network.instance.last_error.is_empty():
 		_on_enter_pressed()
 
 
 func _on_enter_pressed() -> void:
 	_set_busy(true)
 	_status_label.text = "Conectando..."
-	Network.connect_to_zone()
+	Network.instance.connect_to_zone()
 
 
 func _on_joined_zone(_player_id: String) -> void:
@@ -48,7 +52,7 @@ func _on_left_zone(_code: int, _reason: String) -> void:
 
 func _show_error() -> void:
 	_set_busy(false)
-	_status_label.text = Network.last_error
+	_status_label.text = Network.instance.last_error
 
 
 ## Desabilita o botão enquanto conecta, para não abrir duas conexões.

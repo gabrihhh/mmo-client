@@ -31,15 +31,21 @@ Seções-chave deste repo: [CLI-02] câmera, [CLI-03] estrutura do cliente, [CLI
 - Removeu algo → remova/atualize a doc no código e no `mmo-docs` no mesmo passo. Documentação desatualizada é bug.
 - Mudou `scripts/network/protocol.gd` ou mensagens em `network.gd` → espelhe em `mmo-server/src/net/protocol.ts` e atualize [INFRA-04].
 
-### 4. Mobile primeiro
+### 4. Atualizador (o jogo chega por um .pck — [INFRA-08])
+- **Nada de autoload** nem configuração nova no `project.godot` sem pensar: ele fica preso no APK.
+  Serviços globais são criados pelo `GameBoot` (ex.: `Network.instance`).
+- `scripts/boot/updater.gd` vai no APK: não pode usar classes do jogo. Mudou ele → APK novo e `LAUNCHER_VERSION` + 1.
+
+### 5. Mobile primeiro
 - Todo controle precisa funcionar por toque. Teclado/mouse são só atalhos de desenvolvimento.
 - Renderer `mobile`; pensar em custo de draw calls, sombras e polígonos (low poly).
 
 ## Estrutura
 
 ```
-scenes/            .tscn por domínio (world/, player/)
-scripts/           .gd por domínio (network/, player/, camera/, ui/, input/, world/)
+scenes/            .tscn por domínio (boot/, ui/, world/, player/)
+scripts/           .gd por domínio (boot/, network/, player/, camera/, ui/, input/, world/)
+tools/             publish_update.sh (publica o .pck no servidor)
 assets/            modelos/materiais exportados do Blender
 ```
 
@@ -50,6 +56,7 @@ godot --path . --headless --editor --quit         # importa e acusa erros de scr
 godot --path .                                    # roda o jogo (servidor precisa estar no ar)
 godot --path . --headless --quit-after 300 -- --autologin   # valida conexão sem clicar ([CLI-05])
 godot --path . -- --profile=2                     # outra conta de convidado (2ª janela no mesmo PC)
+tools/publish_update.sh                           # publica uma versão nova do jogo ([INFRA-08])
 ```
 
 Código e identificadores em inglês; comentários e docs em português.
