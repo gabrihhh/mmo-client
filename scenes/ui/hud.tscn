@@ -215,10 +215,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -290.0
-offset_top = -330.0
-offset_right = 290.0
-offset_bottom = 330.0
+offset_left = -320.0
+offset_top = -420.0
+offset_right = 320.0
+offset_bottom = 420.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -262,10 +262,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -290.0
-offset_top = -330.0
-offset_right = 290.0
-offset_bottom = 330.0
+offset_left = -320.0
+offset_top = -420.0
+offset_right = 320.0
+offset_bottom = 420.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -279,59 +279,37 @@ theme_override_font_sizes/font_size = 44
 text = "Inventário"
 horizontal_alignment = 1
 
-[node name="Equipped" type="GridContainer" parent="Root/InventoryPanel/VBox"]
+[node name="EquippedTitle" type="Label" parent="Root/InventoryPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.7)
+theme_override_font_sizes/font_size = 22
+text = "Vestido (toque para tirar)"
+
+[node name="EquippedGrid" type="GridContainer" parent="Root/InventoryPanel/VBox"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/h_separation = 12
 theme_override_constants/v_separation = 12
 columns = 2
 
-[node name="SlotHand" type="Label" parent="Root/InventoryPanel/VBox/Equipped"]
+[node name="BagTitle" type="Label" parent="Root/InventoryPanel/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(240, 90)
 layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.7)
 theme_override_font_sizes/font_size = 22
-text = "-"
-horizontal_alignment = 1
-vertical_alignment = 1
-autowrap_mode = 3
+text = "Mochila (toque para vestir)"
 
-[node name="SlotHead" type="Label" parent="Root/InventoryPanel/VBox/Equipped"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(240, 90)
+[node name="BagScroll" type="ScrollContainer" parent="Root/InventoryPanel/VBox"]
+custom_minimum_size = Vector2(0, 220)
 layout_mode = 2
-theme_override_font_sizes/font_size = 22
-text = "-"
-horizontal_alignment = 1
-vertical_alignment = 1
-autowrap_mode = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
 
-[node name="SlotChest" type="Label" parent="Root/InventoryPanel/VBox/Equipped"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(240, 90)
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-text = "-"
-horizontal_alignment = 1
-vertical_alignment = 1
-autowrap_mode = 3
-
-[node name="SlotFeet" type="Label" parent="Root/InventoryPanel/VBox/Equipped"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(240, 90)
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-text = "-"
-horizontal_alignment = 1
-vertical_alignment = 1
-autowrap_mode = 3
-
-[node name="BagLabel" type="Label" parent="Root/InventoryPanel/VBox"]
+[node name="BagList" type="VBoxContainer" parent="Root/InventoryPanel/VBox/BagScroll"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
-text = "Mochila: (vazia)"
-horizontal_alignment = 1
-autowrap_mode = 3
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
 
 [node name="InventoryBackButton" type="Button" parent="Root/InventoryPanel/VBox"]
 unique_name_in_owner = true
@@ -349,10 +327,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -290.0
-offset_top = -330.0
-offset_right = 290.0
-offset_bottom = 330.0
+offset_left = -320.0
+offset_top = -420.0
+offset_right = 320.0
+offset_bottom = 420.0
 grow_horizontal = 2
 grow_vertical = 2
 

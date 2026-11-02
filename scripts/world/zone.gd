@@ -30,6 +30,10 @@ func _ready() -> void:
 	Network.instance.player_removed.connect(_on_player_removed)
 	Network.instance.left_zone.connect(_on_left_zone)
 	_hud.logout_requested.connect(_on_logout_requested)
+	_hud.equip_requested.connect(Network.instance.send_equip)
+	_hud.unequip_requested.connect(Network.instance.send_unequip)
+	# Recusas que não são de login (ex.: mochila cheia) viram aviso na tela.
+	Network.instance.server_error.connect(func(_code: String, message: String) -> void: _hud.show_toast(message))
 
 	_aim_preview = AimPreview.new()
 	_aim_preview.name = "AimPreview"

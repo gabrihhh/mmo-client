@@ -32,6 +32,8 @@ signal left_zone(code: int, reason: String)
 ## Chegou um snapshot do servidor (já aplicado nos [PlayerState]). [param ack] = último input DESTE
 ## cliente que o servidor aplicou; o [LocalPlayer] usa para reconciliar. Ver mmo-docs [INFRA-09].
 signal snapshot_received(tick: int, ack: int)
+## O inventário mudou (chegou o primeiro após o login, ou uma troca foi aceita). Ver [member inventory].
+signal inventory_changed(inventory: InventoryState)
 
 ## Os jogadores remotos são desenhados este número de ticks no passado (2 ticks = 100 ms a 20 Hz),
 ## para sempre haver dois snapshots reais para interpolar mesmo se um atrasar.
@@ -59,6 +61,8 @@ var last_error: String = ""
 var tick_rate: float = 20.0
 var move_speed: float = 5.0
 var zone_half_size: float = 150.0
+## Último inventário recebido (vestido + mochila); null antes do primeiro.
+var inventory: InventoryState = null
 
 ## Estimativa do tick atual do servidor (fracionário), avançada pelo tempo local e ajustada a cada snapshot.
 var _clock_tick: float = 0.0
@@ -170,6 +174,18 @@ func send_input(seq: int, direction_x: float, direction_z: float) -> void:
 	_send(Protocol.MSG_INPUT, {"seq": seq, "x": direction_x, "z": direction_z})
 
 
+## Pede para vestir o item [param uid] da mochila. A resposta vem em [signal inventory_changed] (ou erro).
+func send_equip(uid: String) -> void:
+	if _authenticated:
+		_send(Protocol.MSG_EQUIP, {"uid": uid})
+
+
+## Pede para tirar o item do [param slot] ("hand", "head", "chest", "feet") para a mochila.
+func send_unequip(slot: String) -> void:
+	if _authenticated:
+		_send(Protocol.MSG_UNEQUIP, {"slot": slot})
+
+
 func _notification(what: int) -> void:
 	if (what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_EXIT_TREE) and _socket != null:
 		# Fechar o app não é logout: a sessão continua salva para entrar direto da próxima vez.
@@ -259,6 +275,9 @@ func _handle_message(text: String) -> void:
 			_remove_player(Protocol.read_string(data, "id"))
 		Protocol.MSG_SNAPSHOT:
 			_apply_snapshot(data)
+		Protocol.MSG_INVENTORY:
+			inventory = InventoryState.from_dict(data)
+			inventory_changed.emit(inventory)
 		Protocol.MSG_ERROR:
 			_handle_error(Protocol.read_string(data, "code"), Protocol.read_string(data, "message"))
 		_:
@@ -324,6 +343,7 @@ func _on_closed() -> void:
 	_pending_auth = {}
 	player_id = ""
 	username = ""
+	inventory = null
 	set_process(false)
 
 	for id: String in _players.keys():

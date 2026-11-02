@@ -7,8 +7,9 @@ extends Node
 ## - Carta, toque: habilidade em si mesmo sai na hora; com mira, vai no alvo fixo (ou para a frente).
 ##   Arrastar: prévia translúcida saindo do personagem; soltar executa; voltar o dedo à carta cancela.
 ##
-## PASSO 1 do [ROAD-05]: ainda não há combate no servidor. O pedido que seria enviado aparece como
-## aviso na HUD ([method _request]). No passo 3 ele vira a mensagem ao servidor, que decide tudo.
+## Ataque e cartas vêm do que está vestido ([InventoryState], mensagem "inventory" do servidor).
+## Ainda não há combate no servidor: o pedido que seria enviado aparece como aviso na HUD
+## ([method _request]). No passo 3 do [ROAD-05] ele vira a mensagem ao servidor, que decide tudo.
 
 ## Arrastar o dedo esta distância (px) a partir do botão = mira no alcance máximo.
 const MAX_AIM_DRAG_PX: float = 220.0
@@ -23,8 +24,9 @@ var _zone: Zone = null
 var _player: LocalPlayer = null
 var _hud: Hud = null
 var _preview: AimPreview = null
-var _attack: AbilityView = AbilityView.training_attack()
-var _abilities: Array[AbilityView] = AbilityView.training_kit()
+## Ataque simples e as 6 cartas atuais (do que está vestido, [InventoryState]); null = slot vazio.
+var _attack: AbilityView = AbilityView.new("punch", "Soco", "Arma", AbilityView.AimType.TARGET, 1.5)
+var _abilities: Array[AbilityView] = []
 ## Id do alvo fixo ("" = nenhum).
 var _target_id: String = ""
 ## Quem está debaixo da mira durante um arrasto de alvo ("" = ninguém).
@@ -37,22 +39,58 @@ func setup(zone: Zone, player: LocalPlayer, hud: Hud, preview: AimPreview) -> vo
 	_player = player
 	_hud = hud
 	_preview = preview
-	_hud.set_abilities(_abilities)
 	_hud.set_health(100.0, 100.0)
 	_hud.set_mana(100.0, 100.0)
 
 	var attack_button: TouchActionButton = _hud.attack_button
 	attack_button.tapped.connect(_on_attack_tapped)
-	attack_button.aim_moved.connect(_on_aim_moved.bind(_attack))
+	attack_button.aim_moved.connect(func(offset: Vector2) -> void: _on_aim_moved(offset, _attack))
 	attack_button.aim_released.connect(_on_attack_released)
 	attack_button.aim_cancelled.connect(_end_aim)
-	for i: int in range(mini(_abilities.size(), Hud.CARD_COUNT)):
+	# Cada carta é ligada pelo ÍNDICE: a habilidade dela muda quando o inventário muda.
+	for i: int in range(Hud.CARD_COUNT):
 		var card: TouchActionButton = _hud.get_card(i)
-		var ability: AbilityView = _abilities[i]
-		card.tapped.connect(_on_card_tapped.bind(ability))
-		card.aim_moved.connect(_on_aim_moved.bind(ability))
-		card.aim_released.connect(_on_card_released.bind(ability))
+		card.tapped.connect(_on_card_index_tapped.bind(i))
+		card.aim_moved.connect(_on_card_index_moved.bind(i))
+		card.aim_released.connect(_on_card_index_released.bind(i))
 		card.aim_cancelled.connect(_end_aim)
+
+	var network: Network = Network.instance
+	network.inventory_changed.connect(_apply_inventory)
+	if network.inventory != null:
+		_apply_inventory(network.inventory)
+
+
+## Troca o ataque e as cartas pelo que está vestido agora.
+func _apply_inventory(inventory: InventoryState) -> void:
+	_attack = inventory.basic_attack()
+	_abilities = inventory.cards()
+	_hud.set_abilities(_abilities)
+	_hud.set_inventory(inventory)
+
+
+func _ability_at(index: int) -> AbilityView:
+	return _abilities[index] if index < _abilities.size() else null
+
+
+func _on_card_index_tapped(index: int) -> void:
+	var ability: AbilityView = _ability_at(index)
+	if ability != null:
+		_on_card_tapped(ability)
+
+
+func _on_card_index_moved(offset: Vector2, index: int) -> void:
+	var ability: AbilityView = _ability_at(index)
+	if ability != null:
+		_on_aim_moved(offset, ability)
+
+
+func _on_card_index_released(offset: Vector2, index: int) -> void:
+	var ability: AbilityView = _ability_at(index)
+	if ability != null:
+		_on_card_released(offset, ability)
+	else:
+		_end_aim()
 
 
 func _process(_delta: float) -> void:

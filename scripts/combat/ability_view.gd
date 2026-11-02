@@ -3,8 +3,8 @@ extends RefCounted
 ## O que o CLIENTE precisa saber de uma habilidade para mostrar a carta e a prévia da mira.
 ## Ver mmo-docs [JOGO-01..03].
 ##
-## Não tem dano, recarga nem custo: quem decide isso é o servidor. Hoje os dados vêm do kit de treino
-## local ([method training_kit]); no passo 2 do [ROAD-05] passam a vir do servidor (itens vestidos).
+## Não tem dano, recarga nem custo: quem decide isso é o servidor. Os dados vêm do servidor, junto com
+## o inventário (itens vestidos), na mensagem "inventory" ([InventoryState]).
 
 ## Como a habilidade mira (define a prévia e o que vai no pedido ao servidor).
 enum AimType {
@@ -47,18 +47,33 @@ func needs_aim() -> bool:
 	return aim_type != AimType.SELF
 
 
-## Ataque simples da arma de treino: corpo a corpo, 2,5 m ([JOGO-03]). Arrastar escolhe o alvo fixo até 15 m.
-static func training_attack() -> AbilityView:
-	return AbilityView.new("basic_attack", "Ataque", "Arma", AimType.TARGET, 2.5)
+## Nome em português de cada slot (legenda da carta e do inventário).
+const SLOT_LABELS: Dictionary[String, String] = {"hand": "Arma", "head": "Cabeça", "chest": "Peito", "feet": "Pés"}
 
 
-## As 6 cartas do kit de treino, na ordem da HUD: 3 da arma, cabeça, peito, pés ([JOGO-03]).
-static func training_kit() -> Array[AbilityView]:
-	return [
-		AbilityView.new("heavy_strike", "Golpe forte", "Arma", AimType.TARGET, 3.0),
-		AbilityView.new("dash", "Investida", "Arma", AimType.DIRECTION, 6.0, 1.0),
-		AbilityView.new("spin", "Giro", "Arma", AimType.AREA_SELF, 0.0, 3.0),
-		AbilityView.new("heal", "Cura", "Cabeça", AimType.SELF),
-		AbilityView.new("shield", "Escudo", "Peito", AimType.SELF),
-		AbilityView.new("sprint", "Disparada", "Pés", AimType.SELF),
-	]
+## Cria a partir do AbilityView do servidor ({ id, title, aim, range, radius }). [param slot] = "hand", "head"...
+static func from_dict(data: Dictionary, slot: String) -> AbilityView:
+	var label: String = SLOT_LABELS[slot] if SLOT_LABELS.has(slot) else slot
+	return AbilityView.new(
+		Protocol.read_string(data, "id"),
+		Protocol.read_string(data, "title"),
+		label,
+		_aim_from_string(Protocol.read_string(data, "aim")),
+		Protocol.read_float(data, "range"),
+		Protocol.read_float(data, "radius"),
+	)
+
+
+## ATENÇÃO: nomes iguais a AimType em mmo-server/src/items/catalog.ts.
+static func _aim_from_string(aim: String) -> AimType:
+	match aim:
+		"target":
+			return AimType.TARGET
+		"direction":
+			return AimType.DIRECTION
+		"area":
+			return AimType.AREA
+		"area_self":
+			return AimType.AREA_SELF
+		_:
+			return AimType.SELF

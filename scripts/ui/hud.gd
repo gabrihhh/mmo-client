@@ -7,6 +7,10 @@ extends CanvasLayer
 
 ## O jogador pediu para sair da conta (botão em Configuração).
 signal logout_requested
+## Tocou num item da mochila: vestir ([param uid]).
+signal equip_requested(uid: String)
+## Tocou num slot vestido: tirar para a mochila ([param slot] = "hand", "head", "chest", "feet").
+signal unequip_requested(slot: String)
 
 ## Quantas cartas de habilidade a HUD mostra ([JOGO-01]: 3 da arma + cabeça + peito + pés).
 const CARD_COUNT: int = 6
@@ -24,6 +28,9 @@ const _TOAST_SECONDS: float = 1.8
 @onready var _inventory_panel: PanelContainer = %InventoryPanel
 @onready var _settings_panel: PanelContainer = %SettingsPanel
 @onready var _logout_button: Button = %LogoutButton
+@onready var _equipped_grid: GridContainer = %EquippedGrid
+@onready var _bag_title: Label = %BagTitle
+@onready var _bag_list: VBoxContainer = %BagList
 
 ## Joystick de movimento (o [LocalPlayer] lê dele).
 @onready var joystick: TouchJoystick = %TouchJoystick
@@ -64,13 +71,48 @@ func get_card(index: int) -> TouchActionButton:
 	return _cards[index]
 
 
-## Mostra as habilidades nas cartas, na ordem da HUD (até [constant CARD_COUNT]).
+## Mostra as habilidades nas cartas, na ordem da HUD (até [constant CARD_COUNT]). null = slot vazio
+## (carta apagada, sem texto).
 func set_abilities(abilities: Array[AbilityView]) -> void:
 	for i: int in range(_cards.size()):
-		var has_ability: bool = i < abilities.size()
-		_cards[i].text = abilities[i].title if has_ability else ""
-		_cards[i].caption = abilities[i].slot_label if has_ability else ""
-		_cards[i].enabled = has_ability
+		var ability: AbilityView = abilities[i] if i < abilities.size() else null
+		_cards[i].text = ability.title if ability != null else ""
+		_cards[i].caption = ability.slot_label if ability != null else ""
+		_cards[i].enabled = ability != null and not is_menu_open()
+		_cards[i].queue_redraw()
+
+
+## Monta a tela de Inventário: os 4 slots vestidos e a mochila. Ver mmo-docs [JOGO-04].
+func set_inventory(inventory: InventoryState) -> void:
+	for child: Node in _equipped_grid.get_children() + _bag_list.get_children():
+		child.queue_free()
+	for slot: String in InventoryState.SLOTS:
+		var item: InventoryState.Item = inventory.item_in(slot)
+		var slot_label: String = AbilityView.SLOT_LABELS[slot]
+		var button: Button = _inventory_button("%s\n%s" % [slot_label, item.name if item != null else "(vazio)"])
+		button.disabled = item == null
+		button.pressed.connect(unequip_requested.emit.bind(slot))
+		_equipped_grid.add_child(button)
+	_bag_title.text = "Mochila %d/%d (toque para vestir)" % [inventory.bag.size(), inventory.bag_capacity]
+	if inventory.bag.is_empty():
+		var empty: Label = Label.new()
+		empty.text = "(vazia)"
+		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_bag_list.add_child(empty)
+	for item: InventoryState.Item in inventory.bag:
+		var button: Button = _inventory_button("%s · %s" % [item.name, AbilityView.SLOT_LABELS[item.slot]])
+		button.pressed.connect(equip_requested.emit.bind(item.uid))
+		_bag_list.add_child(button)
+
+
+func _inventory_button(text: String) -> Button:
+	var button: Button = Button.new()
+	button.text = text
+	button.custom_minimum_size = Vector2(260, 96)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.add_theme_font_size_override("font_size", 24)
+	button.autowrap_mode = TextServer.AUTOWRAP_WORD
+	return button
 
 
 ## Atualiza a barra de vida (valores absolutos).
