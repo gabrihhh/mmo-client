@@ -1,8 +1,7 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/zone.gd" id="1_zone"]
-[ext_resource type="Script" path="res://scripts/ui/touch_joystick.gd" id="2_joystick"]
-[ext_resource type="Theme" path="res://assets/ui/theme.tres" id="3_theme"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="2_hud"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMaterial"]
 sky_top_color = Color(0.45, 0.65, 0.9, 1)
@@ -74,43 +73,4 @@ mesh = SubResource("BoxMesh_marker")
 
 [node name="Players" type="Node3D" parent="."]
 
-[node name="HUD" type="CanvasLayer" parent="."]
-
-[node name="StatusLabel" type="Label" parent="HUD"]
-anchors_preset = 10
-anchor_right = 1.0
-offset_left = 24.0
-offset_top = 48.0
-offset_right = -200.0
-offset_bottom = 88.0
-grow_horizontal = 2
-theme_override_font_sizes/font_size = 26
-text = "..."
-autowrap_mode = 3
-
-[node name="LogoutButton" type="Button" parent="HUD"]
-theme = ExtResource("3_theme")
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -184.0
-offset_top = 110.0
-offset_right = -24.0
-offset_bottom = 190.0
-grow_horizontal = 0
-theme_override_font_sizes/font_size = 30
-text = "Sair"
-
-[node name="TouchJoystick" type="Control" parent="HUD"]
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = -110.0
-offset_top = -340.0
-offset_right = 110.0
-offset_bottom = -120.0
-grow_horizontal = 2
-grow_vertical = 0
-script = ExtResource("2_joystick")
+[node name="Hud" parent="." instance=ExtResource("2_hud")]

@@ -9,6 +9,11 @@ extends Node3D
 ## Id do jogador no servidor (playerId).
 var session_id: String = ""
 
+## Nome exibido (username como foi cadastrado).
+var display_name: String:
+	get:
+		return _state.name if _state != null and not _state.name.is_empty() else session_id
+
 ## Estado vivo do jogador (o [Network] guarda o histórico de snapshots nele).
 var _state: PlayerState = null
 
@@ -23,7 +28,7 @@ func setup(id: String, state: PlayerState) -> void:
 
 func _ready() -> void:
 	# Username exatamente como foi cadastrado (o id é interno).
-	_name_label.text = _state.name if _state != null and not _state.name.is_empty() else session_id
+	_name_label.text = display_name
 	if _state != null:
 		position = _state.position
 		rotation.y = _state.rot_y

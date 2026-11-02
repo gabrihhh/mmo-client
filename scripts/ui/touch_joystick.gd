@@ -6,6 +6,10 @@ extends Control
 ## Leia [member output]: vetor de -1 a 1 em cada eixo (y negativo = para cima/frente).
 ## Desenhado via _draw, sem texturas. No desktop funciona com o mouse
 ## (input_devices/pointing/emulate_touch_from_mouse).
+##
+## MULTITOQUE: lê os toques em [method _input] e acompanha o próprio dedo pelo índice, em vez de
+## usar o _gui_input (que trata um toque por vez). Assim dá para mover e usar cartas/ataque juntos
+## ([TouchActionButton] faz igual). Ver mmo-docs [CLI-08].
 
 ## Raio da base, em pixels.
 @export var base_radius: float = 90.0
@@ -27,24 +31,26 @@ var _knob_offset: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
 	custom_minimum_size = Vector2.ONE * base_radius * 2.0
-	mouse_filter = Control.MOUSE_FILTER_STOP
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
-func _gui_input(event: InputEvent) -> void:
+func _input(event: InputEvent) -> void:
+	if not is_visible_in_tree():
+		return
 	if event is InputEventScreenTouch:
 		var touch: InputEventScreenTouch = event as InputEventScreenTouch
-		if touch.pressed and _touch_index == -1:
+		if touch.pressed and _touch_index == -1 and get_global_rect().has_point(touch.position):
 			_touch_index = touch.index
-			_update_knob(touch.position)
-			accept_event()
+			_update_knob(touch.position - global_position)
+			get_viewport().set_input_as_handled()
 		elif not touch.pressed and touch.index == _touch_index:
 			_release()
-			accept_event()
+			get_viewport().set_input_as_handled()
 	elif event is InputEventScreenDrag:
 		var drag: InputEventScreenDrag = event as InputEventScreenDrag
 		if drag.index == _touch_index:
-			_update_knob(drag.position)
-			accept_event()
+			_update_knob(drag.position - global_position)
+			get_viewport().set_input_as_handled()
 
 
 func _notification(what: int) -> void:
@@ -68,6 +74,11 @@ func _update_knob(local_position: Vector2) -> void:
 		# Reescala para que a saída comece em 0 logo após a dead zone.
 		output = raw.normalized() * inverse_lerp(dead_zone, 1.0, raw.length())
 	queue_redraw()
+
+
+## Solta o joystick (ex.: o menu abriu com o dedo nele).
+func release() -> void:
+	_release()
 
 
 func _release() -> void:

@@ -68,6 +68,16 @@ func _ready() -> void:
 	_bot_walk = BOT_WALK_ARG in OS.get_cmdline_user_args()
 
 
+## Giro da câmera (rad): converte direções da tela (joystick, mira) em direções no mundo.
+func get_camera_yaw() -> float:
+	return _camera.get_yaw_radians()
+
+
+## Para onde o personagem está virado, no plano XZ (normalizado).
+func get_facing() -> Vector3:
+	return Vector3(0.0, 0.0, -1.0).rotated(Vector3.UP, rotation.y)
+
+
 ## Coloca o jogador no estado oficial (spawn) e cola a câmera nele.
 func spawn_at(state: PlayerState) -> void:
 	_sim = Movement.State.new(state.x, state.y, state.z, state.rot_y)

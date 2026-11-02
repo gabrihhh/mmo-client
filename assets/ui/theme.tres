@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=9 format=3]
+[gd_resource type="Theme" load_steps=11 format=3]
 
 ; Tema da interface do jogo (telas de login, HUD...). Ver mmo-docs [CLI-07].
 ; Campos de texto e botões: cantos arredondados e espaço interno para o texto não encostar na borda.
@@ -102,6 +102,29 @@ corner_radius_bottom_left = 16
 
 [sub_resource type="StyleBoxEmpty" id="Button_focus"]
 
+[sub_resource type="StyleBoxFlat" id="Panel_panel"]
+content_margin_left = 32.0
+content_margin_top = 32.0
+content_margin_right = 32.0
+content_margin_bottom = 32.0
+bg_color = Color(0.1, 0.13, 0.18, 0.96)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.3, 0.36, 0.45, 1)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+
+[sub_resource type="StyleBoxFlat" id="ProgressBar_background"]
+bg_color = Color(0, 0, 0, 0.55)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
 [resource]
 LineEdit/colors/font_placeholder_color = Color(1, 1, 1, 0.4)
 LineEdit/styles/normal = SubResource("LineEdit_normal")
@@ -113,3 +136,5 @@ Button/styles/hover = SubResource("Button_hover")
 Button/styles/pressed = SubResource("Button_pressed")
 Button/styles/disabled = SubResource("Button_disabled")
 Button/styles/focus = SubResource("Button_focus")
+PanelContainer/styles/panel = SubResource("Panel_panel")
+ProgressBar/styles/background = SubResource("ProgressBar_background")

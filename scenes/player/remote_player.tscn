@@ -31,7 +31,7 @@ mesh = SubResource("BoxMesh_nose")
 [node name="NameLabel" type="Label3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, 0)
 billboard = 1
-pixel_size = 0.01
+pixel_size = 0.012
 text = "jogador"
-font_size = 32
-outline_size = 8
+font_size = 56
+outline_size = 14
