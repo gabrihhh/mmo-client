@@ -31,15 +31,18 @@ var aim_type: AimType = AimType.SELF
 var range_m: float = 0.0
 ## Raio em metros (AREA, AREA_SELF) ou largura da linha (DIRECTION).
 var radius_m: float = 0.0
+## Tempo de recarga em segundos (no ataque simples: intervalo entre golpes). Mostrado como relógio na carta.
+var cooldown_s: float = 0.0
 
 
-func _init(ability_id: String, ability_title: String, slot: String, aim: AimType, range_meters: float = 0.0, radius_meters: float = 0.0) -> void:
+func _init(ability_id: String, ability_title: String, slot: String, aim: AimType, range_meters: float = 0.0, radius_meters: float = 0.0, cooldown_seconds: float = 0.0) -> void:
 	id = ability_id
 	title = ability_title
 	slot_label = slot
 	aim_type = aim
 	range_m = range_meters
 	radius_m = radius_meters
+	cooldown_s = cooldown_seconds
 
 
 ## true se a habilidade precisa de mira (não sai na hora).
@@ -61,6 +64,7 @@ static func from_dict(data: Dictionary, slot: String) -> AbilityView:
 		_aim_from_string(Protocol.read_string(data, "aim")),
 		Protocol.read_float(data, "range"),
 		Protocol.read_float(data, "radius"),
+		Protocol.read_float(data, "cooldown"),
 	)
 
 

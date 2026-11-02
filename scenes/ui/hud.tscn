@@ -168,6 +168,18 @@ grow_horizontal = 2
 grow_vertical = 0
 mouse_filter = 2
 
+[node name="TouchJoystick" type="Control" parent="Root/BottomRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(220, 220)
+layout_mode = 2
+size_flags_vertical = 4
+script = ExtResource("4_joystick")
+
+[node name="SpacerLeft" type="Control" parent="Root/BottomRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
 [node name="AttackButton" type="Control" parent="Root/BottomRow"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(160, 160)
@@ -179,18 +191,6 @@ text = "Atacar"
 fill_color = Color(0.55, 0.22, 0.2, 0.92)
 pressed_color = Color(0.7, 0.3, 0.26, 0.95)
 font_size = 28
-
-[node name="SpacerLeft" type="Control" parent="Root/BottomRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-
-[node name="TouchJoystick" type="Control" parent="Root/BottomRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(220, 220)
-layout_mode = 2
-size_flags_vertical = 4
-script = ExtResource("4_joystick")
 
 [node name="SpacerRight" type="Control" parent="Root/BottomRow"]
 layout_mode = 2

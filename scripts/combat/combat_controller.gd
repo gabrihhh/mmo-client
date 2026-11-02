@@ -29,6 +29,9 @@ var _attack: AbilityView = AbilityView.new("punch", "Soco", "Arma", AbilityView.
 var _abilities: Array[AbilityView] = []
 ## Id do alvo fixo ("" = nenhum).
 var _target_id: String = ""
+## Recarga por HABILIDADE (id → instante em ms em que fica pronta). Por id, não por carta: trocar de
+## item e voltar mantém o relógio. Provisório no cliente; no passo 3 o servidor confirma e recusa antes da hora.
+var _ready_at_ms: Dictionary[String, int] = {}
 ## Quem está debaixo da mira durante um arrasto de alvo ("" = ninguém).
 var _hovered_id: String = ""
 
@@ -67,6 +70,39 @@ func _apply_inventory(inventory: InventoryState) -> void:
 	_abilities = inventory.cards()
 	_hud.set_abilities(_abilities)
 	_hud.set_inventory(inventory)
+	_refresh_cooldowns()
+
+
+## Segundos que faltam para [param ability] ficar pronta (0 = pronta).
+func _cooldown_left(ability: AbilityView) -> float:
+	if not _ready_at_ms.has(ability.id):
+		return 0.0
+	return maxf(0.0, float(_ready_at_ms[ability.id] - Time.get_ticks_msec()) / 1000.0)
+
+
+## Começa a recarga de [param ability] e atualiza o relógio nos botões.
+func _start_cooldown(ability: AbilityView) -> void:
+	if ability.cooldown_s <= 0.0:
+		return
+	_ready_at_ms[ability.id] = Time.get_ticks_msec() + int(ability.cooldown_s * 1000.0)
+	_refresh_cooldowns()
+
+
+## Copia a recarga de cada habilidade para o botão que a mostra (cartas e ataque).
+func _refresh_cooldowns() -> void:
+	_hud.attack_button.set_cooldown(_cooldown_left(_attack), _attack.cooldown_s)
+	for i: int in range(Hud.CARD_COUNT):
+		var ability: AbilityView = _ability_at(i)
+		_hud.get_card(i).set_cooldown(_cooldown_left(ability) if ability != null else 0.0, ability.cooldown_s if ability != null else 0.0)
+
+
+## true (e avisa) se [param ability] ainda está recarregando.
+func _is_cooling(ability: AbilityView) -> bool:
+	var left: float = _cooldown_left(ability)
+	if left <= 0.0:
+		return false
+	_hud.show_toast("%s recarrega em %.1f s" % [ability.title, left])
+	return true
 
 
 func _ability_at(index: int) -> AbilityView:
@@ -75,19 +111,20 @@ func _ability_at(index: int) -> AbilityView:
 
 func _on_card_index_tapped(index: int) -> void:
 	var ability: AbilityView = _ability_at(index)
-	if ability != null:
+	if ability != null and not _is_cooling(ability):
 		_on_card_tapped(ability)
 
 
 func _on_card_index_moved(offset: Vector2, index: int) -> void:
 	var ability: AbilityView = _ability_at(index)
-	if ability != null:
+	# Recarregando: sem prévia (soltar só avisa).
+	if ability != null and _cooldown_left(ability) <= 0.0:
 		_on_aim_moved(offset, ability)
 
 
 func _on_card_index_released(offset: Vector2, index: int) -> void:
 	var ability: AbilityView = _ability_at(index)
-	if ability != null:
+	if ability != null and not _is_cooling(ability):
 		_on_card_released(offset, ability)
 	else:
 		_end_aim()
@@ -107,12 +144,14 @@ func _process(_delta: float) -> void:
 # --- Ataque simples ---
 
 func _on_attack_tapped() -> void:
+	if _is_cooling(_attack):
+		return
 	var nearest: RemotePlayer = _nearest_remote(_player.global_position, TAP_TARGET_RANGE)
 	if nearest == null:
 		_hud.show_toast("Ninguém por perto")
 		return
 	_target_id = nearest.session_id
-	_request("Atacar %s" % nearest.display_name)
+	_request("Atacar %s" % nearest.display_name, _attack)
 
 
 func _on_attack_released(_offset: Vector2) -> void:
@@ -123,7 +162,7 @@ func _on_attack_released(_offset: Vector2) -> void:
 		return
 	_target_id = picked
 	var target: RemotePlayer = _zone.get_remote_player(picked)
-	_request("Alvo fixo: %s (atacando)" % (target.display_name if target != null else picked))
+	_request("Alvo fixo: %s (atacando)" % (target.display_name if target != null else picked), _attack)
 
 
 # --- Cartas ---
@@ -132,17 +171,17 @@ func _on_card_tapped(ability: AbilityView) -> void:
 	var target: RemotePlayer = _zone.get_remote_player(_target_id) if not _target_id.is_empty() else null
 	match ability.aim_type:
 		AbilityView.AimType.SELF, AbilityView.AimType.AREA_SELF:
-			_request(ability.title)
+			_request(ability.title, ability)
 		AbilityView.AimType.TARGET:
 			if target == null:
 				_hud.show_toast("%s: sem alvo (arraste para mirar)" % ability.title)
 			else:
-				_request("%s em %s" % [ability.title, target.display_name])
+				_request("%s em %s" % [ability.title, target.display_name], ability)
 		AbilityView.AimType.DIRECTION, AbilityView.AimType.AREA:
 			if target != null:
-				_request("%s na direção de %s" % [ability.title, target.display_name])
+				_request("%s na direção de %s" % [ability.title, target.display_name], ability)
 			else:
-				_request("%s para a frente" % ability.title)
+				_request("%s para a frente" % ability.title, ability)
 
 
 func _on_card_released(offset: Vector2, ability: AbilityView) -> void:
@@ -151,18 +190,18 @@ func _on_card_released(offset: Vector2, ability: AbilityView) -> void:
 	var aim: Vector3 = _aim_point(offset, ability)
 	match ability.aim_type:
 		AbilityView.AimType.SELF, AbilityView.AimType.AREA_SELF:
-			_request(ability.title)
+			_request(ability.title, ability)
 		AbilityView.AimType.TARGET:
 			var target: RemotePlayer = _zone.get_remote_player(picked)
 			if target == null:
 				_hud.show_toast("%s: ninguém na mira" % ability.title)
 			else:
-				_request("%s em %s" % [ability.title, target.display_name])
+				_request("%s em %s" % [ability.title, target.display_name], ability)
 		AbilityView.AimType.DIRECTION:
 			var direction: Vector3 = (aim - _player.global_position).normalized()
-			_request("%s → direção (%.2f, %.2f)" % [ability.title, direction.x, direction.z])
+			_request("%s → direção (%.2f, %.2f)" % [ability.title, direction.x, direction.z], ability)
 		AbilityView.AimType.AREA:
-			_request("%s → ponto (%.1f, %.1f)" % [ability.title, aim.x, aim.z])
+			_request("%s → ponto (%.1f, %.1f)" % [ability.title, aim.x, aim.z], ability)
 
 
 # --- Prévia da mira (ataque e cartas) ---
@@ -221,7 +260,11 @@ func _nearest_remote(point: Vector3, max_distance: float) -> RemotePlayer:
 	return best
 
 
-## Passo 1: mostra o pedido. Passo 3 ([ROAD-05]): envia ao servidor (attack/cast) e ele decide.
-func _request(description: String) -> void:
+## Usa [param ability]: começa a recarga e mostra o pedido. Passo 3 ([ROAD-05]): envia ao servidor
+## (attack/cast), que decide e confirma a recarga.
+func _request(description: String, ability: AbilityView) -> void:
+	# Só reinicia o relógio se estava pronta (ex.: fixar alvo com o ataque recarregando não reinicia).
+	if _cooldown_left(ability) <= 0.0:
+		_start_cooldown(ability)
 	_hud.show_toast(description)
 	print("Combat: ", description)

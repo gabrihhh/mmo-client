@@ -51,17 +51,69 @@ enum Shape { CARD, CIRCLE }
 @export var font_size: int = 26
 ## Desligado: ignora toques (ex.: menu aberto).
 @export var enabled: bool = true
+## Cor do "relógio" de recarga (setor escuro que vai encolhendo).
+@export var cooldown_color: Color = Color(0.0, 0.0, 0.0, 0.62)
+## Cor do ponteiro do relógio de recarga.
+@export var cooldown_hand_color: Color = Color(1.0, 0.85, 0.6, 0.9)
 
 var _touch_index: int = -1
 var _aiming: bool = false
 var _label: Label = null
 var _caption_label: Label = null
+var _cooldown_label: Label = null
+## Recarga: instante (ms do Time.get_ticks_msec) em que fica pronta e a duração total (s). 0 = pronta.
+var _cooldown_end_ms: int = 0
+var _cooldown_total_s: float = 0.0
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_label = _make_label(text, font_size, 0.0, 1.0 if caption.is_empty() else 0.72)
 	_caption_label = _make_label(caption, maxi(14, font_size - 10), 0.66, 0.96)
+	_cooldown_label = _make_label("", font_size + 10, 0.0, 1.0)
+	_cooldown_label.add_theme_color_override("font_color", Color.WHITE)
+	_cooldown_label.add_theme_constant_override("outline_size", 6)
+	_cooldown_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	set_process(false)
+
+
+## Começa a recarga: [param remaining] segundos de [param total]. O botão fica apagado com o relógio
+## girando até ficar pronto. [param remaining] <= 0 limpa.
+func set_cooldown(remaining: float, total: float) -> void:
+	if remaining <= 0.0 or total <= 0.0:
+		_cooldown_end_ms = 0
+		_cooldown_total_s = 0.0
+	else:
+		_cooldown_end_ms = Time.get_ticks_msec() + int(remaining * 1000.0)
+		_cooldown_total_s = total
+	set_process(_cooldown_end_ms != 0)
+	_update_cooldown_visual()
+
+
+## Segundos que faltam para ficar pronto (0 = pronto).
+func cooldown_remaining() -> float:
+	if _cooldown_end_ms == 0:
+		return 0.0
+	return maxf(0.0, float(_cooldown_end_ms - Time.get_ticks_msec()) / 1000.0)
+
+
+func _process(_delta: float) -> void:
+	if cooldown_remaining() <= 0.0:
+		_cooldown_end_ms = 0
+		set_process(false)
+	_update_cooldown_visual()
+
+
+## Opacidade reduzida no texto e contagem regressiva enquanto recarrega.
+func _update_cooldown_visual() -> void:
+	var remaining: float = cooldown_remaining()
+	var cooling: bool = remaining > 0.0
+	var faded: Color = Color(1, 1, 1, 0.25) if cooling else Color.WHITE
+	_label.modulate = faded
+	_caption_label.modulate = faded
+	# Abaixo de 1 s mostra uma casa decimal (ex.: "0.4"); acima, segundos inteiros arredondados para cima.
+	_cooldown_label.text = ("%.1f" % remaining if remaining < 1.0 else str(ceili(remaining))) if cooling else ""
+	queue_redraw()
 
 
 func _input(event: InputEvent) -> void:
@@ -103,7 +155,8 @@ func _notification(what: int) -> void:
 func _draw() -> void:
 	var held: bool = _touch_index != -1
 	var color: Color = pressed_color if held else fill_color
-	if not enabled:
+	var cooling: bool = cooldown_remaining() > 0.0
+	if not enabled or cooling:
 		color.a *= 0.45
 	if shape == Shape.CIRCLE:
 		var radius: float = minf(size.x, size.y) / 2.0
@@ -120,6 +173,45 @@ func _draw() -> void:
 		if not enabled:
 			box.border_color.a *= 0.45
 		draw_style_box(box, Rect2(Vector2.ZERO, size))
+	if cooling:
+		_draw_cooldown_clock(cooldown_remaining() / _cooldown_total_s)
+
+
+## Relógio de recarga: setor escuro que começa no "meio-dia" e cobre a fração [param fraction] que falta,
+## no sentido horário, recortado no formato do botão; um ponteiro claro marca a borda que avança.
+func _draw_cooldown_clock(fraction: float) -> void:
+	var center: Vector2 = size / 2.0
+	var radius: float = size.length()  # grande o bastante para cobrir o retângulo inteiro
+	var start: float = -PI / 2.0 + TAU * (1.0 - clampf(fraction, 0.0, 1.0))
+	var finish: float = PI * 1.5
+	var sector: PackedVector2Array = [center]
+	var steps: int = maxi(2, int(48.0 * fraction))
+	for i: int in range(steps + 1):
+		var angle: float = lerpf(start, finish, float(i) / float(steps))
+		sector.append(center + Vector2(cos(angle), sin(angle)) * radius)
+	var shape_polygon: PackedVector2Array = _shape_polygon()
+	for piece: PackedVector2Array in Geometry2D.intersect_polygons(sector, shape_polygon):
+		draw_colored_polygon(piece, cooldown_color)
+	# Ponteiro: do centro até a borda do botão, na direção do início do setor.
+	var hand_direction: Vector2 = Vector2(cos(start), sin(start))
+	var hand_length: float = minf(size.x, size.y) / 2.0 - 4.0
+	draw_line(center, center + hand_direction * hand_length, cooldown_hand_color, 3.0, true)
+
+
+## Contorno do botão como polígono (retângulo ou círculo), para recortar o relógio.
+func _shape_polygon() -> PackedVector2Array:
+	if shape == Shape.CIRCLE:
+		var points: PackedVector2Array = []
+		var radius: float = minf(size.x, size.y) / 2.0
+		for i: int in range(48):
+			var angle: float = TAU * float(i) / 48.0
+			points.append(size / 2.0 + Vector2(cos(angle), sin(angle)) * radius)
+		return points
+	var inset: float = float(frame_width)
+	return PackedVector2Array([
+		Vector2(inset, inset), Vector2(size.x - inset, inset),
+		Vector2(size.x - inset, size.y - inset), Vector2(inset, size.y - inset),
+	])
 
 
 func _finish(release_position: Vector2) -> void:
