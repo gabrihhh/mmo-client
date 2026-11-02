@@ -44,8 +44,9 @@ func _on_player_added(session_id: String, state: ZoneSchema.PlayerState) -> void
 
 
 func _on_player_removed(session_id: String) -> void:
-	var remote: RemotePlayer = _remote_players.get(session_id) as RemotePlayer
-	if remote != null:
+	if _remote_players.has(session_id):
+		# Subscript de Dictionary tipado já devolve RemotePlayer (get() devolveria Variant).
+		var remote: RemotePlayer = _remote_players[session_id]
 		remote.queue_free()
 		_remote_players.erase(session_id)
 	_update_online_status()

@@ -83,10 +83,10 @@ func _on_joined() -> void:
 
 
 func _on_player_add(state: Variant, key: String) -> void:
-	var player_state: ZoneSchema.PlayerState = state as ZoneSchema.PlayerState
-	if player_state == null:
+	if not state is ZoneSchema.PlayerState:
 		push_error("Network: estado de jogador sem tipo; set_state_type falhou?")
 		return
+	var player_state: ZoneSchema.PlayerState = state
 	player_added.emit(key, player_state)
 
 

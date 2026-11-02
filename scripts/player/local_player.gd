@@ -20,7 +20,7 @@ const _MIN_SEND_ANGLE: float = 0.01
 
 @onready var _camera: IsometricCamera = $Camera
 
-var _gravity: float = float(ProjectSettings.get_setting("physics/3d/default_gravity", 9.8))
+var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 9.8)
 var _send_timer: float = 0.0
 var _last_sent_position: Vector3 = Vector3.INF
 var _last_sent_rot_y: float = INF

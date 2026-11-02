@@ -27,7 +27,11 @@ class PlayerState extends Colyseus.Schema:
 	## Lê um campo numérico do schema (os campos são dinâmicos, via _get).
 	func _number(field: StringName) -> float:
 		var value: Variant = get(field)
-		return float(value) if value != null else 0.0
+		if not (value is float or value is int):
+			return 0.0
+		# Atribuir o Variant já checado a uma var tipada converte int -> float sem warning de cast.
+		var number: float = value
+		return number
 
 
 ## Estado raiz da room: jogadores indexados pelo session id.
