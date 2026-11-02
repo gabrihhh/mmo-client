@@ -30,7 +30,7 @@ var _knob_offset: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
-	custom_minimum_size = Vector2.ONE * base_radius * 2.0
+	custom_minimum_size = custom_minimum_size.max(Vector2.ONE * base_radius * 2.0)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 

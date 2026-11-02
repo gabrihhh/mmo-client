@@ -44,6 +44,10 @@ enum Shape { CARD, CIRCLE }
 @export var fill_color: Color = Color(0.22, 0.29, 0.4, 0.92)
 @export var pressed_color: Color = Color(0.34, 0.43, 0.58, 0.95)
 @export var border_color: Color = Color(1.0, 0.85, 0.6, 1.0)
+## Moldura da carta (sempre visível em [constant Shape.CARD]; dentro dela vai a imagem da habilidade).
+@export var frame_color: Color = Color(0.62, 0.68, 0.8, 0.9)
+## Espessura da moldura da carta, em px.
+@export var frame_width: int = 3
 @export var font_size: int = 26
 ## Desligado: ignora toques (ex.: menu aberto).
 @export var enabled: bool = true
@@ -110,9 +114,11 @@ func _draw() -> void:
 		var box: StyleBoxFlat = StyleBoxFlat.new()
 		box.bg_color = color
 		box.set_corner_radius_all(16)
-		if held:
-			box.set_border_width_all(3)
-			box.border_color = border_color
+		# Moldura sempre visível; pressionada fica dourada e um pouco mais grossa.
+		box.set_border_width_all(frame_width + 1 if held else frame_width)
+		box.border_color = border_color if held else frame_color
+		if not enabled:
+			box.border_color.a *= 0.45
 		draw_style_box(box, Rect2(Vector2.ZERO, size))
 
 

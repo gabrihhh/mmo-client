@@ -153,33 +153,26 @@ layout_mode = 2
 script = ExtResource("3_button")
 font_size = 19
 
-[node name="TouchJoystick" type="Control" parent="Root"]
+[node name="BottomRow" type="HBoxContainer" parent="Root"]
 unique_name_in_owner = true
 layout_mode = 1
-anchors_preset = 7
-anchor_left = 0.5
+anchors_preset = 12
 anchor_top = 1.0
-anchor_right = 0.5
+anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -110.0
+offset_left = 32.0
 offset_top = -340.0
-offset_right = 110.0
+offset_right = -32.0
 offset_bottom = -120.0
 grow_horizontal = 2
 grow_vertical = 0
-script = ExtResource("4_joystick")
+mouse_filter = 2
 
-[node name="AttackButton" type="Control" parent="Root"]
+[node name="AttackButton" type="Control" parent="Root/BottomRow"]
 unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 2
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 32.0
-offset_top = -300.0
-offset_right = 192.0
-offset_bottom = -140.0
-grow_vertical = 0
+custom_minimum_size = Vector2(160, 160)
+layout_mode = 2
+size_flags_vertical = 4
 script = ExtResource("3_button")
 shape = 1
 text = "Atacar"
@@ -187,24 +180,31 @@ fill_color = Color(0.55, 0.22, 0.2, 0.92)
 pressed_color = Color(0.7, 0.3, 0.26, 0.95)
 font_size = 28
 
-[node name="MenuButton" type="Control" parent="Root"]
+[node name="SpacerLeft" type="Control" parent="Root/BottomRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="TouchJoystick" type="Control" parent="Root/BottomRow"]
 unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 3
-anchor_left = 1.0
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -152.0
-offset_top = -280.0
-offset_right = -32.0
-offset_bottom = -160.0
-grow_horizontal = 0
-grow_vertical = 0
+custom_minimum_size = Vector2(220, 220)
+layout_mode = 2
+size_flags_vertical = 4
+script = ExtResource("4_joystick")
+
+[node name="SpacerRight" type="Control" parent="Root/BottomRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="MenuButton" type="Control" parent="Root/BottomRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 96)
+layout_mode = 2
+size_flags_vertical = 4
 script = ExtResource("3_button")
-shape = 1
 text = "Menu"
-font_size = 26
+font_size = 28
 
 [node name="MenuPanel" type="PanelContainer" parent="Root"]
 unique_name_in_owner = true
