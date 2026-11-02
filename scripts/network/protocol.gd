@@ -8,23 +8,26 @@ extends RefCounted
 ## ATENÇÃO: espelho de mmo-server/src/net/protocol.ts. Mudou lá → mude aqui e atualize mmo-docs [INFRA-04].
 
 ## Versão do protocolo enviada no join. Precisa ser igual a PROTOCOL_VERSION do servidor.
-const VERSION: int = 2
+const VERSION: int = 3
 
 # --- Cliente → servidor ---
 ## Pede para entrar numa zona. data: { zone: String, version: int, guestToken: String ou null }.
 const MSG_JOIN: String = "join"
-## Posição/rotação do jogador local. data: { x, y, z, rotY }.
-const MSG_MOVE: String = "move"
+## Intenção de movimento de UM tick (o servidor simula; o cliente não manda posição).
+## data: { seq: int crescente, x, z: direção no mundo, comprimento até 1 }. Ver mmo-docs [INFRA-09].
+const MSG_INPUT: String = "input"
 
 # --- Servidor → cliente ---
-## Entrada aceita. data: { playerId: String, guestToken: String, zone: String, players: Array[PlayerSnapshot] }.
+## Entrada aceita. data: { playerId, guestToken, zone, tick: int, sim: { tickRate, moveSpeed, zoneHalfSize },
+## players: Array[PlayerSnapshot] }.
 const MSG_WELCOME: String = "welcome"
 ## Outro jogador entrou. data: { player: PlayerSnapshot }.
 const MSG_PLAYER_JOINED: String = "player_joined"
 ## Um jogador saiu. data: { id: String }.
 const MSG_PLAYER_LEFT: String = "player_left"
-## Lote periódico (20 Hz) com quem se moveu. data: { players: Array[PlayerSnapshot] }.
-const MSG_POSITIONS: String = "positions"
+## Estado da zona a cada tick (20 Hz). data: { tick: int, ack: int (último input MEU aplicado),
+## players: Array[PlayerSnapshot] }.
+const MSG_SNAPSHOT: String = "snapshot"
 ## Pedido recusado ou mensagem inválida. data: { code: String, message: String }.
 const MSG_ERROR: String = "error"
 
@@ -37,8 +40,10 @@ const CLOSE_REPLACED: int = 4002
 
 
 ## Monta o texto de uma mensagem para enviar.
+## full_precision: os números vão com todos os dígitos, para o servidor simular com o MESMO
+## double que o cliente usou na predição.
 static func encode(type: String, data: Dictionary) -> String:
-	return JSON.stringify({"type": type, "data": data})
+	return JSON.stringify({"type": type, "data": data}, "", true, true)
 
 
 ## Decodifica uma mensagem recebida. Retorna { "type": String, "data": Dictionary },
@@ -62,6 +67,19 @@ static func read_float(data: Dictionary, key: String, fallback: float = 0.0) -> 
 	if value is float or value is int:
 		var number: float = value
 		return number
+	return fallback
+
+
+## Lê um inteiro de [param data] (JSON entrega float); retorna [param fallback] se não for número inteiro.
+static func read_int(data: Dictionary, key: String, fallback: int = 0) -> int:
+	var value: Variant = data.get(key)
+	if value is int:
+		var whole: int = value
+		return whole
+	if value is float:
+		var number: float = value
+		if number == floorf(number):
+			return int(number)
 	return fallback
 
 

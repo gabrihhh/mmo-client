@@ -1,83 +1,153 @@
 class_name LocalPlayer
-extends CharacterBody3D
-## Jogador controlado por este dispositivo. Ver mmo-docs [CLI-04].
+extends Node3D
+## Jogador controlado por este aparelho, com PREDIÇÃO e RECONCILIAÇÃO. Ver mmo-docs [INFRA-09], [CLI-04].
 ##
-## Lê o joystick virtual (ou o teclado no desktop), move-se relativo à câmera
-## isométrica e envia a posição ao servidor em [constant NetworkConfig.MOVE_SEND_RATE_HZ].
+## O servidor é a autoridade: este nó não decide onde o jogador está, só o que ele QUER fazer.
+## A cada tick de simulação (20 Hz) ele:
+## 1. lê o joystick/teclado e converte para uma direção no mundo (relativa à câmera);
+## 2. manda o input numerado ao servidor ([method Network.send_input]);
+## 3. aplica o MESMO input localmente com [Movement] (predição), para responder na hora.
+## Quando chega um snapshot, pega a posição oficial, descarta os inputs que o servidor já aplicou
+## (ack) e reaplica os que faltam (reconciliação). Diferenças pequenas são suavizadas visualmente.
 
-## Velocidade de caminhada, em m/s.
-@export var move_speed: float = 5.0
-## Quão rápido o personagem gira para a direção do movimento.
-@export var turn_speed: float = 12.0
+## Velocidade de giro VISUAL do modelo (a direção "oficial" vem da simulação).
+@export var turn_speed: float = 14.0
+## Quão rápido some a correção visual quando a predição e o servidor discordam (1/s).
+@export var correction_smoothing: float = 12.0
 
 ## Joystick de toque; atribuído pela zona ao criar o jogador. Pode ser null.
 var joystick: TouchJoystick = null
 
-## Distância mínima (m) para considerar que o jogador se moveu e enviar update.
-const _MIN_SEND_DISTANCE: float = 0.01
-## Diferença mínima de rotação (rad) para enviar update.
-const _MIN_SEND_ANGLE: float = 0.01
+## Divergência (m) acima da qual a correção é aplicada na hora, sem suavizar (ex.: teleporte).
+const _SNAP_DISTANCE: float = 2.0
+## Abaixo deste comprimento o input conta como parado e não é enviado.
+const _MIN_INPUT: float = 0.01
+## Dev/testes: `-- --bot-walk` faz o jogador andar em círculo sozinho e imprimir o tamanho das
+## correções do servidor a cada 5 s (valida predição/reconciliação sem ninguém no controle).
+const BOT_WALK_ARG: String = "--bot-walk"
+
+
+## Um input enviado e ainda não confirmado pelo servidor.
+class PendingInput:
+	extends RefCounted
+	var seq: int
+	var x: float
+	var z: float
+
+	func _init(input_seq: int, input_x: float, input_z: float) -> void:
+		seq = input_seq
+		x = input_x
+		z = input_z
+
 
 @onready var _camera: IsometricCamera = $Camera
 
-var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 9.8)
-var _send_timer: float = 0.0
-var _last_sent_position: Vector3 = Vector3.INF
-var _last_sent_rot_y: float = INF
+## Estado previsto agora e o do tick anterior (o desenho interpola entre os dois).
+var _sim: Movement.State = Movement.State.new()
+var _previous_sim: Movement.State = Movement.State.new()
+## Tempo acumulado ainda não simulado, em segundos.
+var _accumulator: float = 0.0
+var _next_seq: int = 1
+var _pending: Array[PendingInput] = []
+## Deslocamento visual que esconde correções pequenas; decai até zero.
+var _visual_offset: Vector3 = Vector3.ZERO
+var _bot_walk: bool = false
+var _bot_time: float = 0.0
+## Estatística de correções (só com --bot-walk): quantas, a maior e a soma, em metros.
+var _corrections: int = 0
+var _max_correction: float = 0.0
+var _correction_sum: float = 0.0
 
 
 func _ready() -> void:
 	InputActions.register_defaults()
+	Network.instance.snapshot_received.connect(_on_snapshot_received)
+	_bot_walk = BOT_WALK_ARG in OS.get_cmdline_user_args()
 
 
-func _physics_process(delta: float) -> void:
-	var input: Vector2 = _read_move_input()
-	# Converte o input de tela (relativo à câmera) em direção no mundo.
-	var direction: Vector3 = Vector3(input.x, 0.0, input.y).rotated(Vector3.UP, _camera.get_yaw_radians())
-
-	velocity.x = direction.x * move_speed
-	velocity.z = direction.z * move_speed
-	velocity.y = 0.0 if is_on_floor() else velocity.y - _gravity * delta
-
-	if direction.length_squared() > 0.0001:
-		var target_yaw: float = atan2(-direction.x, -direction.z)
-		rotation.y = lerp_angle(rotation.y, target_yaw, 1.0 - exp(-turn_speed * delta))
-
-	move_and_slide()
-	_clamp_to_zone()
-	_send_network_update(delta)
-
-
-## Teleporta o jogador (spawn) e cola a câmera nele.
-func spawn_at(world_position: Vector3, rot_y: float) -> void:
-	global_position = world_position
-	rotation.y = rot_y
+## Coloca o jogador no estado oficial (spawn) e cola a câmera nele.
+func spawn_at(state: PlayerState) -> void:
+	_sim = Movement.State.new(state.x, state.y, state.z, state.rot_y)
+	_previous_sim = _sim.duplicate_state()
+	_pending.clear()
+	_visual_offset = Vector3.ZERO
+	global_position = _sim.position()
+	rotation.y = _sim.rot_y
 	_camera.snap_to_target()
 
 
-func _read_move_input() -> Vector2:
+func _process(delta: float) -> void:
+	var network: Network = Network.instance
+	var step_seconds: float = network.tick_seconds()
+	_accumulator += delta
+	# Passo fixo: simula quantos ticks inteiros couberem (igual ao servidor).
+	while _accumulator >= step_seconds:
+		_accumulator -= step_seconds
+		_simulate_tick(network, step_seconds)
+
+	# Desenho: entre o tick anterior e o atual, mais a correção visual que está sumindo.
+	var alpha: float = _accumulator / step_seconds
+	_visual_offset *= exp(-correction_smoothing * delta)
+	global_position = _previous_sim.position().lerp(_sim.position(), alpha) + _visual_offset
+	rotation.y = lerp_angle(rotation.y, _sim.rot_y, 1.0 - exp(-turn_speed * delta))
+
+
+func _simulate_tick(network: Network, step_seconds: float) -> void:
+	_previous_sim = _sim
+	var direction: Vector2 = _read_world_direction()
+	if direction.length() < _MIN_INPUT:
+		return
+	var input: PendingInput = PendingInput.new(_next_seq, direction.x, direction.y)
+	_next_seq += 1
+	_pending.append(input)
+	network.send_input(input.seq, input.x, input.z)
+	_sim = Movement.step(_sim, input.x, input.z, step_seconds, network.move_speed, network.zone_half_size)
+
+
+## Reconciliação: estado oficial + inputs ainda não confirmados = nova previsão.
+func _on_snapshot_received(_tick: int, ack: int) -> void:
+	var network: Network = Network.instance
+	var authoritative: PlayerState = network.get_player(network.player_id)
+	if authoritative == null:
+		return
+	while not _pending.is_empty() and _pending[0].seq <= ack:
+		_pending.pop_front()
+
+	var corrected: Movement.State = Movement.State.new(authoritative.x, authoritative.y, authoritative.z, authoritative.rot_y)
+	for input: PendingInput in _pending:
+		corrected = Movement.step(corrected, input.x, input.z, network.tick_seconds(), network.move_speed, network.zone_half_size)
+
+	var error: Vector3 = _sim.position() - corrected.position()
+	if _bot_walk:
+		_record_correction(error.length())
+	if error.length_squared() < 0.000001:
+		return
+	if error.length() > _SNAP_DISTANCE:
+		_visual_offset = Vector3.ZERO
+		_previous_sim = corrected.duplicate_state()
+	else:
+		_visual_offset += error
+		_previous_sim = Movement.State.new(_previous_sim.x - error.x, _previous_sim.y - error.y, _previous_sim.z - error.z, _previous_sim.rot_y)
+	_sim = corrected
+
+
+func _record_correction(distance: float) -> void:
+	if distance > 0.0001:
+		_corrections += 1
+		_max_correction = maxf(_max_correction, distance)
+		_correction_sum += distance
+
+
+## Direção desejada no mundo (x, z), comprimento até 1: joystick + teclado, relativa ao giro da câmera.
+func _read_world_direction() -> Vector2:
+	if _bot_walk:
+		_bot_time += Network.instance.tick_seconds()
+		if fmod(_bot_time, 5.0) < Network.instance.tick_seconds():
+			print("BotWalk: pos=%s pendentes=%d correções=%d maior=%.4f m média=%.4f m" % [
+				_sim.position(), _pending.size(), _corrections, _max_correction,
+				_correction_sum / maxf(1.0, float(_corrections))])
+		return Vector2(cos(_bot_time * 0.8), sin(_bot_time * 0.8))
 	var touch: Vector2 = joystick.output if joystick != null else Vector2.ZERO
-	return (touch + InputActions.get_keyboard_vector()).limit_length(1.0)
-
-
-## Mantém o jogador dentro da zona (o servidor faz o mesmo; evita divergência).
-func _clamp_to_zone() -> void:
-	var limit: float = WorldConstants.ZONE_HALF_SIZE
-	global_position.x = clampf(global_position.x, -limit, limit)
-	global_position.z = clampf(global_position.z, -limit, limit)
-
-
-func _send_network_update(delta: float) -> void:
-	_send_timer += delta
-	if _send_timer < 1.0 / NetworkConfig.MOVE_SEND_RATE_HZ:
-		return
-	_send_timer = 0.0
-
-	var moved: bool = global_position.distance_to(_last_sent_position) > _MIN_SEND_DISTANCE
-	var turned: bool = absf(angle_difference(rotation.y, _last_sent_rot_y)) > _MIN_SEND_ANGLE
-	if not moved and not turned:
-		return
-
-	Network.instance.send_move(global_position, rotation.y)
-	_last_sent_position = global_position
-	_last_sent_rot_y = rotation.y
+	var screen: Vector2 = (touch + InputActions.get_keyboard_vector()).limit_length(1.0)
+	var world: Vector3 = Vector3(screen.x, 0.0, screen.y).rotated(Vector3.UP, _camera.get_yaw_radians())
+	return Vector2(world.x, world.z)

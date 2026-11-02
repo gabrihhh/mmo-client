@@ -14,8 +14,6 @@ const DEFAULT_SERVER_URL: String = "ws://localhost:2567"
 ## Id da zona enviado no join. ATENÇÃO: precisa existir em mmo-server/src/zones/zones.ts.
 const ZONE_ID: String = "zone_1"
 
-## Quantas vezes por segundo o jogador local envia a própria posição.
-const MOVE_SEND_RATE_HZ: float = 15.0
 
 
 ## Retorna a URL WebSocket do servidor do jogo.

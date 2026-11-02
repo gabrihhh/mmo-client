@@ -1,17 +1,15 @@
 class_name RemotePlayer
 extends Node3D
-## Representação de outro jogador, controlada pelo estado vindo do servidor.
+## Representação de outro jogador, desenhada a partir dos snapshots do servidor. Ver mmo-docs [INFRA-09].
 ##
-## Não tem física: a cada frame interpola suavemente até a última posição
-## recebida (o servidor manda o lote "positions" a 20 Hz). Ver mmo-docs [CLI-04].
-
-## Suavidade da interpolação; maior = acompanha mais rápido.
-@export var smoothing: float = 12.0
+## Não simula nada: a cada frame pede ao [PlayerState] a posição no tick
+## [method Network.render_tick] (alguns ticks no PASSADO), interpolando entre dois snapshots reais.
+## Isso troca ~100 ms de atraso por movimento suave e sem "adivinhação".
 
 ## Session id do jogador no servidor.
 var session_id: String = ""
 
-## Estado vivo do jogador (o [Network] atualiza este objeto a cada "positions").
+## Estado vivo do jogador (o [Network] guarda o histórico de snapshots nele).
 var _state: PlayerState = null
 
 @onready var _name_label: Label3D = $NameLabel
@@ -30,9 +28,9 @@ func _ready() -> void:
 		rotation.y = _state.rot_y
 
 
-func _process(delta: float) -> void:
-	if _state == null:
+func _process(_delta: float) -> void:
+	if _state == null or Network.instance == null:
 		return
-	var weight: float = 1.0 - exp(-smoothing * delta)
-	position = position.lerp(_state.position, weight)
-	rotation.y = lerp_angle(rotation.y, _state.rot_y, weight)
+	var render_tick: float = Network.instance.render_tick()
+	position = _state.sample_position(render_tick)
+	rotation.y = _state.sample_rot_y(render_tick)

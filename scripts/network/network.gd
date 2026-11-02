@@ -21,6 +21,17 @@ signal connection_error(code: int, message: String)
 signal server_error(code: String, message: String)
 ## A conexão fechou depois de aberta (saída, queda ou recusa). [param code] é o close code do WebSocket.
 signal left_zone(code: int, reason: String)
+## Chegou um snapshot do servidor (já aplicado nos [PlayerState]). [param ack] = último input DESTE
+## cliente que o servidor aplicou; o [LocalPlayer] usa para reconciliar. Ver mmo-docs [INFRA-09].
+signal snapshot_received(tick: int, ack: int)
+
+## Os jogadores remotos são desenhados este número de ticks no passado (2 ticks = 100 ms a 20 Hz),
+## para sempre haver dois snapshots reais para interpolar mesmo se um atrasar.
+const INTERPOLATION_DELAY_TICKS: float = 2.0
+## Se o relógio local se afastar mais que isto (ticks) do servidor, pula direto em vez de ajustar aos poucos.
+const _CLOCK_SNAP_TICKS: float = 10.0
+## Fração do erro do relógio corrigida a cada snapshot (ajuste suave, sem trancos).
+const _CLOCK_CORRECTION: float = 0.1
 
 ## A instância viva (criada pelo [GameBoot]); null antes do boot.
 static var instance: Network = null
@@ -29,6 +40,13 @@ static var instance: Network = null
 var player_id: String = ""
 ## Última mensagem de erro/desconexão, em português, para a tela de login mostrar. Vazio = nenhuma.
 var last_error: String = ""
+## Parâmetros da simulação recebidos no welcome (o servidor manda; o cliente não decide).
+var tick_rate: float = 20.0
+var move_speed: float = 5.0
+var zone_half_size: float = 150.0
+
+## Estimativa do tick atual do servidor (fracionário), avançada pelo tempo local e ajustada a cada snapshot.
+var _clock_tick: float = 0.0
 
 var _socket: WebSocketPeer = null
 ## A conexão chegou a abrir (diferencia "não conectou" de "caiu depois").
@@ -85,16 +103,30 @@ func get_players() -> Array[PlayerState]:
 	return result
 
 
-## Envia a posição/rotação do jogador local. Ignorado se não estiver na zona.
-func send_move(world_position: Vector3, rot_y: float) -> void:
+## Duração de um tick de simulação, em segundos.
+func tick_seconds() -> float:
+	return 1.0 / tick_rate
+
+
+## Tick (fracionário) em que os jogadores remotos devem ser desenhados agora: o tick estimado do
+## servidor menos [constant INTERPOLATION_DELAY_TICKS].
+func render_tick() -> float:
+	return _clock_tick - INTERPOLATION_DELAY_TICKS
+
+
+## Estado vivo de um jogador, ou null.
+func get_player(id: String) -> PlayerState:
+	if not _players.has(id):
+		return null
+	return _players[id]
+
+
+## Envia o input de UM tick: direção desejada no mundo (comprimento até 1) e o número de sequência.
+## Ignorado se não estiver na zona.
+func send_input(seq: int, direction_x: float, direction_z: float) -> void:
 	if not is_in_zone():
 		return
-	_send(Protocol.MSG_MOVE, {
-		"x": world_position.x,
-		"y": world_position.y,
-		"z": world_position.z,
-		"rotY": rot_y,
-	})
+	_send(Protocol.MSG_INPUT, {"seq": seq, "x": direction_x, "z": direction_z})
 
 
 ## Sai da zona fechando a conexão (o servidor salva a posição e remove o jogador).
@@ -108,7 +140,8 @@ func _notification(what: int) -> void:
 		leave_zone()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_clock_tick += delta * tick_rate
 	_socket.poll()
 	var state: WebSocketPeer.State = _socket.get_ready_state()
 
@@ -147,6 +180,11 @@ func _handle_message(text: String) -> void:
 			var token: String = Protocol.read_string(data, "guestToken")
 			if not token.is_empty():
 				AccountStorage.save_guest_token(token)
+			var sim: Dictionary = Protocol.read_dict(data, "sim")
+			tick_rate = Protocol.read_float(sim, "tickRate", tick_rate)
+			move_speed = Protocol.read_float(sim, "moveSpeed", move_speed)
+			zone_half_size = Protocol.read_float(sim, "zoneHalfSize", zone_half_size)
+			_clock_tick = float(Protocol.read_int(data, "tick"))
 			# Lista primeiro: quem reagir ao joined_zone já encontra os jogadores em get_players().
 			for snapshot: Dictionary in Protocol.read_dict_array(data, "players"):
 				_add_player(snapshot)
@@ -155,9 +193,8 @@ func _handle_message(text: String) -> void:
 			_add_player(Protocol.read_dict(data, "player"))
 		Protocol.MSG_PLAYER_LEFT:
 			_remove_player(Protocol.read_string(data, "id"))
-		Protocol.MSG_POSITIONS:
-			for snapshot: Dictionary in Protocol.read_dict_array(data, "players"):
-				_update_player(snapshot)
+		Protocol.MSG_SNAPSHOT:
+			_apply_snapshot(data)
 		Protocol.MSG_ERROR:
 			var code: String = Protocol.read_string(data, "code")
 			var reason: String = Protocol.read_string(data, "message")
@@ -169,21 +206,35 @@ func _handle_message(text: String) -> void:
 
 
 func _add_player(snapshot: Dictionary) -> void:
-	var state: PlayerState = PlayerState.from_snapshot(snapshot)
+	var state: PlayerState = PlayerState.from_snapshot(snapshot, int(_clock_tick))
 	if state == null or _players.has(state.id):
 		return
 	_players[state.id] = state
 	player_added.emit(state.id, state)
 
 
-func _update_player(snapshot: Dictionary) -> void:
-	if not Protocol.is_player_snapshot(snapshot):
+## Aplica um snapshot: guarda o estado de cada jogador naquele tick, ajusta o relógio e avisa.
+func _apply_snapshot(data: Dictionary) -> void:
+	var server_tick: int = Protocol.read_int(data, "tick", -1)
+	if server_tick < 0:
 		return
-	var id: String = Protocol.read_string(snapshot, "id")
-	# O próprio jogador é autoritativo sobre a posição dele: ignora o eco do servidor.
-	if id == player_id or not _players.has(id):
-		return
-	_players[id].apply_snapshot(snapshot)
+	for snapshot: Dictionary in Protocol.read_dict_array(data, "players"):
+		if not Protocol.is_player_snapshot(snapshot):
+			continue
+		var id: String = Protocol.read_string(snapshot, "id")
+		if _players.has(id):
+			_players[id].apply_snapshot(snapshot, server_tick)
+	_sync_clock(server_tick)
+	snapshot_received.emit(server_tick, Protocol.read_int(data, "ack"))
+
+
+## Puxa o relógio local na direção do tick do servidor: aos poucos, ou de uma vez se estiver longe.
+func _sync_clock(server_tick: int) -> void:
+	var error: float = float(server_tick) - _clock_tick
+	if absf(error) > _CLOCK_SNAP_TICKS:
+		_clock_tick = float(server_tick)
+	else:
+		_clock_tick += error * _CLOCK_CORRECTION
 
 
 func _remove_player(id: String) -> void:

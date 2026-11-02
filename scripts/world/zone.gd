@@ -69,7 +69,7 @@ func _spawn_local_player(state: PlayerState) -> void:
 	_local_player.name = "LocalPlayer"
 	_local_player.joystick = _joystick
 	_players_root.add_child(_local_player)
-	_local_player.spawn_at(state.position, state.rot_y)
+	_local_player.spawn_at(state)
 
 
 func _update_online_status() -> void:
