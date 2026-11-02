@@ -20,4 +20,7 @@ const MOVE_SEND_RATE_HZ: float = 15.0
 
 ## Retorna a URL WebSocket do servidor do jogo.
 static func server_url() -> String:
-	return str(ProjectSettings.get_setting(SERVER_URL_SETTING, DEFAULT_SERVER_URL))
+	# get_setting_with_override aplica a variação por plataforma (ex.: server_url.android, o IP do PC
+	# na rede local). get_setting ignoraria e devolveria o localhost.
+	var setting: Variant = ProjectSettings.get_setting_with_override(SERVER_URL_SETTING)
+	return str(setting) if setting != null else DEFAULT_SERVER_URL

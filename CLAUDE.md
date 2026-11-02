@@ -45,7 +45,7 @@ Seções-chave deste repo: [CLI-02] câmera, [CLI-03] estrutura do cliente, [CLI
 ```
 scenes/            .tscn por domínio (boot/, ui/, world/, player/)
 scripts/           .gd por domínio (boot/, network/, player/, camera/, ui/, input/, world/)
-tools/             publish_update.sh (publica o .pck no servidor)
+tools/             publish_update.sh (publica o .pck no servidor), build_apk.sh (gera o APK)
 assets/            modelos/materiais exportados do Blender
 ```
 
@@ -56,7 +56,8 @@ godot --path . --headless --editor --quit         # importa e acusa erros de scr
 godot --path .                                    # roda o jogo (servidor precisa estar no ar)
 godot --path . --headless --quit-after 300 -- --autologin   # valida conexão sem clicar ([CLI-05])
 godot --path . -- --profile=2                     # outra conta de convidado (2ª janela no mesmo PC)
-tools/publish_update.sh                           # publica uma versão nova do jogo ([INFRA-08])
+tools/publish_update.sh android                   # publica versão nova do jogo p/ celular ([INFRA-08])
+tools/build_apk.sh --install                      # gera o APK e instala no aparelho do adb ([CLI-06])
 ```
 
 Código e identificadores em inglês; comentários e docs em português.

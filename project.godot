@@ -45,6 +45,9 @@ pointing/emulate_touch_from_mouse=true
 
 ; Endereço do servidor do jogo (WebSocket). Num celular, troque localhost pelo IP do PC na rede local.
 network/server_url="ws://localhost:2567"
+; No APK (Android) o servidor é o PC de desenvolvimento na rede local. TROCAR pelo IP de quem roda o
+; servidor (ou pelo endereço público, quando houver). Vale também para o atualizador ([INFRA-08]).
+network/server_url.android="ws://192.168.0.25:2567"
 
 [rendering]
 

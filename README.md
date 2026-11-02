@@ -27,4 +27,11 @@ Em **Project Settings > mmo/network/server_url** troque `localhost` pelo IP do P
 ## Publicar uma atualização
 
 O APK só traz o atualizador; o jogo é baixado do servidor (mmo-docs [INFRA-08]).
-Com o servidor rodando: `tools/publish_update.sh`. Quem abrir o app depois disso recebe a versão nova.
+Com o servidor rodando: `tools/publish_update.sh android` (celular) ou `tools/publish_update.sh desktop`.
+Quem abrir o app depois disso recebe a versão nova.
+
+## Gerar o APK
+
+Requisitos e configuração: mmo-docs [CLI-06]. Antes, troque `mmo/network/server_url.android` no
+`project.godot` pelo IP do PC que roda o servidor. Depois: `tools/build_apk.sh --install` (com o celular no adb)
+ou mande o `build/mmo.apk` para quem vai instalar. PC e celular precisam estar na mesma rede Wi-Fi.

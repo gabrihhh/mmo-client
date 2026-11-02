@@ -15,8 +15,8 @@ extends Control
 
 ## Versão deste instalador. O manifesto pode exigir uma mínima (minLauncherVersion).
 const LAUNCHER_VERSION: int = 1
-## Rota do manifesto no servidor (mmo-server/src/http/updates.ts).
-const MANIFEST_PATH: String = "/updates/manifest.json"
+## Rota do manifesto no servidor (mmo-server/src/http/updates.ts); %s = plataforma (ver [method _platform]).
+const MANIFEST_PATH: String = "/updates/%s/manifest.json"
 ## Primeira cena do jogo, dentro do pacote. ATENÇÃO: igual a GameBoot.SCENE (scripts/boot/game_boot.gd).
 const GAME_BOOT_SCENE: String = "res://scenes/boot/game_boot.tscn"
 ## Mesma configuração usada pelo jogo para o endereço do servidor (ws://...). Fica no APK.
@@ -67,14 +67,16 @@ func _start() -> void:
 	_http.timeout = MANIFEST_TIMEOUT_S
 	_http.download_file = ""
 	_connect_once(_on_manifest_received)
-	var error: Error = _http.request(_http_base_url() + MANIFEST_PATH)
+	print("Updater: manifesto em ", _manifest_url())
+	var error: Error = _http.request(_manifest_url())
 	if error != OK:
 		_fail("Endereço do servidor inválido (%s)." % error_string(error))
 
 
 func _on_manifest_received(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
 	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
-		_fail("Sem conexão com o servidor. Verifique a internet.")
+		print("Updater: manifesto falhou: url=%s result=%d http=%d" % [_manifest_url(), result, code])
+		_fail("Sem conexão com o servidor. Verifique a internet.\n(erro %d/%d)" % [result, code])
 		return
 	var manifest: Dictionary = _parse_manifest(body.get_string_from_utf8())
 	if manifest.is_empty():
@@ -200,10 +202,21 @@ func _parse_manifest(text: String) -> Dictionary:
 	return result
 
 
+func _manifest_url() -> String:
+	return _http_base_url() + MANIFEST_PATH % _platform()
+
+
+## Pasta de atualizações desta plataforma no servidor. O pacote muda com o formato de textura:
+## celular (ETC2/ASTC) é diferente de PC. ATENÇÃO: mesmos nomes do tools/publish_update.sh.
+func _platform() -> String:
+	return "android" if OS.has_feature("android") else "desktop"
+
+
 ## Endereço HTTP do servidor, derivado do endereço WebSocket (ws:// → http://, wss:// → https://).
 func _http_base_url() -> String:
-	var setting: Variant = ProjectSettings.get_setting(SERVER_URL_SETTING, "ws://localhost:2567")
-	var ws_url: String = str(setting).trim_suffix("/")
+	# get_setting_with_override aplica a variação por plataforma (server_url.android); get_setting não.
+	var setting: Variant = ProjectSettings.get_setting_with_override(SERVER_URL_SETTING)
+	var ws_url: String = (str(setting) if setting != null else "ws://localhost:2567").trim_suffix("/")
 	if ws_url.begins_with("wss://"):
 		return "https://" + ws_url.trim_prefix("wss://")
 	return "http://" + ws_url.trim_prefix("ws://")
