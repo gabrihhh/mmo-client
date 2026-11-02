@@ -47,8 +47,9 @@ const MSG_PLAYER_LEFT: String = "player_left"
 ## Estado da zona a cada tick (20 Hz). data: { tick: int, ack: int (último input MEU aplicado),
 ## players: Array[PlayerSnapshot], npcs: Array[NpcSnapshot], events: Array[CombatEvent],
 ## me: { mana, maxMana, respawnIn, target } }. PlayerSnapshot = { id, x, y, z, rotY, hp, maxHp, dead }.
-## CombatEvent = { type: "damage", source, target, amount, ability } | { type: "death", id, killer }
-## | { type: "respawn", id }.
+## CombatEvent = { type: "damage", source, target, amount, ability } | { type: "cast_start", source, ability,
+## target, duration } | { type: "miss", source, target, ability } | { type: "death", id, killer } | { type: "respawn", id }.
+## me.casting = { ability, target, remaining } ou null (golpe em andamento).
 const MSG_SNAPSHOT: String = "snapshot"
 ## Inventário completo. data: { equipped: { hand, head, chest, feet: ItemView ou null }, bag: Array[ItemView],
 ## bagCapacity, unarmedAttack: AbilityView }. ItemView = { uid, itemId, name, slot, basicAttack, abilities }.

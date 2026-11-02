@@ -54,6 +54,10 @@ var _next_seq: int = 1
 var _pending: Array[PendingInput] = []
 ## Deslocamento visual que esconde correções pequenas; decai até zero.
 var _visual_offset: Vector3 = Vector3.ZERO
+## Virar para um ponto (lançamento de golpe/habilidade): enquanto [member _face_until_ms] não passar, o modelo
+## olha para [member _face_point] em vez da direção do movimento ([JOGO-05]).
+var _face_point: Vector3 = Vector3.ZERO
+var _face_until_ms: int = 0
 var _bot_walk: bool = false
 var _bot_time: float = 0.0
 ## Estatística de correções (só com --bot-walk): quantas, a maior e a soma, em metros.
@@ -111,7 +115,23 @@ func _process(delta: float) -> void:
 	var alpha: float = _accumulator / step_seconds
 	_visual_offset *= exp(-correction_smoothing * delta)
 	global_position = _previous_sim.position().lerp(_sim.position(), alpha) + _visual_offset
-	rotation.y = lerp_angle(rotation.y, _sim.rot_y, 1.0 - exp(-turn_speed * delta))
+	rotation.y = lerp_angle(rotation.y, _target_yaw(), 1.0 - exp(-turn_speed * delta))
+
+
+## Mantém o modelo virado para [param world_point] por [param seconds] (lançamento). Só visual: a
+## direção "oficial" de quem está lançando quem decide é o servidor.
+func face_toward(world_point: Vector3, seconds: float) -> void:
+	_face_point = world_point
+	_face_until_ms = Time.get_ticks_msec() + int(maxf(seconds, 0.05) * 1000.0)
+
+
+## Para onde o modelo deve olhar agora: o ponto do lançamento, ou a direção da simulação.
+func _target_yaw() -> float:
+	if Time.get_ticks_msec() < _face_until_ms:
+		var flat: Vector3 = Vector3(_face_point.x - global_position.x, 0.0, _face_point.z - global_position.z)
+		if flat.length_squared() > 0.0001:
+			return atan2(-flat.x, -flat.z)
+	return _sim.rot_y
 
 
 func _simulate_tick(network: Network, step_seconds: float) -> void:

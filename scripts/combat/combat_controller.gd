@@ -130,17 +130,21 @@ func _on_card_index_released(offset: Vector2, index: int) -> void:
 		_end_aim()
 
 
-## Golpe do ataque simples confirmado pelo servidor: aí sim começa o relógio do botão Atacar.
+## Golpe começou no servidor ("cast_start" meu): o relógio do Atacar gira durante o lançamento.
 func _on_combat_event(event: Dictionary) -> void:
-	if Protocol.read_string(event, "type") == "damage" and Protocol.read_string(event, "source") == Network.instance.player_id \
-			and Protocol.read_string(event, "ability") == _attack.id:
-		_ready_at_ms[_attack.id] = Time.get_ticks_msec() + int(_attack.cooldown_s * 1000.0)
-		_refresh_cooldowns()
+	if Protocol.read_string(event, "type") == "cast_start" and Protocol.read_string(event, "source") == Network.instance.player_id:
+		var duration: float = Protocol.read_float(event, "duration")
+		_ready_at_ms[Protocol.read_string(event, "ability")] = Time.get_ticks_msec() + int(duration * 1000.0)
+		_hud.attack_button.set_cooldown(duration, duration)
 
 
 func _process(_delta: float) -> void:
 	# O alvo fixo de verdade é o do servidor (ele limpa quando o alvo morre ou sai).
 	_target_id = Network.instance.attack_target
+	# Golpe em andamento: o modelo fica virado para o alvo ([JOGO-05]).
+	var casting_node: RemotePlayer = _zone.get_target_node(Network.instance.casting_target) if not Network.instance.casting_target.is_empty() else null
+	if casting_node != null:
+		_player.face_toward(casting_node.global_position, 0.15)
 	# Marcador do alvo fixo segue o alvo; some se ele saiu da zona.
 	if _hovered_id.is_empty():
 		var target: RemotePlayer = _zone.get_target_node(_target_id) if not _target_id.is_empty() else null
@@ -191,12 +195,12 @@ func _on_card_tapped(ability: AbilityView) -> void:
 			if target == null:
 				_hud.show_toast("%s: sem alvo (arraste para mirar)" % ability.title)
 			else:
-				_request("%s em %s" % [ability.title, target.display_name], ability)
+				_request("%s em %s" % [ability.title, target.display_name], ability, target.global_position)
 		AbilityView.AimType.DIRECTION, AbilityView.AimType.AREA:
 			if target != null:
-				_request("%s na direção de %s" % [ability.title, target.display_name], ability)
+				_request("%s na direção de %s" % [ability.title, target.display_name], ability, target.global_position)
 			else:
-				_request("%s para a frente" % ability.title, ability)
+				_request("%s para a frente" % ability.title, ability, _player.global_position + _player.get_facing() * 3.0)
 
 
 func _on_card_released(offset: Vector2, ability: AbilityView) -> void:
@@ -211,12 +215,12 @@ func _on_card_released(offset: Vector2, ability: AbilityView) -> void:
 			if target == null:
 				_hud.show_toast("%s: ninguém na mira" % ability.title)
 			else:
-				_request("%s em %s" % [ability.title, target.display_name], ability)
+				_request("%s em %s" % [ability.title, target.display_name], ability, target.global_position)
 		AbilityView.AimType.DIRECTION:
 			var direction: Vector3 = (aim - _player.global_position).normalized()
-			_request("%s → direção (%.2f, %.2f)" % [ability.title, direction.x, direction.z], ability)
+			_request("%s → direção (%.2f, %.2f)" % [ability.title, direction.x, direction.z], ability, aim)
 		AbilityView.AimType.AREA:
-			_request("%s → ponto (%.1f, %.1f)" % [ability.title, aim.x, aim.z], ability)
+			_request("%s → ponto (%.1f, %.1f)" % [ability.title, aim.x, aim.z], ability, aim)
 
 
 # --- Prévia da mira (ataque e cartas) ---
@@ -277,7 +281,10 @@ func _nearest_remote(point: Vector3, max_distance: float) -> RemotePlayer:
 
 ## Usa [param ability]: começa a recarga e mostra o pedido. Passo 3 ([ROAD-05]): envia ao servidor
 ## (attack/cast), que decide e confirma a recarga.
-func _request(description: String, ability: AbilityView) -> void:
+func _request(description: String, ability: AbilityView, aim_point: Vector3 = Vector3.INF) -> void:
+	# Vira para onde a habilidade vai durante o lançamento (habilidade em si mesmo não vira).
+	if aim_point != Vector3.INF:
+		_player.face_toward(aim_point, maxf(ability.cast_time_s, 0.3))
 	# Só reinicia o relógio se estava pronta (ex.: fixar alvo com o ataque recarregando não reinicia).
 	if _cooldown_left(ability) <= 0.0:
 		_start_cooldown(ability)

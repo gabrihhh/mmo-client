@@ -75,6 +75,9 @@ var max_mana: float = 0.0
 var respawn_in: float = 0.0
 ## Alvo fixo do ataque simples segundo o SERVIDOR ("" = nenhum).
 var attack_target: String = ""
+## Golpe em andamento segundo o servidor: alvo ("" = nenhum) e segundos que faltam.
+var casting_target: String = ""
+var casting_remaining: float = 0.0
 
 ## Estimativa do tick atual do servidor (fracionário), avançada pelo tempo local e ajustada a cada snapshot.
 var _clock_tick: float = 0.0
@@ -366,6 +369,9 @@ func _apply_snapshot(data: Dictionary) -> void:
 	max_mana = Protocol.read_float(me, "maxMana", max_mana)
 	respawn_in = Protocol.read_float(me, "respawnIn")
 	attack_target = Protocol.read_string(me, "target")
+	var casting: Dictionary = Protocol.read_dict(me, "casting")
+	casting_target = Protocol.read_string(casting, "target")
+	casting_remaining = Protocol.read_float(casting, "remaining")
 	_sync_clock(server_tick)
 	snapshot_received.emit(server_tick, Protocol.read_int(data, "ack"))
 	for event: Dictionary in Protocol.read_dict_array(data, "events"):

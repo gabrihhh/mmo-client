@@ -126,6 +126,11 @@ func _on_combat_event(event: Dictionary) -> void:
 			# Vermelho: dano em mim. Amarelo: dano que eu dei. Branco: entre outros.
 			var color: Color = Color(1, 0.35, 0.3) if target_id == me else (Color(1, 0.85, 0.4) if Protocol.read_string(event, "source") == me else Color(1, 1, 1, 0.85))
 			FloatingText.spawn(self, node.global_position + Vector3.UP * _FLOATING_TEXT_HEIGHT, "-%d" % roundi(Protocol.read_float(event, "amount")), color)
+		"miss":
+			# Golpe terminou com o alvo fora do alcance ([JOGO-05]).
+			var missed: Node3D = get_entity_node(Protocol.read_string(event, "target"))
+			if missed != null and Protocol.read_string(event, "source") == me:
+				FloatingText.spawn(self, missed.global_position + Vector3.UP * _FLOATING_TEXT_HEIGHT, "Errou", Color(0.85, 0.85, 0.85))
 		"death":
 			var dead_id: String = Protocol.read_string(event, "id")
 			if Protocol.read_string(event, "killer") == me and dead_id != me:

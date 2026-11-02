@@ -33,6 +33,8 @@ var range_m: float = 0.0
 var radius_m: float = 0.0
 ## Tempo de recarga em segundos (no ataque simples: intervalo entre golpes). Mostrado como relógio na carta.
 var cooldown_s: float = 0.0
+## Tempo de lançamento em segundos: o personagem fica virado para o alvo/direção durante ele ([JOGO-05]).
+var cast_time_s: float = 0.0
 
 
 func _init(ability_id: String, ability_title: String, slot: String, aim: AimType, range_meters: float = 0.0, radius_meters: float = 0.0, cooldown_seconds: float = 0.0) -> void:
@@ -65,7 +67,13 @@ static func from_dict(data: Dictionary, slot: String) -> AbilityView:
 		Protocol.read_float(data, "range"),
 		Protocol.read_float(data, "radius"),
 		Protocol.read_float(data, "cooldown"),
-	)
+	).with_cast_time(Protocol.read_float(data, "castTime"))
+
+
+## Define o tempo de lançamento (encadeável) e devolve a própria habilidade.
+func with_cast_time(seconds: float) -> AbilityView:
+	cast_time_s = seconds
+	return self
 
 
 ## ATENÇÃO: nomes iguais a AimType em mmo-server/src/items/catalog.ts.
