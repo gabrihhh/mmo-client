@@ -11,7 +11,7 @@ extends CharacterBody3D
 @export var turn_speed: float = 12.0
 
 ## Joystick de toque; atribuído pela zona ao criar o jogador. Pode ser null.
-var joystick: VirtualJoystick = null
+var joystick: TouchJoystick = null
 
 ## Distância mínima (m) para considerar que o jogador se moveu e enviar update.
 const _MIN_SEND_DISTANCE: float = 0.01

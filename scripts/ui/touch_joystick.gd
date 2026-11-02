@@ -1,6 +1,7 @@
-class_name VirtualJoystick
+class_name TouchJoystick
 extends Control
 ## Joystick virtual de toque (controle principal no Android/iOS).
+## Não se chama VirtualJoystick porque o Godot 4.7 já tem uma classe nativa com esse nome.
 ##
 ## Leia [member output]: vetor de -1 a 1 em cada eixo (y negativo = para cima/frente).
 ## Desenhado via _draw, sem texturas. No desktop funciona com o mouse

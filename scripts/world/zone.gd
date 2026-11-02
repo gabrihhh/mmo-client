@@ -9,7 +9,7 @@ const LOCAL_PLAYER_SCENE: PackedScene = preload("res://scenes/player/local_playe
 const REMOTE_PLAYER_SCENE: PackedScene = preload("res://scenes/player/remote_player.tscn")
 
 @onready var _players_root: Node3D = $Players
-@onready var _joystick: VirtualJoystick = $HUD/VirtualJoystick
+@onready var _joystick: TouchJoystick = $HUD/TouchJoystick
 @onready var _status_label: Label = $HUD/StatusLabel
 
 var _local_player: LocalPlayer = null

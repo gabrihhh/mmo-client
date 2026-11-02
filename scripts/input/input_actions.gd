@@ -2,7 +2,7 @@ class_name InputActions
 extends RefCounted
 ## Nomes das ações de input e registro do teclado (usado só para testar no desktop).
 ##
-## No celular o movimento vem do [VirtualJoystick]; o teclado é um atalho de desenvolvimento.
+## No celular o movimento vem do [TouchJoystick]; o teclado é um atalho de desenvolvimento.
 
 const MOVE_LEFT: StringName = &"move_left"
 const MOVE_RIGHT: StringName = &"move_right"
