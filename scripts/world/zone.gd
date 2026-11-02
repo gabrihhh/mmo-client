@@ -9,6 +9,9 @@ extends Node3D
 
 const LOCAL_PLAYER_SCENE: PackedScene = preload("res://scenes/player/local_player.tscn")
 const REMOTE_PLAYER_SCENE: PackedScene = preload("res://scenes/player/remote_player.tscn")
+const DUMMY_SCENE: PackedScene = preload("res://scenes/world/training_dummy.tscn")
+## Altura (m) acima da origem da entidade onde nascem os números de dano.
+const _FLOATING_TEXT_HEIGHT: float = 2.9
 ## Para onde voltar quando a conexão cai.
 const LOGIN_SCENE: String = "res://scenes/ui/login.tscn"
 
@@ -17,6 +20,8 @@ const LOGIN_SCENE: String = "res://scenes/ui/login.tscn"
 
 var _local_player: LocalPlayer = null
 var _remote_players: Dictionary[String, RemotePlayer] = {}
+## Bonecos/monstros da zona (usam o mesmo script de desenho dos jogadores remotos).
+var _npcs: Dictionary[String, RemotePlayer] = {}
 var _aim_preview: AimPreview = null
 var _combat: CombatController = null
 
@@ -41,21 +46,40 @@ func _ready() -> void:
 
 	for state: PlayerState in Network.instance.get_players():
 		_on_player_added(state.id, state)
+	for npc: PlayerState in Network.instance.get_npcs():
+		_spawn_npc(npc)
+	Network.instance.combat_event.connect(_on_combat_event)
+	Network.instance.snapshot_received.connect(_on_snapshot)
 	_update_online_status()
 
 
-## Jogadores remotos presentes (para mira e alvo).
-func get_remote_players() -> Array[RemotePlayer]:
+## Quem pode ser alvo agora: bonecos/monstros vivos e, se a zona tem PvP ([JOGO-02]), jogadores vivos.
+func get_targetables() -> Array[RemotePlayer]:
 	var result: Array[RemotePlayer] = []
-	result.assign(_remote_players.values())
+	for npc: RemotePlayer in _npcs.values():
+		if npc.is_alive():
+			result.append(npc)
+	if Network.instance.pvp:
+		for remote: RemotePlayer in _remote_players.values():
+			if remote.is_alive():
+				result.append(remote)
 	return result
 
 
-## Jogador remoto pelo id, ou null.
-func get_remote_player(player_id: String) -> RemotePlayer:
-	if not _remote_players.has(player_id):
-		return null
-	return _remote_players[player_id]
+## Jogador remoto ou boneco pelo id (para o marcador do alvo), ou null.
+func get_target_node(entity_id: String) -> RemotePlayer:
+	if _remote_players.has(entity_id):
+		return _remote_players[entity_id]
+	if _npcs.has(entity_id):
+		return _npcs[entity_id]
+	return null
+
+
+## Nó de qualquer entidade (inclusive o jogador local), para efeitos visuais; ou null.
+func get_entity_node(entity_id: String) -> Node3D:
+	if _local_player != null and entity_id == Network.instance.player_id:
+		return _local_player
+	return get_target_node(entity_id)
 
 
 func _on_player_added(player_id: String, state: PlayerState) -> void:
@@ -77,6 +101,48 @@ func _on_player_removed(player_id: String) -> void:
 		remote.queue_free()
 		_remote_players.erase(player_id)
 	_update_online_status()
+
+
+func _spawn_npc(state: PlayerState) -> void:
+	if _npcs.has(state.id):
+		return
+	var npc: RemotePlayer = DUMMY_SCENE.instantiate() as RemotePlayer
+	npc.setup(state.id, state)
+	npc.name = "Npc_%s" % state.id
+	_players_root.add_child(npc)
+	_npcs[state.id] = npc
+
+
+## Eventos de combate: números de dano e avisos de morte ([JOGO-05]).
+func _on_combat_event(event: Dictionary) -> void:
+	var type: String = Protocol.read_string(event, "type")
+	var me: String = Network.instance.player_id
+	match type:
+		"damage":
+			var target_id: String = Protocol.read_string(event, "target")
+			var node: Node3D = get_entity_node(target_id)
+			if node == null:
+				return
+			# Vermelho: dano em mim. Amarelo: dano que eu dei. Branco: entre outros.
+			var color: Color = Color(1, 0.35, 0.3) if target_id == me else (Color(1, 0.85, 0.4) if Protocol.read_string(event, "source") == me else Color(1, 1, 1, 0.85))
+			FloatingText.spawn(self, node.global_position + Vector3.UP * _FLOATING_TEXT_HEIGHT, "-%d" % roundi(Protocol.read_float(event, "amount")), color)
+		"death":
+			var dead_id: String = Protocol.read_string(event, "id")
+			if Protocol.read_string(event, "killer") == me and dead_id != me:
+				var victim: RemotePlayer = get_target_node(dead_id)
+				_hud.show_toast("Você derrotou %s" % (victim.display_name if victim != null else dead_id))
+
+
+## A cada snapshot: barras de vida/mana do jogador local e o aviso de morte.
+func _on_snapshot(_tick: int, _ack: int) -> void:
+	var network: Network = Network.instance
+	var own: PlayerState = network.get_player(network.player_id)
+	if own == null:
+		return
+	_hud.set_health(own.hp, own.max_hp)
+	_hud.set_mana(network.mana, network.max_mana)
+	if own.dead:
+		_hud.show_toast("Você morreu · renasce em %d s" % ceili(network.respawn_in))
 
 
 func _on_left_zone(_code: int, _reason: String) -> void:

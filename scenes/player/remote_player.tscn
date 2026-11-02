@@ -1,6 +1,7 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/player/remote_player.gd" id="1_remote"]
+[ext_resource type="Script" path="res://scripts/combat/health_bar_3d.gd" id="9_bar"]
 
 [sub_resource type="StandardMaterial3D" id="Material_body"]
 albedo_color = Color(1, 0.35, 0.3, 1)
@@ -29,9 +30,13 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, -0.4)
 mesh = SubResource("BoxMesh_nose")
 
 [node name="NameLabel" type="Label3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 billboard = 1
 pixel_size = 0.012
 text = "jogador"
 font_size = 56
 outline_size = 14
+
+[node name="HealthBar" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.15, 0)
+script = ExtResource("9_bar")

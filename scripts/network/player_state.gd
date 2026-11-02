@@ -22,6 +22,10 @@ var z: float = 0.0
 var rot_y: float = 0.0
 ## Tick do servidor do último estado recebido.
 var tick: int = 0
+## Vida atual e máxima, e se está morto (esperando renascer). Ver mmo-docs [JOGO-05].
+var hp: float = 0.0
+var max_hp: float = 0.0
+var dead: bool = false
 
 ## Última posição recebida, em metros.
 var position: Vector3:
@@ -52,6 +56,12 @@ func apply_snapshot(data: Dictionary, at_tick: int) -> void:
 	y = Protocol.read_float(data, "y")
 	z = Protocol.read_float(data, "z")
 	rot_y = Protocol.read_float(data, "rotY")
+	hp = Protocol.read_float(data, "hp", hp)
+	max_hp = Protocol.read_float(data, "maxHp", max_hp)
+	var dead_value: Variant = data.get("dead")
+	if dead_value is bool:
+		var is_dead: bool = dead_value
+		dead = is_dead
 	tick = at_tick
 	if not _ticks.is_empty() and at_tick <= _ticks[-1]:
 		return
@@ -62,6 +72,11 @@ func apply_snapshot(data: Dictionary, at_tick: int) -> void:
 		_ticks.pop_front()
 		_positions.pop_front()
 		_rotations.pop_front()
+
+
+## Fração de vida (0..1); 1 se a vida máxima não é conhecida.
+func hp_ratio() -> float:
+	return clampf(hp / max_hp, 0.0, 1.0) if max_hp > 0.0 else 1.0
 
 
 ## Posição interpolada no tick (fracionário) [param render_tick]. Antes do histórico, devolve o

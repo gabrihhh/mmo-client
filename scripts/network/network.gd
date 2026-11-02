@@ -34,6 +34,10 @@ signal left_zone(code: int, reason: String)
 signal snapshot_received(tick: int, ack: int)
 ## O inventário mudou (chegou o primeiro após o login, ou uma troca foi aceita). Ver [member inventory].
 signal inventory_changed(inventory: InventoryState)
+## Um boneco/monstro está na zona (vem no welcome). [param state] é atualizado ao vivo.
+signal npc_added(npc_id: String, state: PlayerState)
+## Evento de combate do tick (dano, morte, renascimento). Ver [constant Protocol.MSG_SNAPSHOT].
+signal combat_event(event: Dictionary)
 
 ## Os jogadores remotos são desenhados este número de ticks no passado (2 ticks = 100 ms a 20 Hz),
 ## para sempre haver dois snapshots reais para interpolar mesmo se um atrasar.
@@ -63,6 +67,14 @@ var move_speed: float = 5.0
 var zone_half_size: float = 150.0
 ## Último inventário recebido (vestido + mochila); null antes do primeiro.
 var inventory: InventoryState = null
+## Jogadores podem ser atacados nesta zona (vem no welcome).
+var pvp: bool = false
+## Dados só deste jogador, do último snapshot ("me"): mana, segundos para renascer e alvo fixo.
+var mana: float = 0.0
+var max_mana: float = 0.0
+var respawn_in: float = 0.0
+## Alvo fixo do ataque simples segundo o SERVIDOR ("" = nenhum).
+var attack_target: String = ""
 
 ## Estimativa do tick atual do servidor (fracionário), avançada pelo tempo local e ajustada a cada snapshot.
 var _clock_tick: float = 0.0
@@ -78,6 +90,8 @@ var _in_zone: bool = false
 var _pending_auth: Dictionary = {}
 ## Estados vivos dos jogadores da zona, por player id.
 var _players: Dictionary[String, PlayerState] = {}
+## Bonecos/monstros da zona, por id.
+var _npcs: Dictionary[String, PlayerState] = {}
 
 
 func _enter_tree() -> void:
@@ -157,6 +171,28 @@ func tick_seconds() -> float:
 ## servidor menos [constant INTERPOLATION_DELAY_TICKS].
 func render_tick() -> float:
 	return _clock_tick - INTERPOLATION_DELAY_TICKS
+
+
+## Bonecos/monstros da zona.
+func get_npcs() -> Array[PlayerState]:
+	var result: Array[PlayerState] = []
+	result.assign(_npcs.values())
+	return result
+
+
+## Estado de um jogador OU boneco pelo id, ou null.
+func get_entity(id: String) -> PlayerState:
+	if _players.has(id):
+		return _players[id]
+	if _npcs.has(id):
+		return _npcs[id]
+	return null
+
+
+## Fixa o alvo do ataque simples ([param target_id] vazio = parar). O servidor confirma em [member attack_target].
+func send_attack(target_id: String) -> void:
+	if is_in_zone():
+		_send(Protocol.MSG_ATTACK, {"targetId": target_id if not target_id.is_empty() else null})
 
 
 ## Estado vivo de um jogador, ou null.
@@ -264,7 +300,14 @@ func _handle_message(text: String) -> void:
 			move_speed = Protocol.read_float(sim, "moveSpeed", move_speed)
 			zone_half_size = Protocol.read_float(sim, "zoneHalfSize", zone_half_size)
 			_clock_tick = float(Protocol.read_int(data, "tick"))
+			var pvp_value: Variant = data.get("pvp")
+			pvp = pvp_value is bool and pvp_value == true
 			_in_zone = true
+			for npc: Dictionary in Protocol.read_dict_array(data, "npcs"):
+				var npc_state: PlayerState = PlayerState.from_snapshot(npc, int(_clock_tick))
+				if npc_state != null and not _npcs.has(npc_state.id):
+					_npcs[npc_state.id] = npc_state
+					npc_added.emit(npc_state.id, npc_state)
 			# Lista primeiro: quem reagir ao joined_zone já encontra os jogadores em get_players().
 			for info: Dictionary in Protocol.read_dict_array(data, "players"):
 				_add_player(info)
@@ -314,8 +357,19 @@ func _apply_snapshot(data: Dictionary) -> void:
 		var id: String = Protocol.read_string(snapshot, "id")
 		if _players.has(id):
 			_players[id].apply_snapshot(snapshot, server_tick)
+	for npc: Dictionary in Protocol.read_dict_array(data, "npcs"):
+		var npc_id: String = Protocol.read_string(npc, "id")
+		if _npcs.has(npc_id) and Protocol.is_player_snapshot(npc):
+			_npcs[npc_id].apply_snapshot(npc, server_tick)
+	var me: Dictionary = Protocol.read_dict(data, "me")
+	mana = Protocol.read_float(me, "mana", mana)
+	max_mana = Protocol.read_float(me, "maxMana", max_mana)
+	respawn_in = Protocol.read_float(me, "respawnIn")
+	attack_target = Protocol.read_string(me, "target")
 	_sync_clock(server_tick)
 	snapshot_received.emit(server_tick, Protocol.read_int(data, "ack"))
+	for event: Dictionary in Protocol.read_dict_array(data, "events"):
+		combat_event.emit(event)
 
 
 ## Puxa o relógio local na direção do tick do servidor: aos poucos, ou de uma vez se estiver longe.
@@ -344,6 +398,8 @@ func _on_closed() -> void:
 	player_id = ""
 	username = ""
 	inventory = null
+	_npcs.clear()
+	attack_target = ""
 	set_process(false)
 
 	for id: String in _players.keys():

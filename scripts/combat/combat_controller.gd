@@ -8,8 +8,9 @@ extends Node
 ##   Arrastar: prévia translúcida saindo do personagem; soltar executa; voltar o dedo à carta cancela.
 ##
 ## Ataque e cartas vêm do que está vestido ([InventoryState], mensagem "inventory" do servidor).
-## Ainda não há combate no servidor: o pedido que seria enviado aparece como aviso na HUD
-## ([method _request]). No passo 3 do [ROAD-05] ele vira a mensagem ao servidor, que decide tudo.
+## Ataque simples: REAL (passo 3a, [JOGO-05]) — manda "attack" com o alvo; o servidor bate sozinho
+## quando em alcance; alvo fixo e relógio do ataque seguem o que o servidor confirma.
+## Cartas: ainda só aviso na HUD ([method _request]); efeitos no passo 3b do [ROAD-05].
 
 ## Arrastar o dedo esta distância (px) a partir do botão = mira no alcance máximo.
 const MAX_AIM_DRAG_PX: float = 220.0
@@ -42,8 +43,6 @@ func setup(zone: Zone, player: LocalPlayer, hud: Hud, preview: AimPreview) -> vo
 	_player = player
 	_hud = hud
 	_preview = preview
-	_hud.set_health(100.0, 100.0)
-	_hud.set_mana(100.0, 100.0)
 
 	var attack_button: TouchActionButton = _hud.attack_button
 	attack_button.tapped.connect(_on_attack_tapped)
@@ -60,6 +59,7 @@ func setup(zone: Zone, player: LocalPlayer, hud: Hud, preview: AimPreview) -> vo
 
 	var network: Network = Network.instance
 	network.inventory_changed.connect(_apply_inventory)
+	network.combat_event.connect(_on_combat_event)
 	if network.inventory != null:
 		_apply_inventory(network.inventory)
 
@@ -130,10 +130,20 @@ func _on_card_index_released(offset: Vector2, index: int) -> void:
 		_end_aim()
 
 
+## Golpe do ataque simples confirmado pelo servidor: aí sim começa o relógio do botão Atacar.
+func _on_combat_event(event: Dictionary) -> void:
+	if Protocol.read_string(event, "type") == "damage" and Protocol.read_string(event, "source") == Network.instance.player_id \
+			and Protocol.read_string(event, "ability") == _attack.id:
+		_ready_at_ms[_attack.id] = Time.get_ticks_msec() + int(_attack.cooldown_s * 1000.0)
+		_refresh_cooldowns()
+
+
 func _process(_delta: float) -> void:
+	# O alvo fixo de verdade é o do servidor (ele limpa quando o alvo morre ou sai).
+	_target_id = Network.instance.attack_target
 	# Marcador do alvo fixo segue o alvo; some se ele saiu da zona.
 	if _hovered_id.is_empty():
-		var target: RemotePlayer = _zone.get_remote_player(_target_id) if not _target_id.is_empty() else null
+		var target: RemotePlayer = _zone.get_target_node(_target_id) if not _target_id.is_empty() else null
 		if target != null:
 			_preview.show_target(target.global_position)
 		else:
@@ -143,15 +153,13 @@ func _process(_delta: float) -> void:
 
 # --- Ataque simples ---
 
+## Toque: fixa o alvo mais perto e o servidor passa a atacar (não bloqueia na recarga: só troca o alvo).
 func _on_attack_tapped() -> void:
-	if _is_cooling(_attack):
-		return
 	var nearest: RemotePlayer = _nearest_remote(_player.global_position, TAP_TARGET_RANGE)
 	if nearest == null:
 		_hud.show_toast("Ninguém por perto")
 		return
-	_target_id = nearest.session_id
-	_request("Atacar %s" % nearest.display_name, _attack)
+	_set_attack_target(nearest)
 
 
 func _on_attack_released(_offset: Vector2) -> void:
@@ -160,15 +168,22 @@ func _on_attack_released(_offset: Vector2) -> void:
 	if picked.is_empty():
 		_hud.show_toast("Nenhum alvo ali")
 		return
-	_target_id = picked
-	var target: RemotePlayer = _zone.get_remote_player(picked)
-	_request("Alvo fixo: %s (atacando)" % (target.display_name if target != null else picked), _attack)
+	var target: RemotePlayer = _zone.get_target_node(picked)
+	if target != null:
+		_set_attack_target(target)
+
+
+## Pede ao servidor para atacar [param target]. O marcador muda quando o servidor confirma.
+func _set_attack_target(target: RemotePlayer) -> void:
+	_target_id = target.session_id
+	Network.instance.send_attack(target.session_id)
+	_hud.show_toast("Alvo: %s" % target.display_name)
 
 
 # --- Cartas ---
 
 func _on_card_tapped(ability: AbilityView) -> void:
-	var target: RemotePlayer = _zone.get_remote_player(_target_id) if not _target_id.is_empty() else null
+	var target: RemotePlayer = _zone.get_target_node(_target_id) if not _target_id.is_empty() else null
 	match ability.aim_type:
 		AbilityView.AimType.SELF, AbilityView.AimType.AREA_SELF:
 			_request(ability.title, ability)
@@ -192,7 +207,7 @@ func _on_card_released(offset: Vector2, ability: AbilityView) -> void:
 		AbilityView.AimType.SELF, AbilityView.AimType.AREA_SELF:
 			_request(ability.title, ability)
 		AbilityView.AimType.TARGET:
-			var target: RemotePlayer = _zone.get_remote_player(picked)
+			var target: RemotePlayer = _zone.get_target_node(picked)
 			if target == null:
 				_hud.show_toast("%s: ninguém na mira" % ability.title)
 			else:
@@ -246,12 +261,12 @@ func _aim_point(offset: Vector2, ability: AbilityView) -> Vector3:
 	return _player.global_position + world_direction * reach * amount
 
 
-## Jogador remoto mais perto de [param point] até [param max_distance] metros (no plano), ou null.
-## PvP ligado nesta zona ([JOGO-02]); quando houver monstros e zonas seguras, a lista muda aqui.
+## Alvo (boneco/monstro, ou jogador se a zona tem PvP) mais perto de [param point] até
+## [param max_distance] metros (no plano), ou null.
 func _nearest_remote(point: Vector3, max_distance: float) -> RemotePlayer:
 	var best: RemotePlayer = null
 	var best_distance: float = max_distance
-	for remote: RemotePlayer in _zone.get_remote_players():
+	for remote: RemotePlayer in _zone.get_targetables():
 		var offset: Vector3 = remote.global_position - point
 		var distance: float = Vector2(offset.x, offset.z).length()
 		if distance <= best_distance:

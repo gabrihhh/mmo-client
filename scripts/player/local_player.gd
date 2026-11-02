@@ -42,6 +42,8 @@ class PendingInput:
 
 @onready var _camera: IsometricCamera = $Camera
 @onready var _name_label: Label3D = $NameLabel
+@onready var _health_bar: HealthBar3D = $HealthBar
+@onready var _body: Node3D = $Body
 
 ## Estado previsto agora e o do tick anterior (o desenho interpola entre os dois).
 var _sim: Movement.State = Movement.State.new()
@@ -98,6 +100,13 @@ func _process(delta: float) -> void:
 		_accumulator -= step_seconds
 		_simulate_tick(network, step_seconds)
 
+	# Vida e morte vêm do servidor ([JOGO-05]): morto, o corpo some e não anda.
+	var own: PlayerState = network.get_player(network.player_id)
+	if own != null:
+		_health_bar.set_ratio(own.hp_ratio())
+		_body.visible = not own.dead
+		_health_bar.visible = not own.dead
+
 	# Desenho: entre o tick anterior e o atual, mais a correção visual que está sumindo.
 	var alpha: float = _accumulator / step_seconds
 	_visual_offset *= exp(-correction_smoothing * delta)
@@ -107,6 +116,9 @@ func _process(delta: float) -> void:
 
 func _simulate_tick(network: Network, step_seconds: float) -> void:
 	_previous_sim = _sim
+	var own: PlayerState = network.get_player(network.player_id)
+	if own != null and own.dead:
+		return
 	var direction: Vector2 = _read_world_direction()
 	if direction.length() < _MIN_INPUT:
 		return

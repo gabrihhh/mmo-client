@@ -1,6 +1,7 @@
 class_name RemotePlayer
 extends Node3D
-## Representação de outro jogador, desenhada a partir dos snapshots do servidor. Ver mmo-docs [INFRA-09].
+## Outro jogador (ou boneco/monstro), desenhado a partir dos snapshots do servidor. Ver mmo-docs [INFRA-09].
+## Mostra nome e barra de vida; morto, o corpo some até renascer ([JOGO-05]).
 ##
 ## Não simula nada: a cada frame pede ao [PlayerState] a posição no tick
 ## [method Network.render_tick] (alguns ticks no PASSADO), interpolando entre dois snapshots reais.
@@ -18,6 +19,8 @@ var display_name: String:
 var _state: PlayerState = null
 
 @onready var _name_label: Label3D = $NameLabel
+@onready var _health_bar: HealthBar3D = $HealthBar
+@onready var _body: Node3D = $Body
 
 
 ## Liga este nó ao estado do servidor. Chamar antes de adicionar à árvore.
@@ -40,3 +43,11 @@ func _process(_delta: float) -> void:
 	var render_tick: float = Network.instance.render_tick()
 	position = _state.sample_position(render_tick)
 	rotation.y = _state.sample_rot_y(render_tick)
+	_health_bar.set_ratio(_state.hp_ratio())
+	_body.visible = not _state.dead
+	_health_bar.visible = not _state.dead
+
+
+## true se está vivo (pode ser alvo).
+func is_alive() -> bool:
+	return _state != null and not _state.dead
