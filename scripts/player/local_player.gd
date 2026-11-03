@@ -52,6 +52,8 @@ class PendingInput:
 @onready var _health_bar: HealthBar3D = $HealthBar
 @onready var _body: Node3D = $Body
 var _shield_bubble: ShieldBubble = null
+## Itens vestidos no boneco ([ART-02]).
+var _equipment: EquipmentView = null
 
 ## Estado previsto agora e o do tick anterior (o desenho interpola entre os dois).
 var _sim: Movement.State = Movement.State.new()
@@ -87,6 +89,8 @@ func _ready() -> void:
 	_bot_walk = BOT_WALK_ARG in OS.get_cmdline_user_args()
 	_shield_bubble = ShieldBubble.new()
 	add_child(_shield_bubble)
+	_equipment = EquipmentView.new()
+	_body.add_child(_equipment)
 
 
 ## Giro da câmera (rad): converte direções da tela (joystick, mira) em direções no mundo.
@@ -108,6 +112,7 @@ func spawn_at(state: PlayerState) -> void:
 	global_position = _sim.position()
 	rotation.y = _sim.rot_y
 	_camera.snap_to_target()
+	_equipment.bind(state)
 
 
 func _process(delta: float) -> void:

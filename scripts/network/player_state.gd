@@ -28,6 +28,11 @@ var max_hp: float = 0.0
 var dead: bool = false
 ## Escudo ativo (dano que ainda absorve; 0 = sem escudo). Ver mmo-docs [JOGO-06].
 var shield: float = 0.0
+## O que veste: slot ("hand", "head", "chest", "feet") → itemId. Slot vazio não aparece. Ver [ART-02].
+var look: Dictionary[String, String] = {}
+
+## A aparência mudou ([member look]): o boneco troca os modelos dos itens.
+signal look_changed
 
 ## Última posição recebida, em metros.
 var position: Vector3:
@@ -47,8 +52,22 @@ static func from_snapshot(data: Dictionary, at_tick: int) -> PlayerState:
 	var state: PlayerState = PlayerState.new()
 	state.id = Protocol.read_string(data, "id")
 	state.name = Protocol.read_string(data, "name")
+	state.set_look(Protocol.read_dict(data, "look"))
 	state.apply_snapshot(data, at_tick)
 	return state
+
+
+## Troca a aparência a partir do Look do servidor ({ hand, head, chest, feet: itemId ou null }).
+func set_look(data: Dictionary) -> void:
+	var new_look: Dictionary[String, String] = {}
+	for slot: String in InventoryState.SLOTS:
+		var item_id: String = Protocol.read_string(data, slot)
+		if not item_id.is_empty():
+			new_look[slot] = item_id
+	if new_look == look:
+		return
+	look = new_look
+	look_changed.emit()
 
 
 ## Registra o estado do tick [param at_tick] (PlayerSnapshot já validado). Ticks repetidos ou

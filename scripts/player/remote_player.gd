@@ -1,7 +1,7 @@
 class_name RemotePlayer
 extends Node3D
 ## Outro jogador (ou boneco/monstro), desenhado a partir dos snapshots do servidor. Ver mmo-docs [INFRA-09].
-## Mostra nome e barra de vida; morto, o corpo some até renascer ([JOGO-05]).
+## Mostra nome, barra de vida e os itens vestidos ([ART-02]); morto, o corpo some até renascer ([JOGO-05]).
 ##
 ## Não simula nada: a cada frame pede ao [PlayerState] a posição no tick
 ## [method Network.render_tick] (alguns ticks no PASSADO), interpolando entre dois snapshots reais.
@@ -33,6 +33,10 @@ func setup(id: String, state: PlayerState) -> void:
 func _ready() -> void:
 	_shield_bubble = ShieldBubble.new()
 	add_child(_shield_bubble)
+	# Itens vestidos ([ART-02]); bonecos de treino não têm look e ficam sem nada.
+	var equipment: EquipmentView = EquipmentView.new()
+	_body.add_child(equipment)
+	equipment.bind(_state)
 	# Username exatamente como foi cadastrado (o id é interno).
 	_name_label.text = display_name
 	if _state != null:

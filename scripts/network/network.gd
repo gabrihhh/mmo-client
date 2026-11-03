@@ -392,6 +392,11 @@ func _apply_snapshot(data: Dictionary) -> void:
 	_sync_clock(server_tick)
 	snapshot_received.emit(server_tick, Protocol.read_int(data, "ack"))
 	for event: Dictionary in Protocol.read_dict_array(data, "events"):
+		if Protocol.read_string(event, "type") == "look":
+			var who: PlayerState = get_player(Protocol.read_string(event, "id"))
+			if who != null:
+				who.set_look(Protocol.read_dict(event, "look"))
+			continue
 		combat_event.emit(event)
 
 

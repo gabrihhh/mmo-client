@@ -10,7 +10,7 @@ extends RefCounted
 ## mmo-server/src/accounts/credentials.ts). Mudou lá → mude aqui e atualize mmo-docs [INFRA-04], [INFRA-07].
 
 ## Versão do protocolo enviada ao autenticar. Precisa ser igual a PROTOCOL_VERSION do servidor.
-const VERSION: int = 8
+const VERSION: int = 9
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, username, email, password }.
@@ -41,7 +41,8 @@ const MSG_CAST: String = "cast"
 ## Autenticação aceita. data: { playerId, username (como foi cadastrado), sessionToken }.
 const MSG_AUTH_OK: String = "auth_ok"
 ## Entrada na zona aceita. data: { playerId, zone, tick: int, sim: { tickRate, moveSpeed, zoneHalfSize },
-## players: Array[PlayerInfo] } (PlayerInfo = PlayerSnapshot + name).
+## players: Array[PlayerInfo] } (PlayerInfo = PlayerSnapshot + name + look). look = { hand, head, chest, feet:
+## itemId ou null } (o que veste; [ART-02]). ATENÇÃO: Look em mmo-server/src/net/protocol.ts.
 const MSG_WELCOME: String = "welcome"
 ## Outro jogador entrou. data: { player: PlayerInfo }.
 const MSG_PLAYER_JOINED: String = "player_joined"
@@ -52,7 +53,8 @@ const MSG_PLAYER_LEFT: String = "player_left"
 ## me: { mana, maxMana, respawnIn, target } }. PlayerSnapshot = { id, x, y, z, rotY, hp, maxHp, dead }.
 ## CombatEvent = { type: "damage", source, target, amount, absorbed, ability } | { type: "heal", source, target,
 ## amount, ability } | { type: "impact", source, ability, x, z, radius } | { type: "cast_start", source, ability,
-## target, duration } | { type: "miss", source, target, ability } | { type: "death", id, killer } | { type: "respawn", id }.
+## target, duration } | { type: "miss", source, target, ability } | { type: "death", id, killer } | { type: "respawn", id }
+## | { type: "look", id, look } (trocou o que veste).
 ## me.casting = { ability, target, remaining } ou null (golpe em andamento).
 const MSG_SNAPSHOT: String = "snapshot"
 ## Inventário completo. data: { equipped: { hand, head, chest, feet: ItemView ou null }, bag: Array[ItemView],
