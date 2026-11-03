@@ -85,6 +85,8 @@ var _boost_multiplier: float = 1.0
 var _boost_steps_left: int = 0
 var _boost_until_ms: int = 0
 var _bot_walk: bool = false
+## Dev ([BotFight]): direção de movimento forçada no mundo (x, z); zero = joystick/teclado normais.
+var bot_direction: Vector2 = Vector2.ZERO
 var _bot_time: float = 0.0
 ## Estatística de correções (só com --bot-walk): quantas, a maior e a soma, em metros.
 var _corrections: int = 0
@@ -315,6 +317,8 @@ func _read_world_direction() -> Vector2:
 				_correction_sum / maxf(1.0, float(_corrections))])
 		_bot_use_movement_abilities()
 		return Vector2(cos(_bot_time * 0.8), sin(_bot_time * 0.8))
+	if bot_direction != Vector2.ZERO:
+		return bot_direction.limit_length(1.0)
 	var touch: Vector2 = joystick.output if joystick != null else Vector2.ZERO
 	var screen: Vector2 = (touch + InputActions.get_keyboard_vector()).limit_length(1.0)
 	var world: Vector3 = Vector3(screen.x, 0.0, screen.y).rotated(Vector3.UP, _camera.get_yaw_radians())
