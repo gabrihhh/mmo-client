@@ -24,6 +24,11 @@ var _remote_players: Dictionary[String, RemotePlayer] = {}
 var _npcs: Dictionary[String, RemotePlayer] = {}
 var _aim_preview: AimPreview = null
 var _combat: CombatController = null
+## Projéteis do servidor na tela, por id do evento "projectile" ([JOGO-08]).
+var _projectiles: Dictionary[int, ProjectileVisual] = {}
+
+## Altura (m) de onde os projéteis voam (mais ou menos a mão de quem lança).
+const _PROJECTILE_HEIGHT: float = 1.3
 
 
 func _ready() -> void:
@@ -113,16 +118,30 @@ func _spawn_npc(state: PlayerState) -> void:
 	_npcs[state.id] = npc
 
 
-## Eventos de combate: números de dano e avisos de morte ([JOGO-05]).
+## Eventos de combate: animações, projéteis, avisos no chão ([JOGO-08]), números de dano e mortes ([JOGO-05]).
 func _on_combat_event(event: Dictionary) -> void:
 	var type: String = Protocol.read_string(event, "type")
 	var me: String = Network.instance.player_id
 	match type:
+		"cast_start":
+			_on_cast_start(event)
+		"projectile":
+			_on_projectile(event)
+		"projectile_end":
+			var ended: int = Protocol.read_int(event, "id", -1)
+			if _projectiles.has(ended):
+				var visual: ProjectileVisual = _projectiles[ended]
+				if is_instance_valid(visual):
+					visual.finish(Vector3(Protocol.read_float(event, "x"), 0.0, Protocol.read_float(event, "z")))
+				_projectiles.erase(ended)
 		"damage":
 			var target_id: String = Protocol.read_string(event, "target")
 			var node: Node3D = get_entity_node(target_id)
 			if node == null:
 				return
+			var hurt: CharacterModel = _character_of(target_id)
+			if hurt != null:
+				hurt.flinch()
 			# Vermelho: dano em mim. Amarelo: dano que eu dei. Branco: entre outros.
 			var color: Color = Color(1, 0.35, 0.3) if target_id == me else (Color(1, 0.85, 0.4) if Protocol.read_string(event, "source") == me else Color(1, 1, 1, 0.85))
 			var above: Vector3 = node.global_position + Vector3.UP * _FLOATING_TEXT_HEIGHT
@@ -151,6 +170,66 @@ func _on_combat_event(event: Dictionary) -> void:
 			if Protocol.read_string(event, "killer") == me and dead_id != me:
 				var victim: RemotePlayer = get_target_node(dead_id)
 				_hud.show_toast("Você derrotou %s" % (victim.display_name if victim != null else dead_id))
+
+
+## Alguém começou a lançar: o personagem anima (golpe no fim do lançamento), aparece o aviso no chão das
+## áreas/linhas e, nas habilidades de alvo, um projétil visual que chega junto com o dano ([JOGO-08]).
+func _on_cast_start(event: Dictionary) -> void:
+	var source_id: String = Protocol.read_string(event, "source")
+	var ability: String = Protocol.read_string(event, "ability")
+	var duration: float = Protocol.read_float(event, "duration")
+	var model: CharacterModel = _character_of(source_id)
+	if model != null:
+		model.play_action(AbilityVisuals.animation(ability), duration)
+	var color: Color = AbilityVisuals.color(ability)
+	var radius: float = Protocol.read_float(event, "radius")
+	var has_point: bool = event.has("x") and event.has("z")
+	var caster: Node3D = get_entity_node(source_id)
+	if has_point and radius > 0.0 and duration > 0.0 and caster != null:
+		var point: Vector3 = Vector3(Protocol.read_float(event, "x"), 0.0, Protocol.read_float(event, "z"))
+		if Protocol.read_string(event, "aim") == "direction":
+			GroundWarning.spawn_line(self, caster.global_position, point, radius, duration, color)
+		else:
+			GroundWarning.spawn_area(self, point.x, point.z, radius, duration, color)
+	var flight: float = AbilityVisuals.homing_flight(ability)
+	var target: Node3D = get_entity_node(Protocol.read_string(event, "target"))
+	if flight > 0.0 and target != null and model != null:
+		# Sai antes do fim do lançamento para chegar junto com o dano.
+		var delay: float = maxf(duration - flight, 0.0)
+		get_tree().create_timer(delay).timeout.connect(_launch_homing.bind(model, target, minf(flight, duration), color))
+
+
+## Projétil de alvo (visual): sai da mão de [param model] e chega em [param target] em [param seconds].
+func _launch_homing(model: CharacterModel, target: Node3D, seconds: float, color: Color) -> void:
+	if not is_instance_valid(model) or not is_instance_valid(target) or not model.is_visible_in_tree():
+		return
+	ProjectileVisual.spawn_homing(self, model.cast_point(), target, seconds, color)
+
+
+## Projétil de verdade saiu ([JOGO-08]): desenha o voo na mesma velocidade do servidor.
+func _on_projectile(event: Dictionary) -> void:
+	var id: int = Protocol.read_int(event, "id", -1)
+	var from: Vector3 = Vector3(Protocol.read_float(event, "x"), _PROJECTILE_HEIGHT, Protocol.read_float(event, "z"))
+	var direction: Vector3 = Vector3(Protocol.read_float(event, "dirX"), 0.0, Protocol.read_float(event, "dirZ"))
+	if direction.length() < 0.01:
+		return
+	var ability: String = Protocol.read_string(event, "ability")
+	var visual: ProjectileVisual = ProjectileVisual.spawn_linear(self, from, direction.normalized(),
+		Protocol.read_float(event, "speed"), Protocol.read_float(event, "range"), AbilityVisuals.color(ability))
+	_projectiles[id] = visual
+	# Limpa entradas de projéteis que já sumiram sozinhos (fim do alcance antes do "projectile_end").
+	for old: int in _projectiles.keys():
+		if not is_instance_valid(_projectiles[old]):
+			_projectiles.erase(old)
+
+
+## Boneco animado de [param id] (você ou outro jogador); null para bonecos de treino e desconhecidos.
+func _character_of(id: String) -> CharacterModel:
+	if _local_player != null and id == Network.instance.player_id:
+		return _local_player.model
+	if _remote_players.has(id):
+		return _remote_players[id].model
+	return null
 
 
 ## A cada snapshot: barras de vida/mana do jogador local e o aviso de morte.
@@ -186,6 +265,7 @@ func _spawn_local_player(state: PlayerState) -> void:
 	_local_player.joystick = _hud.joystick
 	_players_root.add_child(_local_player)
 	_local_player.spawn_at(state)
+	BotFight.attach_if_requested(self, _local_player)
 
 	_combat = CombatController.new()
 	_combat.name = "CombatController"

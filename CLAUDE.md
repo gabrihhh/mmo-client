@@ -59,6 +59,8 @@ godot --path .                                    # roda o jogo (servidor precis
 godot --path . --headless --quit-after 300 -- --dev-user=Teste   # valida conexão sem clicar ([CLI-05])
 godot --path . -- --profile=2 --dev-user=Teste2   # 2ª janela no mesmo PC, outra conta
 godot --path . --headless --max-fps 60 -- --dev-user=Bot --bot-walk   # anda sozinho e mede correções ([INFRA-09])
+godot --path . -- --profile=luta --dev-user=Lutador --bot-fight      # luta sozinho: animações, projéteis ([JOGO-08])
+godot --headless --path . --script res://tools/placeholders/make_character.gd   # gera o personagem ([ART-03])
 tools/publish_update.sh android                   # publica versão nova do jogo p/ celular ([INFRA-08])
 tools/build_apk.sh --install                      # gera o APK e instala no aparelho do adb ([CLI-06])
 ```

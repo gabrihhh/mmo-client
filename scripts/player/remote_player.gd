@@ -21,7 +21,15 @@ var _state: PlayerState = null
 @onready var _name_label: Label3D = $NameLabel
 @onready var _health_bar: HealthBar3D = $HealthBar
 @onready var _body: Node3D = $Body
+## Boneco animado ([ART-03]); null nos bonecos de treino (que têm só um corpo simples).
+@onready var model: CharacterModel = get_node_or_null("Body/Character") as CharacterModel
 var _shield_bubble: ShieldBubble = null
+## Velocidade (m/s) suavizada, para a animação de correr.
+var _anim_speed: float = 0.0
+var _last_position: Vector3 = Vector3.ZERO
+
+## Cor da camisa dos outros jogadores (a sua é azul).
+const SHIRT_COLOR: Color = Color(0.9, 0.3, 0.25)
 
 
 ## Liga este nó ao estado do servidor. Chamar antes de adicionar à árvore.
@@ -33,18 +41,18 @@ func setup(id: String, state: PlayerState) -> void:
 func _ready() -> void:
 	_shield_bubble = ShieldBubble.new()
 	add_child(_shield_bubble)
-	# Itens vestidos ([ART-02]); bonecos de treino não têm look e ficam sem nada.
-	var equipment: EquipmentView = EquipmentView.new()
-	_body.add_child(equipment)
-	equipment.bind(_state)
+	if model != null:
+		model.set_shirt_color(SHIRT_COLOR)
+		model.bind_look(_state)
 	# Username exatamente como foi cadastrado (o id é interno).
 	_name_label.text = display_name
 	if _state != null:
 		position = _state.position
 		rotation.y = _state.rot_y
+	_last_position = position
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if _state == null or Network.instance == null:
 		return
 	var render_tick: float = Network.instance.render_tick()
@@ -54,6 +62,12 @@ func _process(_delta: float) -> void:
 	_body.visible = not _state.dead
 	_health_bar.visible = not _state.dead
 	_shield_bubble.set_active(_state.shield > 0.0 and not _state.dead)
+	if model != null and delta > 0.0:
+		var moved: Vector3 = position - _last_position
+		moved.y = 0.0
+		_anim_speed = lerpf(_anim_speed, moved.length() / delta, 1.0 - exp(-10.0 * delta))
+		model.set_move_speed(_anim_speed / maxf(Network.instance.move_speed, 0.1))
+	_last_position = position
 
 
 ## true se está vivo (pode ser alvo).

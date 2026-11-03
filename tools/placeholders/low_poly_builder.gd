@@ -7,9 +7,16 @@ extends RefCounted
 ## Y para cima e frente do modelo em +Z (padrão do glTF e do Godot para modelos).
 ##
 ## Uso: crie um, chame os métodos de forma e no fim [method build] devolve a [ArrayMesh].
+## Personagem: antes de cada peça, ponha em [member bone] o índice do osso que ela segue (skinning rígido:
+## peso 1 num osso só). A malha sai com ossos/pesos e é ligada a um [Skeleton3D] ([ART-03]).
+
+## Osso (índice no Skeleton3D) das próximas formas; -1 = malha sem esqueleto.
+var bone: int = -1
 
 ## Triângulos acumulados por cor: cor → posições (3 por triângulo).
 var _by_color: Dictionary[Color, PackedVector3Array] = {}
+## Osso de cada triângulo, na mesma ordem de [member _by_color].
+var _bones_by_color: Dictionary[Color, PackedInt32Array] = {}
 
 
 ## Caixa centrada em [param center] com [param size] (m).
@@ -96,6 +103,8 @@ func build() -> ArrayMesh:
 	var mesh: ArrayMesh = ArrayMesh.new()
 	for color: Color in _by_color:
 		var positions: PackedVector3Array = _by_color[color]
+		var bones: PackedInt32Array = _bones_by_color[color]
+		var skinned: bool = bones.size() > 0 and bones[0] >= 0
 		var tool: SurfaceTool = SurfaceTool.new()
 		tool.begin(Mesh.PRIMITIVE_TRIANGLES)
 		for i: int in range(0, positions.size(), 3):
@@ -106,6 +115,9 @@ func build() -> ArrayMesh:
 			# Godot usa sentido horário para a face da frente: a, c, b.
 			for v: Vector3 in [a, c, b]:
 				tool.set_normal(normal)
+				if skinned:
+					tool.set_bones(PackedInt32Array([bones[i / 3], 0, 0, 0]))
+					tool.set_weights(PackedFloat32Array([1.0, 0.0, 0.0, 0.0]))
 				tool.add_vertex(v)
 		var material: StandardMaterial3D = StandardMaterial3D.new()
 		material.albedo_color = color
@@ -121,6 +133,9 @@ func _tri(a: Vector3, b: Vector3, c: Vector3, color: Color) -> void:
 	var positions: PackedVector3Array = _by_color.get(color, PackedVector3Array())
 	positions.append_array(PackedVector3Array([a, b, c]))
 	_by_color[color] = positions
+	var bones: PackedInt32Array = _bones_by_color.get(color, PackedInt32Array())
+	bones.append(bone)
+	_bones_by_color[color] = bones
 
 
 ## Quadrilátero [a, b, c, d] anti-horário visto de fora = dois triângulos.

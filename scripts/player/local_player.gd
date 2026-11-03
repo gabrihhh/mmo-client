@@ -19,6 +19,8 @@ extends Node3D
 var joystick: TouchJoystick = null
 
 ## Divergência (m) acima da qual a correção é aplicada na hora, sem suavizar (ex.: teleporte).
+## Cor da camisa do seu personagem (os outros são vermelhos).
+const SHIRT_COLOR: Color = Color(0.25, 0.5, 1.0)
 const _SNAP_DISTANCE: float = 2.0
 ## Abaixo deste comprimento o input conta como parado e não é enviado.
 const _MIN_INPUT: float = 0.01
@@ -51,9 +53,11 @@ class PendingInput:
 @onready var _name_label: Label3D = $NameLabel
 @onready var _health_bar: HealthBar3D = $HealthBar
 @onready var _body: Node3D = $Body
+## Boneco (animação e itens vestidos, [ART-03]).
+@onready var model: CharacterModel = $Body/Character
 var _shield_bubble: ShieldBubble = null
-## Itens vestidos no boneco ([ART-02]).
-var _equipment: EquipmentView = null
+## Velocidade (m/s) suavizada, para a animação de correr.
+var _anim_speed: float = 0.0
 
 ## Estado previsto agora e o do tick anterior (o desenho interpola entre os dois).
 var _sim: Movement.State = Movement.State.new()
@@ -89,8 +93,7 @@ func _ready() -> void:
 	_bot_walk = BOT_WALK_ARG in OS.get_cmdline_user_args()
 	_shield_bubble = ShieldBubble.new()
 	add_child(_shield_bubble)
-	_equipment = EquipmentView.new()
-	_body.add_child(_equipment)
+	model.set_shirt_color(SHIRT_COLOR)
 
 
 ## Giro da câmera (rad): converte direções da tela (joystick, mira) em direções no mundo.
@@ -112,7 +115,7 @@ func spawn_at(state: PlayerState) -> void:
 	global_position = _sim.position()
 	rotation.y = _sim.rot_y
 	_camera.snap_to_target()
-	_equipment.bind(state)
+	model.bind_look(state)
 
 
 func _process(delta: float) -> void:
@@ -137,6 +140,12 @@ func _process(delta: float) -> void:
 	_visual_offset *= exp(-correction_smoothing * delta)
 	global_position = _previous_sim.position().lerp(_sim.position(), alpha) + _visual_offset
 	rotation.y = lerp_angle(rotation.y, _target_yaw(), 1.0 - exp(-turn_speed * delta))
+
+	# Animação de pernas pela velocidade da simulação (sem o ruído das correções).
+	var tick_move: Vector3 = _sim.position() - _previous_sim.position()
+	tick_move.y = 0.0
+	_anim_speed = lerpf(_anim_speed, tick_move.length() / step_seconds, 1.0 - exp(-12.0 * delta))
+	model.set_move_speed(_anim_speed / maxf(network.move_speed, 0.1))
 
 
 ## Mantém o modelo virado para [param world_point] por [param seconds] (lançamento). Só visual: a
