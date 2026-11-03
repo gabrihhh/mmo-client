@@ -9,8 +9,8 @@ enum ProjectionMode { PERSPECTIVE, ORTHOGRAPHIC }
 
 ## Nó seguido. Vazio = usa o nó pai.
 @export var target: Node3D
-## Inclinação (eixo X), em graus.
-@export var pitch_degrees: float = -45.0
+## Inclinação (eixo X), em graus. Mais negativo = mais de cima (-90 = olhando reto para baixo).
+@export var pitch_degrees: float = -55.0
 ## Giro (eixo Y), em graus. O movimento do jogador é relativo a este ângulo.
 @export var yaw_degrees: float = 45.0
 @export var projection_mode: ProjectionMode = ProjectionMode.PERSPECTIVE
@@ -30,8 +30,9 @@ enum ProjectionMode { PERSPECTIVE, ORTHOGRAPHIC }
 @export var follow_smoothing: float = 10.0
 ## Altura na tela (0 = topo, 1 = base) onde o ponto focado aparece. 0.5 = centro da tela. A zona põe aqui
 ## o meio do espaço livre entre as molduras da HUD ([method Hud.play_area_center_ratio]), para o boneco não
-## ficar colado nos controles. Só desloca a imagem ([member Camera3D.v_offset]): o tamanho da área visível
-## não muda (justiça no PvP, [CLI-02]).
+## ficar colado nos controles. Só desloca a imagem, como uma lente descentralizada (projeção "frustum" com
+## [member Camera3D.frustum_offset]): a câmera não sai do lugar, então o ÂNGULO de visão não muda, e o tamanho
+## da área visível também não (justiça no PvP, [CLI-02]).
 @export_range(0.0, 1.0) var screen_focus_y: float = 0.5:
 	set(value):
 		screen_focus_y = value
@@ -60,31 +61,25 @@ func apply_settings() -> void:
 	keep_aspect = Camera3D.KEEP_HEIGHT if lock_height else Camera3D.KEEP_WIDTH
 	match projection_mode:
 		ProjectionMode.PERSPECTIVE:
-			projection = Camera3D.PROJECTION_PERSPECTIVE
+			# Abertura (graus) no eixo travado: com altura travada, a vertical da referência
+			# (tan(v/2) = tan(h/2) / proporção); com largura travada, a horizontal.
+			var locked_fov: float = perspective_fov
 			if lock_height:
-				# Abertura vertical da referência: tan(v/2) = tan(h/2) / proporção.
-				var half_tan: float = tan(deg_to_rad(perspective_fov) / 2.0) / reference_aspect
-				fov = rad_to_deg(2.0 * atan(half_tan))
-			else:
-				fov = perspective_fov
+				locked_fov = rad_to_deg(2.0 * atan(tan(deg_to_rad(perspective_fov) / 2.0) / reference_aspect))
+			fov = locked_fov
+			# Frustum = perspectiva com o centro deslocado. Medidas no plano "near".
+			var half_tan: float = tan(deg_to_rad(locked_fov) / 2.0)
+			var half_height_tan: float = half_tan if lock_height else half_tan / aspect
+			projection = Camera3D.PROJECTION_FRUSTUM
+			size = 2.0 * near * half_tan
+			frustum_offset = Vector2(0.0, -(1.0 - 2.0 * screen_focus_y) * near * half_height_tan)
+			v_offset = 0.0
 		ProjectionMode.ORTHOGRAPHIC:
 			projection = Camera3D.PROJECTION_ORTHOGONAL
 			size = orthographic_size / reference_aspect if lock_height else orthographic_size
-	v_offset = _focus_offset(aspect, lock_height)
-
-
-## Quanto (m) baixar a câmera no eixo "para cima" dela para o ponto focado aparecer em
-## [member screen_focus_y]. Na distância do foco, metade da altura visível = d·tan(v/2) (perspectiva) ou
-## size/2 (ortográfica); o ponto sobe na tela (1 − 2·y) dessas metades.
-func _focus_offset(aspect: float, lock_height: bool) -> float:
-	var half_height: float = 0.0
-	if projection == Camera3D.PROJECTION_PERSPECTIVE:
-		var half_tan: float = tan(deg_to_rad(fov) / 2.0)
-		# KEEP_WIDTH: o fov é horizontal; a abertura vertical sai da proporção da tela.
-		half_height = distance * (half_tan if lock_height else half_tan / aspect)
-	else:
-		half_height = size / 2.0 if lock_height else size / 2.0 / aspect
-	return -(1.0 - 2.0 * screen_focus_y) * half_height
+			# Ortográfica não tem ângulo de perspectiva: deslocar a câmera no próprio "para cima" basta.
+			var half_height: float = size / 2.0 if lock_height else size / 2.0 / aspect
+			v_offset = -(1.0 - 2.0 * screen_focus_y) * half_height
 
 
 ## Posiciona a câmera no alvo sem suavização (ex.: após teleporte/spawn).
