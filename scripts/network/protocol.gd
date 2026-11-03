@@ -10,7 +10,7 @@ extends RefCounted
 ## mmo-server/src/accounts/credentials.ts). Mudou lá → mude aqui e atualize mmo-docs [INFRA-04], [INFRA-07].
 
 ## Versão do protocolo enviada ao autenticar. Precisa ser igual a PROTOCOL_VERSION do servidor.
-const VERSION: int = 7
+const VERSION: int = 8
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, username, email, password }.
@@ -33,8 +33,8 @@ const MSG_UNEQUIP: String = "unequip"
 ## Fixa (ou limpa, com null) o alvo do ataque simples; o servidor bate sozinho quando em alcance.
 ## data: { targetId: String ou null }. Ver mmo-docs [JOGO-05].
 const MSG_ATTACK: String = "attack"
-## Lança uma habilidade vestida. data: { abilityId, targetId?, x?, z? } (x/z = direção ou ponto, conforme a
-## mira). Ver mmo-docs [JOGO-06].
+## Lança uma habilidade vestida. data: { abilityId, targetId?, x?, z?, seq? } (x/z = direção ou ponto, conforme a
+## mira; seq = só Investida/Disparada, na MESMA sequência dos inputs). Ver mmo-docs [JOGO-06], [JOGO-07].
 const MSG_CAST: String = "cast"
 
 # --- Servidor → cliente ---

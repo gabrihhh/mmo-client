@@ -200,7 +200,8 @@ func send_attack(target_id: String) -> void:
 
 ## Lança a habilidade [param ability_id] ([JOGO-06]). [param target_id]: mira "no alvo" ("" = nenhum).
 ## [param x]/[param z]: direção (mira "direção") ou ponto no chão (mira "área"); NAN = não enviar.
-func send_cast(ability_id: String, target_id: String = "", x: float = NAN, z: float = NAN) -> void:
+## [param seq]: Investida/Disparada vão na fila de movimento com este número ([JOGO-07]); 0 = não enviar.
+func send_cast(ability_id: String, target_id: String = "", x: float = NAN, z: float = NAN, seq: int = 0) -> void:
 	if not is_in_zone():
 		return
 	var data: Dictionary = {"abilityId": ability_id}
@@ -209,6 +210,8 @@ func send_cast(ability_id: String, target_id: String = "", x: float = NAN, z: fl
 	if not is_nan(x) and not is_nan(z):
 		data["x"] = x
 		data["z"] = z
+	if seq > 0:
+		data["seq"] = seq
 	_send(Protocol.MSG_CAST, data)
 
 

@@ -35,6 +35,12 @@ var radius_m: float = 0.0
 var cooldown_s: float = 0.0
 ## Tempo de lançamento em segundos: o personagem fica virado para o alvo/direção durante ele ([JOGO-05]).
 var cast_time_s: float = 0.0
+## Mana gasta (conferida antes de prever Investida/Disparada).
+var mana_cost: float = 0.0
+## Investida: metros deslocados. Disparada: multiplicador de velocidade e duração (s). 0 nas outras ([JOGO-07]).
+var dash_distance: float = 0.0
+var speed_multiplier: float = 0.0
+var speed_seconds: float = 0.0
 
 
 func _init(ability_id: String, ability_title: String, slot: String, aim: AimType, range_meters: float = 0.0, radius_meters: float = 0.0, cooldown_seconds: float = 0.0) -> void:
@@ -67,7 +73,21 @@ static func from_dict(data: Dictionary, slot: String) -> AbilityView:
 		Protocol.read_float(data, "range"),
 		Protocol.read_float(data, "radius"),
 		Protocol.read_float(data, "cooldown"),
-	).with_cast_time(Protocol.read_float(data, "castTime"))
+	).with_cast_time(Protocol.read_float(data, "castTime")).with_movement(data)
+
+
+## Lê mana e os dados de movimento (Investida/Disparada) do AbilityView do servidor (encadeável).
+func with_movement(data: Dictionary) -> AbilityView:
+	mana_cost = Protocol.read_float(data, "manaCost")
+	dash_distance = Protocol.read_float(data, "dashDistance")
+	speed_multiplier = Protocol.read_float(data, "speedMultiplier")
+	speed_seconds = Protocol.read_float(data, "speedSeconds")
+	return self
+
+
+## true se mexe no movimento: vai na fila de passos com predição ([JOGO-07]).
+func is_movement() -> bool:
+	return dash_distance > 0.0 or speed_multiplier > 0.0
 
 
 ## Define o tempo de lançamento (encadeável) e devolve a própria habilidade.

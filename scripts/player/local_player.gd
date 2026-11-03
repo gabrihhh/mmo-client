@@ -22,17 +22,24 @@ var joystick: TouchJoystick = null
 const _SNAP_DISTANCE: float = 2.0
 ## Abaixo deste comprimento o input conta como parado e não é enviado.
 const _MIN_INPUT: float = 0.01
-## Dev/testes: `-- --bot-walk` faz o jogador andar em círculo sozinho e imprimir o tamanho das
-## correções do servidor a cada 5 s (valida predição/reconciliação sem ninguém no controle).
+## Dev/testes: `-- --bot-walk` faz o jogador andar em círculo sozinho, usar Disparada e Investida
+## (se vestidas) de vez em quando e imprimir o tamanho das correções do servidor a cada 5 s (valida
+## predição/reconciliação sem ninguém no controle).
 const BOT_WALK_ARG: String = "--bot-walk"
 
 
-## Um input enviado e ainda não confirmado pelo servidor.
+## Um comando enviado e ainda não confirmado pelo servidor: passo de movimento ou Investida/Disparada.
+## Guarda o que foi PREVISTO (multiplicador da Disparada, distância da Investida) para a reconciliação
+## reaplicar exatamente igual ([JOGO-07]).
 class PendingInput:
 	extends RefCounted
 	var seq: int
 	var x: float
 	var z: float
+	## Multiplicador de velocidade usado neste passo (Disparada = 2; normal = 1).
+	var speed_multiplier: float = 1.0
+	## > 0: é uma Investida desta distância (x, z = direção), não um passo.
+	var dash_distance: float = 0.0
 
 	func _init(input_seq: int, input_x: float, input_z: float) -> void:
 		seq = input_seq
@@ -59,6 +66,11 @@ var _visual_offset: Vector3 = Vector3.ZERO
 ## olha para [member _face_point] em vez da direção do movimento ([JOGO-05]).
 var _face_point: Vector3 = Vector3.ZERO
 var _face_until_ms: int = 0
+## Disparada prevista ([JOGO-07]): multiplicador para os próximos passos, até acabar os passos ou o tempo.
+## Mesma regra do servidor (Zone.step): conta em PASSOS para a predição bater mesmo com a rede variando.
+var _boost_multiplier: float = 1.0
+var _boost_steps_left: int = 0
+var _boost_until_ms: int = 0
 var _bot_walk: bool = false
 var _bot_time: float = 0.0
 ## Estatística de correções (só com --bot-walk): quantas, a maior e a soma, em metros.
@@ -148,9 +160,53 @@ func _simulate_tick(network: Network, step_seconds: float) -> void:
 		return
 	var input: PendingInput = PendingInput.new(_next_seq, direction.x, direction.y)
 	_next_seq += 1
+	input.speed_multiplier = _consume_boost_step()
 	_pending.append(input)
 	network.send_input(input.seq, input.x, input.z)
-	_sim = Movement.step(_sim, input.x, input.z, step_seconds, network.move_speed, network.zone_half_size)
+	_sim = _apply_pending(_sim, input, step_seconds, network)
+
+
+## Multiplicador do próximo passo (gasta um passo da Disparada, se ativa).
+func _consume_boost_step() -> float:
+	if _boost_steps_left <= 0 or Time.get_ticks_msec() >= _boost_until_ms:
+		_boost_steps_left = 0
+		return 1.0
+	_boost_steps_left -= 1
+	return _boost_multiplier
+
+
+## Aplica um comando previsto: Investida (deslocamento) ou passo (com o multiplicador que foi previsto).
+func _apply_pending(state: Movement.State, input: PendingInput, step_seconds: float, network: Network) -> Movement.State:
+	if input.dash_distance > 0.0:
+		return Movement.dash(state, input.x, input.z, input.dash_distance, network.zone_half_size)
+	return Movement.step(state, input.x, input.z, step_seconds, network.move_speed * input.speed_multiplier, network.zone_half_size)
+
+
+## Investida/Disparada com predição ([JOGO-07]): entra na MESMA sequência dos passos, aplica na hora aqui e
+## manda ao servidor com o seq, que processa na mesma ordem. Se o servidor recusar (recarga, mana), a
+## reconciliação desfaz. [param dir_x]/[param dir_z] = direção da Investida. Devolve false se morto.
+func cast_movement(ability: AbilityView, dir_x: float, dir_z: float) -> bool:
+	var network: Network = Network.instance
+	var own: PlayerState = network.get_player(network.player_id)
+	if own != null and own.dead:
+		return false
+	var command: PendingInput = PendingInput.new(_next_seq, 0.0, 0.0)
+	_next_seq += 1
+	if ability.dash_distance > 0.0:
+		command.x = dir_x
+		command.z = dir_z
+		command.dash_distance = ability.dash_distance
+	if ability.speed_multiplier > 0.0:
+		_boost_multiplier = ability.speed_multiplier
+		_boost_steps_left = roundi(ability.speed_seconds * network.tick_rate)
+		_boost_until_ms = Time.get_ticks_msec() + int(ability.speed_seconds * 1000.0)
+	_pending.append(command)
+	_sim = _apply_pending(_sim, command, network.tick_seconds(), network)
+	if command.dash_distance > 0.0:
+		network.send_cast(ability.id, "", command.x, command.z, command.seq)
+	else:
+		network.send_cast(ability.id, "", NAN, NAN, command.seq)
+	return true
 
 
 ## Reconciliação: estado oficial + inputs ainda não confirmados = nova previsão.
@@ -164,7 +220,7 @@ func _on_snapshot_received(_tick: int, ack: int) -> void:
 
 	var corrected: Movement.State = Movement.State.new(authoritative.x, authoritative.y, authoritative.z, authoritative.rot_y)
 	for input: PendingInput in _pending:
-		corrected = Movement.step(corrected, input.x, input.z, network.tick_seconds(), network.move_speed, network.zone_half_size)
+		corrected = _apply_pending(corrected, input, network.tick_seconds(), network)
 
 	var error: Vector3 = _sim.position() - corrected.position()
 	if _bot_walk:
@@ -178,6 +234,24 @@ func _on_snapshot_received(_tick: int, ack: int) -> void:
 		_visual_offset += error
 		_previous_sim = Movement.State.new(_previous_sim.x - error.x, _previous_sim.y - error.y, _previous_sim.z - error.z, _previous_sim.rot_y)
 	_sim = corrected
+
+
+## --bot-walk: usa Disparada e Investida (se vestidas) assim que a recarga e a mana permitem.
+var _bot_ready_at: Dictionary[String, float] = {}
+
+
+func _bot_use_movement_abilities() -> void:
+	var network: Network = Network.instance
+	if network.inventory == null:
+		return
+	for ability: AbilityView in network.inventory.cards():
+		if ability == null or not ability.is_movement() or network.mana < ability.mana_cost + 1.0:
+			continue
+		var ready_at: float = _bot_ready_at[ability.id] if _bot_ready_at.has(ability.id) else 1.0
+		if _bot_time >= ready_at:
+			# Folga de 0,5 s sobre a recarga (o relógio do servidor começa um pouco depois).
+			_bot_ready_at[ability.id] = _bot_time + ability.cooldown_s + 0.5
+			cast_movement(ability, cos(_bot_time * 0.8), sin(_bot_time * 0.8))
 
 
 func _record_correction(distance: float) -> void:
@@ -195,6 +269,7 @@ func _read_world_direction() -> Vector2:
 			print("BotWalk: pos=%s pendentes=%d correções=%d maior=%.4f m média=%.4f m" % [
 				_sim.position(), _pending.size(), _corrections, _max_correction,
 				_correction_sum / maxf(1.0, float(_corrections))])
+		_bot_use_movement_abilities()
 		return Vector2(cos(_bot_time * 0.8), sin(_bot_time * 0.8))
 	var touch: Vector2 = joystick.output if joystick != null else Vector2.ZERO
 	var screen: Vector2 = (touch + InputActions.get_keyboard_vector()).limit_length(1.0)

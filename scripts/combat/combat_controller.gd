@@ -291,9 +291,20 @@ func _nearest_remote(point: Vector3, max_distance: float) -> RemotePlayer:
 ## só começa quando ele confirma ("cast_start"), e a recusa aparece como aviso. Enquanto isso, o modelo
 ## já vira para onde a habilidade vai (o servidor também vira, para todos).
 func _cast(ability: AbilityView, target_id: String = "", point: Vector3 = Vector3.INF) -> void:
+	var origin: Vector3 = _player.global_position
+	# Investida/Disparada: predição local na fila de passos ([JOGO-07]). Confere recarga e mana antes,
+	# para não prever algo que o servidor vai recusar.
+	if ability.is_movement():
+		if _is_cooling(ability):
+			return
+		if Network.instance.mana < ability.mana_cost:
+			_hud.show_toast("Mana insuficiente.")
+			return
+		var direction: Vector3 = (point - origin) if point != Vector3.INF else _player.get_facing()
+		_player.cast_movement(ability, direction.x, direction.z)
+		return
 	if point != Vector3.INF:
 		_player.face_toward(point, maxf(ability.cast_time_s, 0.3))
-	var origin: Vector3 = _player.global_position
 	match ability.aim_type:
 		AbilityView.AimType.DIRECTION:
 			Network.instance.send_cast(ability.id, "", point.x - origin.x, point.z - origin.z)

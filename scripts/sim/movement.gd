@@ -52,3 +52,21 @@ static func step(state: State, input_x: float, input_z: float, dt: float, speed:
 		minf(half_size, maxf(-half_size, state.z + dz * speed * dt)),
 		atan2(-dx, -dz),
 	)
+
+
+## Investida: desloca [param distance] metros na direção ([param dir_x], [param dir_z]) de uma vez, limitado a
+## ±half_size, e vira para ela. Direção quase zero = não muda. Ver mmo-docs [JOGO-07].
+## ATENÇÃO: espelho de dashMovement em mmo-server/src/sim/movement.ts (mesma ordem de operações).
+static func dash(state: State, dir_x: float, dir_z: float, distance: float, half_size: float) -> State:
+	var length: float = sqrt(dir_x * dir_x + dir_z * dir_z)
+	if length < MIN_INPUT_LENGTH:
+		return state.duplicate_state()
+	var dx: float = dir_x / length
+	var dz: float = dir_z / length
+	return State.new(
+		minf(half_size, maxf(-half_size, state.x + dx * distance)),
+		state.y,
+		minf(half_size, maxf(-half_size, state.z + dz * distance)),
+		atan2(-dx, -dz),
+	)
+
