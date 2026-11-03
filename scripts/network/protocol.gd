@@ -10,7 +10,7 @@ extends RefCounted
 ## mmo-server/src/accounts/credentials.ts). Mudou lá → mude aqui e atualize mmo-docs [INFRA-04], [INFRA-07].
 
 ## Versão do protocolo enviada ao autenticar. Precisa ser igual a PROTOCOL_VERSION do servidor.
-const VERSION: int = 10
+const VERSION: int = 11
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, username, email, password }.
@@ -23,6 +23,12 @@ const MSG_RESUME: String = "resume"
 const MSG_LOGOUT: String = "logout"
 ## Pede para entrar numa zona (depois de autenticar). data: { zone: String }.
 const MSG_JOIN: String = "join"
+## Escolhe o corpo do personagem, uma vez só (primeira entrada). data: { body: [constant BODY_MALE] |
+## [constant BODY_FEMALE] }. Resposta: [constant MSG_BODY_CHOSEN]. Ver mmo-docs [INFRA-07].
+const MSG_CHOOSE_BODY: String = "choose_body"
+## Corpos de personagem. ATENÇÃO: espelho de BODY_TYPES em mmo-server/src/net/protocol.ts.
+const BODY_MALE: String = "male"
+const BODY_FEMALE: String = "female"
 ## Intenção de movimento de UM tick (o servidor simula; o cliente não manda posição).
 ## data: { seq: int crescente, x, z: direção no mundo, comprimento até 1 }. Ver mmo-docs [INFRA-09].
 const MSG_INPUT: String = "input"
@@ -38,10 +44,13 @@ const MSG_ATTACK: String = "attack"
 const MSG_CAST: String = "cast"
 
 # --- Servidor → cliente ---
-## Autenticação aceita. data: { playerId, username (como foi cadastrado), sessionToken }.
+## Autenticação aceita. data: { playerId, username (como foi cadastrado), sessionToken, body ("male" | "female" |
+## null = ainda não escolheu: mostrar a escolha antes do join) }.
 const MSG_AUTH_OK: String = "auth_ok"
+## Corpo escolhido e salvo (resposta ao [constant MSG_CHOOSE_BODY]). data: { body }.
+const MSG_BODY_CHOSEN: String = "body_chosen"
 ## Entrada na zona aceita. data: { playerId, zone, tick: int, sim: { tickRate, moveSpeed, zoneHalfSize },
-## players: Array[PlayerInfo] } (PlayerInfo = PlayerSnapshot + name + look). look = { hand, head, chest, feet:
+## players: Array[PlayerInfo] } (PlayerInfo = PlayerSnapshot + name + look + body). look = { hand, head, chest, feet:
 ## itemId ou null } (o que veste; [ART-02]). ATENÇÃO: Look em mmo-server/src/net/protocol.ts.
 const MSG_WELCOME: String = "welcome"
 ## Outro jogador entrou. data: { player: PlayerInfo }.

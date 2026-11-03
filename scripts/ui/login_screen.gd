@@ -7,11 +7,16 @@ extends Control
 ## - "Criar conta": username (exibido no jogo exatamente como digitado), e-mail, senha e confirmação.
 ## - "Entrar como convidado" (TESTE): conta gerada pelo cliente e lembrada no aparelho.
 ## As regras são conferidas aqui para avisar na hora ([Protocol]), mas quem decide é o servidor.
-## Autenticou → o [Network] entra na zona sozinho → no [signal Network.joined_zone] abre a zona.
+## Autenticou → o [Network] entra na zona sozinho → no [signal Network.joined_zone] abre a zona. Conta que ainda não
+## escolheu o corpo ([signal Network.body_choice_needed]) vai antes para a escolha de personagem ([CharacterSelect]).
 ## Se a conexão cair, o jogo volta para cá e mostra [member Network.last_error].
 
 ## Cena aberta depois de entrar.
 const ZONE_SCENE: String = "res://scenes/world/zone_1.tscn"
+## Escolha de personagem (primeira entrada da conta).
+const CHARACTER_SELECT_SCENE: String = "res://scenes/ui/character_select.tscn"
+## Dev/testes: `-- --body=female` escolhe o corpo sozinho quando a conta do --dev-user ainda não tem (padrão: male).
+const DEV_BODY_ARG: String = "--body="
 ## Dev/testes: `-- --dev-user=Nome` entra como Nome (senha [constant DEV_PASSWORD]), criando a conta
 ## (e-mail nome@dev.local) se não existir. Útil no headless e em várias janelas no mesmo PC.
 const DEV_USER_ARG: String = "--dev-user="
@@ -48,6 +53,7 @@ func _ready() -> void:
 		return
 	var network: Network = Network.instance
 	network.joined_zone.connect(_on_joined_zone)
+	network.body_choice_needed.connect(_on_body_choice_needed)
 	network.auth_failed.connect(_on_auth_failed)
 	network.connection_error.connect(_on_connection_failed)
 	network.left_zone.connect(_on_left_zone)
@@ -125,6 +131,18 @@ func _on_register_pressed() -> void:
 		return
 	_set_busy("Criando conta...")
 	Network.instance.register(new_username, _email_field.text, _new_password_field.text)
+
+
+## Primeira entrada da conta: abre a escolha de personagem. Com --dev-user escolhe sozinho (--body=, padrão male).
+func _on_body_choice_needed() -> void:
+	if not _dev_user.is_empty():
+		var dev_body: String = Protocol.BODY_MALE
+		for arg: String in OS.get_cmdline_user_args():
+			if arg.begins_with(DEV_BODY_ARG):
+				dev_body = arg.trim_prefix(DEV_BODY_ARG)
+		Network.instance.choose_body(dev_body)
+		return
+	get_tree().change_scene_to_file(CHARACTER_SELECT_SCENE)
 
 
 func _on_joined_zone(_player_id: String) -> void:

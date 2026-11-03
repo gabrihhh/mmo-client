@@ -46,6 +46,11 @@ const INTERPOLATION_DELAY_TICKS: float = 2.0
 const _CLOCK_SNAP_TICKS: float = 10.0
 ## Fração do erro do relógio corrigida a cada snapshot (ajuste suave, sem trancos).
 const _CLOCK_CORRECTION: float = 0.1
+## Autenticou, mas a conta ainda não escolheu o corpo do personagem: mostrar a tela de escolha e chamar
+## [method choose_body]. O [code]join[/code] só vai depois da escolha ([signal body_chosen]).
+signal body_choice_needed
+## O servidor salvou o corpo escolhido; o Network já pediu para entrar na zona.
+signal body_chosen(body: String)
 ## Códigos de erro que são resposta a cadastro/login/sessão (viram [signal auth_failed]).
 const _AUTH_ERROR_CODES: Array[String] = [
 	"invalid_username", "invalid_email", "invalid_password", "username_taken", "email_taken",
@@ -59,6 +64,9 @@ static var instance: Network = null
 var player_id: String = ""
 ## Username desta conta, exatamente como foi cadastrado; vazio enquanto não autenticou.
 var username: String = ""
+## Corpo do personagem desta conta ([constant Protocol.BODY_MALE]/[constant Protocol.BODY_FEMALE]); vazio = ainda não
+## escolheu (ou não autenticou).
+var body: String = ""
 ## Última mensagem de erro/desconexão, em português, para a tela de login mostrar. Vazio = nenhuma.
 var last_error: String = ""
 ## Parâmetros da simulação recebidos no welcome (o servidor manda; o cliente não decide).
@@ -148,6 +156,12 @@ func logout() -> void:
 
 
 ## true enquanto conecta ou está conectado.
+## Escolhe o corpo do personagem ([constant Protocol.BODY_MALE] ou [constant Protocol.BODY_FEMALE]). Vale para
+## sempre; a resposta vem em [signal body_chosen] (e o Network entra na zona) ou como erro.
+func choose_body(new_body: String) -> void:
+	_send(Protocol.MSG_CHOOSE_BODY, {"body": new_body})
+
+
 func is_connecting_or_connected() -> bool:
 	return _socket != null
 
@@ -312,7 +326,16 @@ func _handle_message(text: String) -> void:
 			var token: String = Protocol.read_string(data, "sessionToken")
 			if not token.is_empty():
 				AccountStorage.save_session_token(token)
+			body = Protocol.read_string(data, "body")
 			authenticated.emit(username)
+			# Primeira entrada: escolher o corpo antes de entrar na zona ([INFRA-07]).
+			if body.is_empty():
+				body_choice_needed.emit()
+			else:
+				_send(Protocol.MSG_JOIN, {"zone": NetworkConfig.ZONE_ID})
+		Protocol.MSG_BODY_CHOSEN:
+			body = Protocol.read_string(data, "body")
+			body_chosen.emit(body)
 			_send(Protocol.MSG_JOIN, {"zone": NetworkConfig.ZONE_ID})
 		Protocol.MSG_WELCOME:
 			var sim: Dictionary = Protocol.read_dict(data, "sim")
@@ -425,6 +448,7 @@ func _on_closed() -> void:
 	_pending_auth = {}
 	player_id = ""
 	username = ""
+	body = ""
 	inventory = null
 	_npcs.clear()
 	attack_target = ""

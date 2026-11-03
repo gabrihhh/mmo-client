@@ -30,6 +30,9 @@ var dead: bool = false
 var shield: float = 0.0
 ## O que veste: slot ("hand", "head", "chest", "feet") → itemId. Slot vazio não aparece. Ver [ART-02].
 var look: Dictionary[String, String] = {}
+## Corpo do personagem (qual modelo desenhar): [constant Protocol.BODY_MALE] ou [constant Protocol.BODY_FEMALE].
+## Vem no PlayerInfo; bonecos/NPCs ficam com o padrão.
+var body: String = Protocol.BODY_MALE
 
 ## A aparência mudou ([member look]): o boneco troca os modelos dos itens.
 signal look_changed
@@ -53,6 +56,9 @@ static func from_snapshot(data: Dictionary, at_tick: int) -> PlayerState:
 	state.id = Protocol.read_string(data, "id")
 	state.name = Protocol.read_string(data, "name")
 	state.set_look(Protocol.read_dict(data, "look"))
+	var info_body: String = Protocol.read_string(data, "body")
+	if not info_body.is_empty():
+		state.body = info_body
 	state.apply_snapshot(data, at_tick)
 	return state
 

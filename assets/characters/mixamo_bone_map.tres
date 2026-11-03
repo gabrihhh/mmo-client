@@ -1,6 +1,7 @@
 [gd_resource type="BoneMap" load_steps=2 format=3]
 
-; Ossos do Mixamo (male.glb) → nomes do perfil humanoide do Godot, que o jogo usa ([ART-03]).
+; Ossos do Mixamo/Meshy → nomes do perfil humanoide do Godot, que o jogo usa ([ART-03]). Vale para todo personagem
+; com esse rig (male.glb, female.glb).
 
 [sub_resource type="SkeletonProfileHumanoid" id="SkeletonProfileHumanoid_1"]
 

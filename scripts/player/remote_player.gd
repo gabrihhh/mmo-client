@@ -47,6 +47,9 @@ func _ready() -> void:
 	_shield_bubble = ShieldBubble.new()
 	add_child(_shield_bubble)
 	if model != null:
+		# Modelo do corpo que este jogador escolheu ([CharacterBodies]).
+		if _state != null:
+			model = CharacterBodies.swap(model, _state.body)
 		model.set_shirt_color(SHIRT_COLOR)
 		model.bind_look(_state)
 	# Username exatamente como foi cadastrado (o id é interno).

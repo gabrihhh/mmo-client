@@ -6,14 +6,23 @@ extends SceneTree
 ##   [SkeletonRetarget] (pose do placeholder → esqueleto do modelo).
 ## Assim o modelo novo entra no jogo já com todas as ações; cada animação de verdade que chegar substitui a convertida.
 ##
-## Rodar da pasta mmo-client (depois de importar o .glb):
+## Rodar da pasta mmo-client (depois de importar os .glb):
 ##   godot --headless --path . --script res://tools/characters/make_animations.gd
-## Saída: assets/characters/male/male_animations.tres (a cena male_character.tscn usa).
+## Gera a biblioteca de TODOS os personagens de [constant CHARACTERS] (a cena de cada um usa a sua).
 
-## Personagem: cena, .glb (com o AnimationPlayer das animações próprias) e saída.
-const CHARACTER_SCENE: String = "res://assets/characters/male/male_character.tscn"
-const MODEL_GLB: String = "res://assets/characters/male/male.glb"
-const OUTPUT: String = "res://assets/characters/male/male_animations.tres"
+## Personagens: cena, .glb (com o AnimationPlayer das animações próprias) e a biblioteca gerada.
+const CHARACTERS: Array[Dictionary] = [
+	{
+		"scene": "res://assets/characters/male/male_character.tscn",
+		"glb": "res://assets/characters/male/male.glb",
+		"output": "res://assets/characters/male/male_animations.tres",
+	},
+	{
+		"scene": "res://assets/characters/female/female_character.tscn",
+		"glb": "res://assets/characters/female/female.glb",
+		"output": "res://assets/characters/female/female_animations.tres",
+	},
+]
 ## Animações próprias do modelo: nome no .glb → nome no jogo ([CharacterAnimator]).
 const OWN_ANIMATIONS: Dictionary[String, String] = {"Running": "run"}
 ## Animações próprias que dão a volta (ciclo).
@@ -24,7 +33,16 @@ const REFERENCE_ANIMATIONS: String = "res://assets/placeholders/character_animat
 
 
 func _initialize() -> void:
-	var character: CharacterModel = (load(CHARACTER_SCENE) as PackedScene).instantiate() as CharacterModel
+	var failed: bool = false
+	for entry: Dictionary in CHARACTERS:
+		print("== %s" % entry["scene"])
+		failed = _make(entry["scene"], entry["glb"], entry["output"]) != OK or failed
+	quit(1 if failed else 0)
+
+
+## Gera e salva a biblioteca de um personagem.
+func _make(scene_path: String, glb_path: String, output: String) -> Error:
+	var character: CharacterModel = (load(scene_path) as PackedScene).instantiate() as CharacterModel
 	var target: Skeleton3D = character.get_node(character.skeleton_path) as Skeleton3D
 	var target_path: String = String(character.skeleton_path)
 	var reference: CharacterModel = (load(REFERENCE_SCENE) as PackedScene).instantiate() as CharacterModel
@@ -32,7 +50,7 @@ func _initialize() -> void:
 	var reference_library: AnimationLibrary = load(REFERENCE_ANIMATIONS) as AnimationLibrary
 
 	var library: AnimationLibrary = AnimationLibrary.new()
-	var own: Dictionary[String, Animation] = _own_animations(target_path)
+	var own: Dictionary[String, Animation] = _own_animations(glb_path, target_path)
 	for anim_name: String in own:
 		library.add_animation(anim_name, own[anim_name])
 		print("própria: %s" % anim_name)
@@ -42,18 +60,18 @@ func _initialize() -> void:
 		var source: Animation = reference_library.get_animation(anim_name)
 		library.add_animation(anim_name, SkeletonRetarget.retarget(source, reference_skeleton, String(reference.skeleton_path), target, target_path))
 		print("convertida do placeholder: %s" % anim_name)
-	var error: Error = ResourceSaver.save(library, OUTPUT)
-	print("salvo: %s (%s)" % [OUTPUT, error_string(error)])
+	var error: Error = ResourceSaver.save(library, output)
+	print("salvo: %s (%s)" % [output, error_string(error)])
 	character.free()
 	reference.free()
-	quit(0 if error == OK else 1)
+	return error
 
 
 ## Animações do .glb renomeadas para o jogo, com as trilhas apontando para [param target_path]. O quadril fica no
 ## lugar (sem andar sozinho em X/Z: quem move o personagem é a simulação).
-func _own_animations(target_path: String) -> Dictionary[String, Animation]:
+func _own_animations(glb_path: String, target_path: String) -> Dictionary[String, Animation]:
 	var result: Dictionary[String, Animation] = {}
-	var model: Node = (load(MODEL_GLB) as PackedScene).instantiate()
+	var model: Node = (load(glb_path) as PackedScene).instantiate()
 	var players: Array[Node] = model.find_children("*", "AnimationPlayer", true, false)
 	if players.is_empty():
 		model.free()

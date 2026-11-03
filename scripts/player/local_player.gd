@@ -109,6 +109,8 @@ func _ready() -> void:
 	_bot_walk = BOT_WALK_ARG in OS.get_cmdline_user_args()
 	_shield_bubble = ShieldBubble.new()
 	add_child(_shield_bubble)
+	# Modelo do corpo escolhido por esta conta ([CharacterBodies]).
+	model = CharacterBodies.swap(model, Network.instance.body)
 	model.set_shirt_color(SHIRT_COLOR)
 
 
