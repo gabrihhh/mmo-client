@@ -58,6 +58,8 @@ class PendingInput:
 var _shield_bubble: ShieldBubble = null
 ## Velocidade (m/s) suavizada, para a animação de correr.
 var _anim_speed: float = 0.0
+## Queda ao morrer.
+var _death: DeathFall = DeathFall.new()
 ## Ação animada no toque, antes do "cast_start" do servidor ([JOGO-08]): habilidade e quando (ms).
 var _predicted_ability: String = ""
 var _predicted_at_ms: int = 0
@@ -132,11 +134,11 @@ func _process(delta: float) -> void:
 		_accumulator -= step_seconds
 		_simulate_tick(network, step_seconds)
 
-	# Vida e morte vêm do servidor ([JOGO-05]): morto, o corpo some e não anda.
+	# Vida e morte vêm do servidor ([JOGO-05]): morto, o corpo cai, some e não anda.
 	var own: PlayerState = network.get_player(network.player_id)
 	if own != null:
 		_health_bar.set_ratio(own.hp_ratio())
-		_body.visible = not own.dead
+		_death.update(_body, own.dead, delta)
 		_health_bar.visible = not own.dead
 		_shield_bubble.set_active(own.shield > 0.0 and not own.dead)
 

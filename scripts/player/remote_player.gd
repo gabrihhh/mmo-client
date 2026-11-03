@@ -1,7 +1,7 @@
 class_name RemotePlayer
 extends Node3D
 ## Outro jogador (ou boneco/monstro), desenhado a partir dos snapshots do servidor. Ver mmo-docs [INFRA-09].
-## Mostra nome, barra de vida e os itens vestidos ([ART-02]); morto, o corpo some até renascer ([JOGO-05]).
+## Mostra nome, barra de vida e os itens vestidos ([ART-02]); morto, o corpo cai e some até renascer ([JOGO-05]).
 ##
 ## Não simula nada: a cada frame pede ao [PlayerState] a posição no tick
 ## [method Network.render_tick] (alguns ticks no PASSADO), interpolando entre dois snapshots reais.
@@ -27,6 +27,8 @@ var _shield_bubble: ShieldBubble = null
 ## Velocidade (m/s) suavizada, para a animação de correr.
 var _anim_speed: float = 0.0
 var _last_position: Vector3 = Vector3.ZERO
+## Queda ao morrer.
+var _death: DeathFall = DeathFall.new()
 ## Balanço do boneco de treino ao apanhar (1 = acabou de apanhar, some em ~0,6 s).
 var _wobble: float = 0.0
 var _wobble_time: float = 0.0
@@ -62,7 +64,7 @@ func _process(delta: float) -> void:
 	position = _state.sample_position(render_tick)
 	rotation.y = _state.sample_rot_y(render_tick)
 	_health_bar.set_ratio(_state.hp_ratio())
-	_body.visible = not _state.dead
+	_death.update(_body, _state.dead, delta)
 	_health_bar.visible = not _state.dead
 	_shield_bubble.set_active(_state.shield > 0.0 and not _state.dead)
 	if model != null and delta > 0.0:
@@ -72,13 +74,15 @@ func _process(delta: float) -> void:
 		model.set_move_speed(_anim_speed / maxf(Network.instance.move_speed, 0.1))
 	_last_position = position
 	# Boneco de treino apanhando: balança para trás e para a frente e para.
-	if _wobble > 0.0:
+	if _wobble > 0.0 and not _death.is_dead():
 		_wobble = maxf(_wobble - delta / 0.6, 0.0)
 		_wobble_time += delta
 		_body.rotation.x = sin(_wobble_time * 28.0) * 0.14 * _wobble
 	elif _wobble_time > 0.0:
+		_wobble = 0.0
 		_wobble_time = 0.0
-		_body.rotation.x = 0.0
+		if not _death.is_dead():
+			_body.rotation.x = 0.0
 
 
 ## Apanhou: o personagem recua; boneco de treino (sem personagem) balança.
