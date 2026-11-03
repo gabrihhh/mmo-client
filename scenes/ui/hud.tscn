@@ -119,7 +119,7 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 16.0
-offset_top = -556.0
+offset_top = -566.0
 offset_right = -16.0
 offset_bottom = -120.0
 grow_horizontal = 2
@@ -178,7 +178,7 @@ font_size = 19
 
 [node name="BottomRow" type="HBoxContainer" parent="Root/ControlsFrame/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 252)
+custom_minimum_size = Vector2(0, 262)
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 0
@@ -219,22 +219,22 @@ custom_minimum_size = Vector2(160, 160)
 layout_mode = 2
 script = ExtResource("3_button")
 shape = 1
-text = "Atacar"
+icon = 1
 fill_color = Color(0.55, 0.22, 0.2, 0.92)
 pressed_color = Color(0.7, 0.3, 0.26, 0.95)
 font_size = 28
 
 [node name="ClearTargetButton" type="Control" parent="Root/ControlsFrame/VBox/BottomRow/AttackColumn"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(124, 52)
+custom_minimum_size = Vector2(64, 64)
 layout_mode = 2
 size_flags_horizontal = 4
 script = ExtResource("3_button")
-text = "Desfocar"
-fill_color = Color(0.3, 0.2, 0.12, 0.95)
-pressed_color = Color(0.42, 0.29, 0.17, 0.95)
-frame_color = Color(0.16, 0.09, 0.04, 1)
-font_size = 20
+shape = 1
+icon = 1
+icon_crossed = true
+fill_color = Color(0.55, 0.22, 0.2, 0.92)
+pressed_color = Color(0.7, 0.3, 0.26, 0.95)
 enabled = false
 
 [node name="SpacerRight" type="Control" parent="Root/ControlsFrame/VBox/BottomRow"]
