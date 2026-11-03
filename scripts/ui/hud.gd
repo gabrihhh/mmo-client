@@ -1,7 +1,8 @@
 class_name Hud
 extends CanvasLayer
-## HUD do jogo em retrato ([CLI-08]): vida/mana no topo, 6 cartas acima do joystick, ataque simples no
-## canto inferior esquerdo e menu no direito (Inventário, Configuração e "Sair da conta").
+## HUD do jogo em retrato ([CLI-08]): vida/mana numa moldura no topo; embaixo, outra moldura junta as 6
+## cartas e a linha joystick | ataque simples | menu. O Menu (Inventário, Configuração, "Sair da conta") fecha
+## pelo X no canto ou tocando fora dele (no fundo escurecido).
 ##
 ## Só mostra e repassa toques: quem decide o que fazer com ataque/cartas é o [CombatController].
 
@@ -25,6 +26,8 @@ const _TOAST_SECONDS: float = 1.8
 @onready var _toast: Label = %Toast
 @onready var _card_row: HBoxContainer = %CardRow
 @onready var _menu_panel: PanelContainer = %MenuPanel
+## Fundo escurecido atrás dos painéis do menu: bloqueia toques no jogo e, tocado, fecha o menu.
+@onready var _menu_dimmer: Panel = %MenuDimmer
 @onready var _inventory_panel: PanelContainer = %InventoryPanel
 @onready var _settings_panel: PanelContainer = %SettingsPanel
 @onready var _logout_button: Button = %LogoutButton
@@ -57,6 +60,7 @@ func _ready() -> void:
 	(%InventoryBackButton as Button).pressed.connect(_open_panel.bind(_menu_panel))
 	(%SettingsBackButton as Button).pressed.connect(_open_panel.bind(_menu_panel))
 	_logout_button.pressed.connect(_on_logout_pressed)
+	_menu_dimmer.gui_input.connect(_on_dimmer_input)
 	_toast.text = ""
 
 
@@ -147,6 +151,7 @@ func _open_panel(panel: PanelContainer) -> void:
 	for candidate: PanelContainer in [_menu_panel, _inventory_panel, _settings_panel]:
 		candidate.visible = candidate == panel
 	var playing: bool = panel == null
+	_menu_dimmer.visible = not playing
 	joystick.set_process_input(playing)
 	attack_button.enabled = playing
 	_menu_button.enabled = playing
@@ -155,6 +160,19 @@ func _open_panel(panel: PanelContainer) -> void:
 	# Solta o joystick se estava sendo usado quando o menu abriu.
 	if not playing:
 		joystick.release()
+
+
+## Toque fora dos painéis (no fundo escurecido) fecha o menu. Só no apertar: o soltar do toque que abriu o
+## menu não pode fechá-lo de novo.
+func _on_dimmer_input(event: InputEvent) -> void:
+	var pressed: bool = false
+	if event is InputEventMouseButton:
+		pressed = (event as InputEventMouseButton).pressed
+	elif event is InputEventScreenTouch:
+		pressed = (event as InputEventScreenTouch).pressed
+	if pressed:
+		_menu_dimmer.accept_event()
+		_open_panel(null)
 
 
 func _on_logout_pressed() -> void:
