@@ -19,7 +19,7 @@ static func spawn(parent: Node, world_position: Vector3, text_value: String, col
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.no_depth_test = true
 	label.fixed_size = false
-	label.pixel_size = 0.012
+	label.pixel_size = 0.0065
 	label.font_size = 64
 	label.outline_size = 16
 	label.render_priority = 5

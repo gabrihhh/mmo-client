@@ -23,6 +23,8 @@ var _state: PlayerState = null
 @onready var _body: Node3D = $Body
 ## Boneco animado ([ART-03]); null nos bonecos de treino (que têm só um corpo simples).
 @onready var model: CharacterModel = get_node_or_null("Body/Character") as CharacterModel
+## Altura visual do chão sob o personagem (m), suavizada.
+var _ground_y: float = 0.0
 var _shield_bubble: ShieldBubble = null
 ## Velocidade (m/s) suavizada, para a animação de correr.
 var _anim_speed: float = 0.0
@@ -55,7 +57,8 @@ func _ready() -> void:
 	# Username exatamente como foi cadastrado (o id é interno).
 	_name_label.text = display_name
 	if _state != null:
-		position = _state.position
+		_ground_y = ZoneTerrain.height_at(_state.position.x, _state.position.z)
+		position = _state.position + Vector3.UP * _ground_y
 		rotation.y = _state.rot_y
 	_last_position = position
 
@@ -65,6 +68,9 @@ func _process(delta: float) -> void:
 		return
 	var render_tick: float = Network.instance.render_tick()
 	position = _state.sample_position(render_tick)
+	# Altura do chão (só visual, [MUN-03]), suavizada nos degraus.
+	_ground_y = lerpf(_ground_y, ZoneTerrain.height_at(position.x, position.z), 1.0 - exp(-18.0 * delta))
+	position.y += _ground_y
 	rotation.y = _state.sample_rot_y(render_tick)
 	_health_bar.set_ratio(_state.hp_ratio())
 	_death.update(_body, _state.dead, delta)

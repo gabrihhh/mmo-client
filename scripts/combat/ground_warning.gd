@@ -24,7 +24,7 @@ static func spawn_area(parent: Node, x: float, z: float, radius: float, duration
 	warning._fill.scale = Vector3(0.01, 1.0, 0.01)
 	warning.add_child(warning._fill)
 	parent.add_child(warning)
-	warning.global_position = Vector3(x, HEIGHT, z)
+	warning.global_position = Vector3(x, ZoneTerrain.height_at(x, z) + HEIGHT, z)
 	return warning
 
 
@@ -45,7 +45,7 @@ static func spawn_line(parent: Node, from: Vector3, to: Vector3, half_width: flo
 	strip.position = Vector3(0.0, 0.0, -flat.length() * 0.5)
 	warning.add_child(strip)
 	parent.add_child(warning)
-	warning.global_position = Vector3(from.x, HEIGHT, from.z)
+	warning.global_position = Vector3(from.x, ZoneTerrain.height_at(from.x, from.z) + HEIGHT, from.z)
 	# −Z do aviso aponta para o alvo.
 	warning.rotation.y = atan2(-flat.x, -flat.z)
 	return warning

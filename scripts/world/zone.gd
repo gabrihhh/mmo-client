@@ -252,7 +252,9 @@ func _launch_homing(source_id: String, serial: int, model: CharacterModel, targe
 ## Projétil de verdade saiu ([JOGO-08]): desenha o voo na mesma velocidade do servidor.
 func _on_projectile(event: Dictionary) -> void:
 	var id: int = Protocol.read_int(event, "id", -1)
-	var from: Vector3 = Vector3(Protocol.read_float(event, "x"), _PROJECTILE_HEIGHT, Protocol.read_float(event, "z"))
+	var start_x: float = Protocol.read_float(event, "x")
+	var start_z: float = Protocol.read_float(event, "z")
+	var from: Vector3 = Vector3(start_x, ZoneTerrain.height_at(start_x, start_z) + _PROJECTILE_HEIGHT, start_z)
 	var direction: Vector3 = Vector3(Protocol.read_float(event, "dirX"), 0.0, Protocol.read_float(event, "dirZ"))
 	if direction.length() < 0.01:
 		return

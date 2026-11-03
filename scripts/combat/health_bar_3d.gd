@@ -7,7 +7,7 @@ extends Node3D
 ## preenchimento, ancorado na borda esquerda do nó, encolhe para a esquerda da TELA.
 
 ## Tamanho da barra no mundo, em metros.
-@export var bar_size: Vector2 = Vector2(1.3, 0.22)
+@export var bar_size: Vector2 = Vector2(0.85, 0.13)
 @export var fill_color: Color = Color(0.85, 0.2, 0.2)
 @export var back_color: Color = Color(0, 0, 0, 0.6)
 

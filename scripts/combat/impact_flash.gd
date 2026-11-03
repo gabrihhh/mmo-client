@@ -25,7 +25,7 @@ static func spawn(parent: Node, x: float, z: float, radius: float) -> void:
 	flash.material_override = flash._material
 	flash.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(flash)
-	flash.global_position = Vector3(x, 0.06, z)
+	flash.global_position = Vector3(x, ZoneTerrain.height_at(x, z) + 0.06, z)
 
 
 func _process(delta: float) -> void:

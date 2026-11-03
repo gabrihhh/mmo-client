@@ -1,11 +1,14 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/zone.gd" id="1_zone"]
 [ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="2_hud"]
+[ext_resource type="Script" path="res://scripts/world/zone1_scenery.gd" id="3_scenery"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMaterial"]
-sky_top_color = Color(0.45, 0.65, 0.9, 1)
-sky_horizon_color = Color(0.75, 0.82, 0.9, 1)
+sky_top_color = Color(0.36, 0.58, 0.86, 1)
+sky_horizon_color = Color(0.78, 0.87, 0.95, 1)
+ground_horizon_color = Color(0.78, 0.87, 0.95, 1)
+ground_bottom_color = Color(0.78, 0.87, 0.95, 1)
 
 [sub_resource type="Sky" id="Sky"]
 sky_material = SubResource("SkyMaterial")
@@ -14,17 +17,12 @@ sky_material = SubResource("SkyMaterial")
 background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 3
-tonemap_mode = 2
-
-[sub_resource type="StandardMaterial3D" id="Material_ground"]
-albedo_color = Color(0.42, 0.62, 0.32, 1)
-
-[sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
-material = SubResource("Material_ground")
-size = Vector2(300, 300)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_ground"]
-size = Vector3(300, 1, 300)
+ambient_light_color = Color(0.75, 0.78, 0.85, 1)
+ambient_light_energy = 0.6
+fog_enabled = true
+fog_light_color = Color(0.78, 0.86, 0.94, 1)
+fog_density = 0.0012
+fog_sky_affect = 0.0
 
 [node name="Zone1" type="Node3D"]
 script = ExtResource("1_zone")
@@ -35,16 +33,12 @@ environment = SubResource("Environment")
 [node name="Sun" type="DirectionalLight3D" parent="."]
 position = Vector3(0, 20, 0)
 rotation = Vector3(-0.8727, 0.5236, 0)
+light_color = Color(1, 0.96, 0.88, 1)
 shadow_enabled = true
+directional_shadow_max_distance = 40.0
 
-[node name="Ground" type="StaticBody3D" parent="."]
-
-[node name="Mesh" type="MeshInstance3D" parent="Ground"]
-mesh = SubResource("PlaneMesh_ground")
-
-[node name="Collision" type="CollisionShape3D" parent="Ground"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
-shape = SubResource("BoxShape3D_ground")
+[node name="Scenery" type="Node3D" parent="."]
+script = ExtResource("3_scenery")
 
 [node name="Players" type="Node3D" parent="."]
 

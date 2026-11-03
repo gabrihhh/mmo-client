@@ -92,6 +92,10 @@ var _dash_dir: Vector2 = Vector2.ZERO
 var _dash_step_distance: float = 0.0
 var _dash_steps_left: int = 0
 var _bot_walk: bool = false
+## Altura visual do chão sob o personagem (m), suavizada para os degraus não darem tranco.
+var _ground_y: float = 0.0
+## Rapidez com que a altura visual segue o chão (1/s).
+const GROUND_FOLLOW: float = 18.0
 ## Dev ([BotFight]): direção de movimento forçada no mundo (x, z); zero = joystick/teclado normais.
 var bot_direction: Vector2 = Vector2.ZERO
 var _bot_time: float = 0.0
@@ -131,7 +135,8 @@ func spawn_at(state: PlayerState) -> void:
 	_pending.clear()
 	_dash_steps_left = 0
 	_visual_offset = Vector3.ZERO
-	global_position = _sim.position()
+	_ground_y = ZoneTerrain.height_at(_sim.x, _sim.z)
+	global_position = _sim.position() + Vector3.UP * _ground_y
 	rotation.y = _sim.rot_y
 	_camera.snap_to_target()
 	model.bind_look(state)
@@ -158,6 +163,9 @@ func _process(delta: float) -> void:
 	var alpha: float = _accumulator / step_seconds
 	_visual_offset *= exp(-correction_smoothing * delta)
 	global_position = _previous_sim.position().lerp(_sim.position(), alpha) + _visual_offset
+	# Altura do chão (praça, degraus, morros): só visual, o servidor anda no plano ([MUN-03]).
+	_ground_y = lerpf(_ground_y, ZoneTerrain.height_at(global_position.x, global_position.z), 1.0 - exp(-GROUND_FOLLOW * delta))
+	global_position.y += _ground_y
 	rotation.y = lerp_angle(rotation.y, _target_yaw(), 1.0 - exp(-turn_speed * delta))
 
 	# Animação de pernas pela velocidade da simulação (sem o ruído das correções).
