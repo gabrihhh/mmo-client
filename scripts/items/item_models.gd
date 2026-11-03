@@ -10,7 +10,7 @@ extends RefCounted
 const _PATHS: Dictionary[String, String] = {
 	"training_sword": "res://assets/placeholders/sword.glb",
 	"training_staff": "res://assets/placeholders/staff.glb",
-	"training_hood": "res://assets/placeholders/cap.glb",
+	"training_hood": "res://assets/items/hood/cloth_hood.tscn",
 }
 
 ## Como a mão segura (giro em X, graus, a partir do osso da mão). Os modelos de segurar têm o comprimento em +Y:
