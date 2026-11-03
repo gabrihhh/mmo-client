@@ -23,3 +23,10 @@ outline_size = 14
 [node name="HealthBar" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.15, 0)
 script = ExtResource("9_bar")
+
+[node name="ManaBar" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, 0)
+visible = false
+script = ExtResource("9_bar")
+bar_size = Vector2(0.85, 0.08)
+fill_color = Color(0.25, 0.45, 0.95, 1)

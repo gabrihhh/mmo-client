@@ -26,6 +26,10 @@ var tick: int = 0
 var hp: float = 0.0
 var max_hp: float = 0.0
 var dead: bool = false
+## Mana atual e máxima (ATENÇÃO: espelha PlayerSnapshot.mana/maxMana em mmo-server/src/net/protocol.ts).
+## Só jogadores: bonecos/NPCs não mandam, e [member max_mana] fica 0 (sem barra de mana). Ver [CLI-04].
+var mana: float = 0.0
+var max_mana: float = 0.0
 ## Escudo ativo (dano que ainda absorve; 0 = sem escudo). Ver mmo-docs [JOGO-06].
 var shield: float = 0.0
 ## O que veste: slot ("hand", "head", "chest", "feet") → itemId. Slot vazio não aparece. Ver [ART-02].
@@ -86,6 +90,8 @@ func apply_snapshot(data: Dictionary, at_tick: int) -> void:
 	hp = Protocol.read_float(data, "hp", hp)
 	max_hp = Protocol.read_float(data, "maxHp", max_hp)
 	shield = Protocol.read_float(data, "shield")
+	mana = Protocol.read_float(data, "mana", mana)
+	max_mana = Protocol.read_float(data, "maxMana", max_mana)
 	var dead_value: Variant = data.get("dead")
 	if dead_value is bool:
 		var is_dead: bool = dead_value
@@ -105,6 +111,16 @@ func apply_snapshot(data: Dictionary, at_tick: int) -> void:
 ## Fração de vida (0..1); 1 se a vida máxima não é conhecida.
 func hp_ratio() -> float:
 	return clampf(hp / max_hp, 0.0, 1.0) if max_hp > 0.0 else 1.0
+
+
+## true se tem mana (jogador); bonecos/NPCs não têm.
+func has_mana() -> bool:
+	return max_mana > 0.0
+
+
+## Fração de mana (0..1); 0 sem mana.
+func mana_ratio() -> float:
+	return clampf(mana / max_mana, 0.0, 1.0) if max_mana > 0.0 else 0.0
 
 
 ## Posição interpolada no tick (fracionário) [param render_tick]. Antes do histórico, devolve o

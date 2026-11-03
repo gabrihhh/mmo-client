@@ -54,6 +54,8 @@ class PendingInput:
 @onready var _camera: IsometricCamera = $Camera
 @onready var _name_label: Label3D = $NameLabel
 @onready var _health_bar: HealthBar3D = $HealthBar
+## Mana embaixo da vida ([CLI-04]); some em quem não tem mana (bonecos).
+@onready var _mana_bar: HealthBar3D = $ManaBar
 @onready var _body: Node3D = $Body
 ## Boneco (animação e itens vestidos, [ART-03]).
 @onready var model: CharacterModel = $Body/Character
@@ -157,6 +159,8 @@ func _process(delta: float) -> void:
 		_health_bar.set_ratio(own.hp_ratio())
 		_death.update(_body, own.dead, delta)
 		_health_bar.visible = not own.dead
+		_mana_bar.set_ratio(own.mana_ratio())
+		_mana_bar.visible = own.has_mana() and not own.dead
 		_shield_bubble.set_active(own.shield > 0.0 and not own.dead)
 
 	# Desenho: entre o tick anterior e o atual, mais a correção visual que está sumindo.

@@ -4,6 +4,7 @@ extends Node
 ## Ver mmo-docs [JOGO-02].
 ##
 ## - Ataque, toque: pega o alvo mais perto e ataca. Arrastar: mira; soltar sobre alguém fixa o alvo.
+## - "Desfocar" (embaixo do ataque), toque: solta o alvo fixo (o servidor para de atacar).
 ## - Carta, toque: habilidade em si mesmo sai na hora; com mira, vai no alvo fixo (ou para a frente).
 ##   Arrastar: prévia translúcida saindo do personagem; soltar executa; voltar o dedo à carta cancela.
 ##
@@ -49,6 +50,7 @@ func setup(zone: Zone, player: LocalPlayer, hud: Hud, preview: AimPreview) -> vo
 	attack_button.aim_moved.connect(func(offset: Vector2) -> void: _on_aim_moved(offset, _attack))
 	attack_button.aim_released.connect(_on_attack_released)
 	attack_button.aim_cancelled.connect(_end_aim)
+	_hud.clear_target_button.tapped.connect(_on_clear_target_tapped)
 	# Cada carta é ligada pelo ÍNDICE: a habilidade dela muda quando o inventário muda.
 	for i: int in range(Hud.CARD_COUNT):
 		var card: TouchActionButton = _hud.get_card(i)
@@ -161,6 +163,7 @@ func _on_combat_event(event: Dictionary) -> void:
 func _process(_delta: float) -> void:
 	# O alvo fixo de verdade é o do servidor (ele limpa quando o alvo morre ou sai).
 	_target_id = Network.instance.attack_target
+	_hud.set_target_active(not _target_id.is_empty())
 	# Golpe em andamento: o modelo fica virado para o alvo ([JOGO-05]).
 	var casting_node: RemotePlayer = _zone.get_target_node(Network.instance.casting_target) if not Network.instance.casting_target.is_empty() else null
 	if casting_node != null:
@@ -195,6 +198,17 @@ func _on_attack_released(_offset: Vector2) -> void:
 	var target: RemotePlayer = _zone.get_target_node(picked)
 	if target != null:
 		_set_attack_target(target)
+
+
+## "Desfocar": pede ao servidor para soltar o alvo fixo (attack com alvo vazio, [JOGO-05]). O marcador e o
+## botão apagam quando o servidor confirma (alvo vazio no "me").
+func _on_clear_target_tapped() -> void:
+	if _target_id.is_empty():
+		return
+	Network.instance.send_attack("")
+	_target_id = ""
+	_preview.hide_target()
+	_hud.show_toast("Alvo solto")
 
 
 ## Pede ao servidor para atacar [param target]. O marcador muda quando o servidor confirma.

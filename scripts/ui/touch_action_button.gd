@@ -49,8 +49,12 @@ enum Shape { CARD, CIRCLE }
 ## Espessura da moldura da carta, em px.
 @export var frame_width: int = 3
 @export var font_size: int = 26
-## Desligado: ignora toques (ex.: menu aberto).
-@export var enabled: bool = true
+## Desligado: ignora toques (ex.: menu aberto, "Desfocar" sem alvo) e fica apagado (fundo e texto).
+@export var enabled: bool = true:
+	set(value):
+		enabled = value
+		if _label != null:
+			_update_cooldown_visual()
 ## Cor do "relógio" de recarga (setor escuro que vai encolhendo).
 @export var cooldown_color: Color = Color(0.0, 0.0, 0.0, 0.62)
 
@@ -73,6 +77,7 @@ func _ready() -> void:
 	_cooldown_label.add_theme_constant_override("outline_size", 6)
 	_cooldown_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	set_process(false)
+	_update_cooldown_visual()
 
 
 ## Começa a recarga: [param remaining] segundos de [param total]. O botão fica apagado com o relógio
@@ -102,11 +107,11 @@ func _process(_delta: float) -> void:
 	_update_cooldown_visual()
 
 
-## Opacidade reduzida no texto e contagem regressiva enquanto recarrega.
+## Opacidade reduzida no texto (recarregando ou desligado) e contagem regressiva enquanto recarrega.
 func _update_cooldown_visual() -> void:
 	var remaining: float = cooldown_remaining()
 	var cooling: bool = remaining > 0.0
-	var faded: Color = Color(1, 1, 1, 0.25) if cooling else Color.WHITE
+	var faded: Color = Color(1, 1, 1, 0.25) if cooling or not enabled else Color.WHITE
 	_label.modulate = faded
 	_caption_label.modulate = faded
 	# Abaixo de 1 s mostra uma casa decimal (ex.: "0.4"); acima, segundos inteiros arredondados para cima.

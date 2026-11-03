@@ -1,7 +1,8 @@
 class_name Hud
 extends CanvasLayer
-## HUD do jogo em retrato ([CLI-08]): vida/mana numa moldura no topo; embaixo, outra moldura junta as 6
-## cartas e a linha joystick | ataque simples | menu. O Menu (Inventário, Configuração, "Sair da conta") fecha
+## HUD do jogo em retrato ([CLI-08]): vida/mana numa moldura de madeira ([WoodPanel]) no topo; embaixo, outra
+## moldura de madeira junta as 6 cartas e a linha joystick | ataque simples (+ "Desfocar" embaixo) | menu,
+## com espaços iguais entre eles e nas bordas. O Menu (Inventário, Configuração, "Sair da conta") fecha
 ## pelo X no canto ou tocando fora dele (no fundo escurecido).
 ##
 ## Só mostra e repassa toques: quem decide o que fazer com ataque/cartas é o [CombatController].
@@ -39,10 +40,14 @@ const _TOAST_SECONDS: float = 1.8
 @onready var joystick: TouchJoystick = %TouchJoystick
 ## Botão do ataque simples.
 @onready var attack_button: TouchActionButton = %AttackButton
+## Botão pequeno embaixo do ataque: solta o alvo fixo ([JOGO-02]). Apagado sem alvo.
+@onready var clear_target_button: TouchActionButton = %ClearTargetButton
 @onready var _menu_button: TouchActionButton = %MenuButton
 
 var _cards: Array[TouchActionButton] = []
 var _toast_left: float = 0.0
+## Há alvo fixo agora (liga o "Desfocar"); ver [method set_target_active].
+var _has_target: bool = false
 
 
 func _ready() -> void:
@@ -141,6 +146,20 @@ func show_toast(text: String) -> void:
 	_toast_left = _TOAST_SECONDS
 
 
+## Liga/apaga o "Desfocar" conforme há alvo fixo ([param active]). Chamado a cada quadro pelo
+## [CombatController]; só redesenha quando muda.
+func set_target_active(active: bool) -> void:
+	if active == _has_target:
+		return
+	_has_target = active
+	_refresh_clear_target()
+
+
+func _refresh_clear_target() -> void:
+	clear_target_button.enabled = _has_target and not is_menu_open()
+	clear_target_button.queue_redraw()
+
+
 ## true com algum painel do menu aberto.
 func is_menu_open() -> bool:
 	return _menu_panel.visible or _inventory_panel.visible or _settings_panel.visible
@@ -155,6 +174,7 @@ func _open_panel(panel: PanelContainer) -> void:
 	joystick.set_process_input(playing)
 	attack_button.enabled = playing
 	_menu_button.enabled = playing
+	_refresh_clear_target()
 	for card: TouchActionButton in _cards:
 		card.enabled = playing and not card.text.is_empty()
 	# Solta o joystick se estava sendo usado quando o menu abriu.

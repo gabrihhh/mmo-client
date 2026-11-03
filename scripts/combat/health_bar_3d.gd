@@ -1,14 +1,17 @@
 class_name HealthBar3D
 extends Node3D
-## Barra de vida acima da cabeça, sempre de frente para a câmera. Ver mmo-docs [JOGO-05].
-## Só visual: chame [method set_ratio] com a fração de vida (0..1).
+## Barra acima da cabeça (vida ou mana), sempre de frente para a câmera. Ver mmo-docs [JOGO-05], [CLI-04].
+## Só visual: chame [method set_ratio] com a fração (0..1). A cena do jogador usa duas: "HealthBar"
+## (vermelha) logo abaixo do nome e "ManaBar" (azul, mais fina) logo abaixo dela.
 ##
 ## O nó inteiro copia a rotação da câmera a cada quadro (em vez de billboard no material): assim o
 ## preenchimento, ancorado na borda esquerda do nó, encolhe para a esquerda da TELA.
 
 ## Tamanho da barra no mundo, em metros.
 @export var bar_size: Vector2 = Vector2(0.85, 0.13)
+## Cor do preenchimento (vida = vermelho; a ManaBar troca para azul na cena).
 @export var fill_color: Color = Color(0.85, 0.2, 0.2)
+## Cor do fundo (parte vazia).
 @export var back_color: Color = Color(0, 0, 0, 0.6)
 
 var _fill: MeshInstance3D = null

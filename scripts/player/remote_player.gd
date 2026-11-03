@@ -20,6 +20,8 @@ var _state: PlayerState = null
 
 @onready var _name_label: Label3D = $NameLabel
 @onready var _health_bar: HealthBar3D = $HealthBar
+## Mana embaixo da vida ([CLI-04]); some em quem não tem mana (bonecos).
+@onready var _mana_bar: HealthBar3D = $ManaBar
 @onready var _body: Node3D = $Body
 ## Boneco animado ([ART-03]); null nos bonecos de treino (que têm só um corpo simples).
 @onready var model: CharacterModel = get_node_or_null("Body/Character") as CharacterModel
@@ -75,6 +77,8 @@ func _process(delta: float) -> void:
 	_health_bar.set_ratio(_state.hp_ratio())
 	_death.update(_body, _state.dead, delta)
 	_health_bar.visible = not _state.dead
+	_mana_bar.set_ratio(_state.mana_ratio())
+	_mana_bar.visible = _state.has_mana() and not _state.dead
 	_shield_bubble.set_active(_state.shield > 0.0 and not _state.dead)
 	if model != null and delta > 0.0:
 		var moved: Vector3 = position - _last_position
