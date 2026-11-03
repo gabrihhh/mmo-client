@@ -16,6 +16,14 @@ const SHIRT_SURFACE: int = 0
 
 var _animator: CharacterAnimator = null
 var _equipment: EquipmentView = null
+## Brilho de lançamento na mão (um só por personagem, reaproveitado).
+var _glow: MeshInstance3D = null
+var _glow_material: StandardMaterial3D = null
+var _glow_left: float = 0.0
+var _glow_total: float = 0.0
+
+## Raio máximo (m) do brilho de lançamento.
+const GLOW_RADIUS: float = 0.13
 
 
 func _ready() -> void:
@@ -62,6 +70,51 @@ func stop_action() -> void:
 ## Recuo ao apanhar.
 func flinch() -> void:
 	_animator.flinch()
+
+
+## Brilho na mão durante o lançamento de uma magia ([JOGO-08]): cresce até o momento do efeito e some.
+func show_cast_glow(color: Color, seconds: float) -> void:
+	if _glow == null:
+		_create_glow()
+	if _glow == null:
+		return
+	_glow_material.albedo_color = color.lightened(0.3)
+	_glow_total = maxf(seconds, 0.1)
+	_glow_left = _glow_total
+	_glow.visible = true
+
+
+func _process(delta: float) -> void:
+	if _glow == null or _glow_left <= 0.0:
+		return
+	_glow_left -= delta
+	var t: float = 1.0 - clampf(_glow_left / _glow_total, 0.0, 1.0)
+	_glow.scale = Vector3.ONE * lerpf(0.25, 1.0, t) * (1.0 + 0.12 * sin(t * 40.0))
+	if _glow_left <= 0.0:
+		_glow.visible = false
+
+
+func _create_glow() -> void:
+	if skeleton.find_bone("RightHand") < 0:
+		return
+	var attachment: BoneAttachment3D = BoneAttachment3D.new()
+	attachment.name = "CastGlowMount"
+	attachment.bone_name = "RightHand"
+	skeleton.add_child(attachment)
+	var sphere: SphereMesh = SphereMesh.new()
+	sphere.radius = GLOW_RADIUS
+	sphere.height = GLOW_RADIUS * 2.0
+	sphere.radial_segments = 8
+	sphere.rings = 4
+	_glow_material = StandardMaterial3D.new()
+	_glow_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_glow = MeshInstance3D.new()
+	_glow.mesh = sphere
+	_glow.material_override = _glow_material
+	_glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_glow.position = Vector3(0.0, -0.08, 0.12)  # na frente do punho
+	_glow.visible = false
+	attachment.add_child(_glow)
 
 
 ## Posição (global) de onde saem as magias: um pouco acima da mão da arma.

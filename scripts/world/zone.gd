@@ -185,6 +185,8 @@ func _on_cast_start(event: Dictionary) -> void:
 	if model != null and not already_animated:
 		model.play_action(AbilityVisuals.animation(ability), duration)
 	var color: Color = AbilityVisuals.color(ability)
+	if model != null and duration > 0.0 and AbilityVisuals.has_cast_glow(ability):
+		model.show_cast_glow(color, duration)
 	var radius: float = Protocol.read_float(event, "radius")
 	var has_point: bool = event.has("x") and event.has("z")
 	var caster: Node3D = get_entity_node(source_id)
@@ -194,12 +196,22 @@ func _on_cast_start(event: Dictionary) -> void:
 			GroundWarning.spawn_line(self, caster.global_position, point, radius, duration, color)
 		else:
 			GroundWarning.spawn_area(self, point.x, point.z, radius, duration, color)
+	var reach: float = AbilityVisuals.slash_reach(ability)
+	if reach != 0.0 and caster != null:
+		get_tree().create_timer(maxf(duration, 0.0)).timeout.connect(_slash.bind(caster, reach, color))
 	var flight: float = AbilityVisuals.homing_flight(ability)
 	var target: Node3D = get_entity_node(Protocol.read_string(event, "target"))
 	if flight > 0.0 and target != null and model != null:
 		# Sai antes do fim do lançamento para chegar junto com o dano.
 		var delay: float = maxf(duration - flight, 0.0)
 		get_tree().create_timer(delay).timeout.connect(_launch_homing.bind(model, target, minf(flight, duration), color))
+
+
+## Clarão do golpe corpo a corpo no momento do golpe, na frente de [param caster] ([JOGO-08]).
+func _slash(caster: Node3D, reach: float, color: Color) -> void:
+	if not is_instance_valid(caster) or not caster.is_visible_in_tree():
+		return
+	SlashArc.spawn(self, caster.global_position, caster.global_rotation.y, absf(reach), reach < 0.0, Color(1, 1, 1) if color == AbilityVisuals.DEFAULT_COLOR else color)
 
 
 ## Projétil de alvo (visual): sai da mão de [param model] e chega em [param target] em [param seconds].

@@ -31,6 +31,15 @@ const COLORS: Dictionary[String, Color] = {
 	"shield": Color(0.5, 0.75, 1.0),
 }
 const DEFAULT_COLOR: Color = Color(1.0, 0.85, 0.5)
+## Golpes corpo a corpo com clarão no momento do golpe: alcance do clarão (m). Negativo = anel inteiro (ao redor).
+const SLASH_REACH: Dictionary[String, float] = {
+	"sword_attack": 1.8,
+	"heavy_strike": 2.3,
+	"punch": 1.1,
+	"spin": -3.0,
+}
+## Magias que acendem um brilho na mão durante o lançamento (mostra aos outros que vem coisa aí).
+const CAST_GLOW: Array[String] = ["fireball", "meteor", "bolt", "heal", "shield"]
 ## Habilidades de alvo com projétil só visual: tempo de voo (s). Ele sai de modo a chegar junto com o dano.
 const HOMING_FLIGHT: Dictionary[String, float] = {
 	"staff_attack": 0.3,
@@ -46,6 +55,16 @@ static func animation(ability_id: String) -> String:
 ## Cor dos efeitos de [param ability_id].
 static func color(ability_id: String) -> Color:
 	return COLORS.get(ability_id, DEFAULT_COLOR)
+
+
+## Alcance (m) do clarão do golpe de [param ability_id]; 0 = não tem; negativo = anel inteiro.
+static func slash_reach(ability_id: String) -> float:
+	return SLASH_REACH.get(ability_id, 0.0)
+
+
+## true se [param ability_id] acende o brilho na mão durante o lançamento.
+static func has_cast_glow(ability_id: String) -> bool:
+	return ability_id in CAST_GLOW
 
 
 ## Tempo de voo (s) do projétil visual de [param ability_id]; 0 = não tem.
