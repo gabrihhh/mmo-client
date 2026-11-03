@@ -23,7 +23,7 @@ enum ProjectionMode { PERSPECTIVE, ORTHOGRAPHIC }
 ## comprida corta os lados; mais larga corta em cima/embaixo. Ver mmo-docs [CLI-02].
 @export var reference_aspect: float = 9.0 / 16.0
 ## Distância da câmera até o ponto focado, em metros.
-@export var distance: float = 30.0
+@export var distance: float = 20.0
 ## Altura do ponto focado acima da origem do alvo (meio do personagem de 1.8 m).
 @export var focus_height: float = 0.9
 ## Suavidade do acompanhamento. 0 = colado no alvo.
