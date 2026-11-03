@@ -8,10 +8,12 @@ extends AnimationTree
 ##
 ## A árvore é montada em código ([method setup]) com a biblioteca de animações do personagem.
 
-## Ossos da camada de ação (tronco, cabeça e braços). Nomes do perfil humanoide ([ART-03]).
+## Ossos da camada de ação (tronco, cabeça e braços). Nomes do perfil humanoide ([ART-03]). UpperChest e ombros
+## só existem em alguns modelos (ex.: Mixamo); osso que o esqueleto não tem é ignorado.
 const UPPER_BONES: Array[String] = [
-	"Spine", "Chest", "Neck", "Head",
-	"RightUpperArm", "RightLowerArm", "RightHand", "LeftUpperArm", "LeftLowerArm", "LeftHand",
+	"Spine", "Chest", "UpperChest", "Neck", "Head",
+	"RightShoulder", "RightUpperArm", "RightLowerArm", "RightHand",
+	"LeftShoulder", "LeftUpperArm", "LeftLowerArm", "LeftHand",
 ]
 ## Ossos que só a camada de movimento mexe.
 const LOWER_BONES: Array[String] = [
@@ -36,10 +38,14 @@ const MIN_ACTION_SPEED: float = 0.25
 const MAX_ACTION_SPEED: float = 4.0
 
 var _action_node: AnimationNodeAnimation = null
+## Caminho do esqueleto a partir do personagem (raiz da árvore), ex. "Skeleton3D".
+var _skeleton_path: String = "Skeleton3D"
 
 
-## Monta a árvore com [param library] (animações "idle", "run", ações e "flinch"). Chamar depois de entrar na cena.
-func setup(library: AnimationLibrary) -> void:
+## Monta a árvore com [param library] (animações "idle", "run", ações e "flinch"). [param skeleton_path] = caminho
+## do esqueleto a partir do personagem (o mesmo das trilhas da biblioteca). Chamar depois de entrar na cena.
+func setup(library: AnimationLibrary, skeleton_path: String = "Skeleton3D") -> void:
+	_skeleton_path = skeleton_path
 	add_animation_library("", library)
 	var tree: AnimationNodeBlendTree = AnimationNodeBlendTree.new()
 	tree.add_node("idle", _animation_node("idle"))
@@ -112,5 +118,5 @@ func _upper_one_shot(fade_in: float, fade_out: float) -> AnimationNodeOneShot:
 	node.fadeout_time = fade_out
 	node.filter_enabled = true
 	for bone_name: String in UPPER_BONES:
-		node.set_filter_path(NodePath("Skeleton3D:" + bone_name), true)
+		node.set_filter_path(NodePath("%s:%s" % [_skeleton_path, bone_name]), true)
 	return node

@@ -1,14 +1,14 @@
 extends SceneTree
-## Foto de conferência do personagem placeholder ([ART-03]): o boneco em várias poses lado a lado, com itens.
+## Foto de conferência de um personagem ([ART-03]): o boneco em várias poses lado a lado, com itens.
 ##
 ## Rodar da pasta mmo-client (precisa de tela, não roda com --headless):
-##   godot --path . --script res://tools/placeholders/preview_character.gd -- /caminho/saida.png [espada|cajado]
+##   godot --path . --script res://tools/placeholders/preview_character.gd -- /caminho/saida.png [espada|cajado] [cena.tscn]
+## Sem a cena: o placeholder. Ex. de cena: res://assets/characters/male/male_character.tscn.
 ##
 ## Cada coluna é uma animação parada num instante (nome: tempo em s). Útil para ver proporção, pegada da arma
 ## e poses depois de mexer em make_character.gd.
 
 const CHARACTER: String = "res://assets/placeholders/character.tscn"
-const ANIMATIONS: String = "res://assets/placeholders/character_animations.tres"
 ## Animação e instante (s) de cada coluna.
 const POSES: Array[Array] = [
 	["idle", 0.0], ["run", 0.0], ["run", 0.165], ["attack_sword", 0.3], ["attack_sword", 0.45],
@@ -36,15 +36,15 @@ func _build() -> void:
 	var args: PackedStringArray = OS.get_cmdline_user_args()
 	_output = args[0] if args.size() > 0 else "user://preview_character.png"
 	var weapon: String = "training_staff" if args.size() > 1 and args[1] == "cajado" else "training_sword"
+	var scene_path: String = args[2] if args.size() > 2 else CHARACTER
 	var world: Node3D = Node3D.new()
 	get_root().add_child(world)
 	_add_environment(world)
 
-	var library: AnimationLibrary = load(ANIMATIONS) as AnimationLibrary
 	var look: PlayerState = PlayerState.new()
 	look.set_look({"hand": weapon, "head": "training_hood"})
 	for i: int in range(POSES.size()):
-		var model: CharacterModel = (load(CHARACTER) as PackedScene).instantiate() as CharacterModel
+		var model: CharacterModel = (load(scene_path) as PackedScene).instantiate() as CharacterModel
 		model.position = Vector3((float(i) - float(POSES.size() - 1) * 0.5) * SPACING, 0.0, 0.0)
 		model.rotation.y = deg_to_rad(-25.0)  # 3/4 de frente
 		world.add_child(model)
@@ -54,7 +54,7 @@ func _build() -> void:
 		var player: AnimationPlayer = AnimationPlayer.new()
 		model.add_child(player)
 		player.root_node = NodePath("..")
-		player.add_animation_library("", library)
+		player.add_animation_library("", model.animations if model.animations != null else load(CharacterModel.ANIMATIONS_PATH) as AnimationLibrary)
 		var pose_name: String = POSES[i][0]
 		var pose_time: float = POSES[i][1]
 		player.play(pose_name)

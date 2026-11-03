@@ -4,24 +4,24 @@ extends Node
 ##
 ## Cada slot com modelo tem um encaixe ([BoneAttachment3D]) num osso do esqueleto: arma na mão direita
 ## ("RightHand"), chapéu/capuz na cabeça ("Head"). Os encaixes acompanham as animações.
-## Modelos e o jeito de segurar cada item: [ItemModels].
+## Modelos e o jeito de segurar cada item: [ItemModels]. Pegada e offsets são medidos no osso do placeholder;
+## [method SkeletonRetarget.mount_fix] converte para o osso de outro modelo (eixos diferentes).
 
 ## Slot → osso do encaixe. Slot fora daqui (peito, pés) ainda não tem modelo.
 const MOUNT_BONES: Dictionary[String, String] = {"hand": "RightHand", "head": "Head"}
 ## Ponto de pegada (m) a partir do início do osso da mão (pulso): o meio do punho fechado.
 const HAND_OFFSET: Vector3 = Vector3(0.0, -0.06, 0.02)
-## Onde assenta um item de cabeça (m) a partir do início do osso da cabeça: no alto do cabelo.
-const HEAD_OFFSET: Vector3 = Vector3(0.0, 0.175, 0.0)
-## Escala dos itens de cabeça para cobrir o cabelo do placeholder.
-const HEAD_SCALE: float = 1.1
-
 var _mounts: Dictionary[String, Node3D] = {}
 var _state: PlayerState = null
 
 
-## Cria os encaixes nos ossos de [param skeleton].
-func setup(skeleton: Skeleton3D) -> void:
+## Cria os encaixes nos ossos de [param skeleton]. Item de cabeça: em [param head_offset] (m, a partir do início
+## do osso da cabeça) com escala [param head_scale] (cada modelo tem um tamanho de cabeça). [param show_head] false =
+## sem encaixe de cabeça (o item não aparece).
+func setup(skeleton: Skeleton3D, head_offset: Vector3, head_scale: float, show_head: bool = true) -> void:
 	for slot: String in MOUNT_BONES:
+		if slot == "head" and not show_head:
+			continue
 		var bone_name: String = MOUNT_BONES[slot]
 		if skeleton.find_bone(bone_name) < 0:
 			continue
@@ -30,10 +30,11 @@ func setup(skeleton: Skeleton3D) -> void:
 		attachment.bone_name = bone_name
 		skeleton.add_child(attachment)
 		var mount: Node3D = Node3D.new()
+		var fix: Transform3D = SkeletonRetarget.mount_fix(skeleton, bone_name)
 		if slot == "head":
-			mount.transform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * HEAD_SCALE), HEAD_OFFSET)
+			mount.transform = fix * Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * head_scale), head_offset)
 		else:
-			mount.position = HAND_OFFSET
+			mount.transform = fix * Transform3D(Basis.IDENTITY, HAND_OFFSET)
 		attachment.add_child(mount)
 		_mounts[slot] = mount
 	_refresh()

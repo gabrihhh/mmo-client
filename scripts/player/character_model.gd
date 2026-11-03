@@ -2,17 +2,34 @@ class_name CharacterModel
 extends Node3D
 ## Personagem na tela ([ART-03]): esqueleto + malha, animação ([CharacterAnimator]) e itens vestidos ([EquipmentView]).
 ##
-## A cena (assets/placeholders/character.tscn) é gerada por tools/placeholders/make_character.gd; o modelo final
-## do Blender entra no lugar dela com os mesmos nomes de ossos. O modelo olha para +Z: quem usa gira 180° em Y
-## (o personagem do jogo olha para −Z).
+## Serve para qualquer modelo humanoide com os nomes de osso do perfil do Godot: o placeholder
+## (assets/placeholders/character.tscn, gerado por tools/placeholders/make_character.gd) e os modelos de verdade
+## (ex.: assets/characters/male/male_character.tscn). Cada cena diz onde estão o esqueleto e a malha e qual
+## biblioteca de animações usar. O modelo olha para +Z: quem usa gira 180° em Y (o personagem do jogo olha para −Z).
 
-## Biblioteca de animações do personagem (placeholder gerado junto com a cena).
+## Biblioteca padrão (a do placeholder), usada quando a cena não define [member animations].
 const ANIMATIONS_PATH: String = "res://assets/placeholders/character_animations.tres"
 ## Superfície da malha que é a camisa (a primeira cor gerada): o jogo pinta por cima.
 const SHIRT_SURFACE: int = 0
 
-@onready var skeleton: Skeleton3D = $Skeleton3D
-@onready var _body: MeshInstance3D = $Skeleton3D/Body
+## Animações do personagem ("idle", "run", ações, "flinch"; [CharacterAnimator]). Vazio = as do placeholder.
+## As trilhas apontam para o esqueleto pelo caminho [member skeleton_path].
+@export var animations: AnimationLibrary = null
+## Esqueleto, a partir desta raiz.
+@export var skeleton_path: NodePath = ^"Skeleton3D"
+## Malha do corpo, a partir desta raiz.
+@export var body_path: NodePath = ^"Skeleton3D/Body"
+## true: [method set_shirt_color] pinta a superfície da camisa (placeholder de cores sólidas). Em modelo com
+## textura fica false (pintar tingiria o corpo todo).
+@export var tint_shirt: bool = true
+## false: não desenha o item de cabeça (ainda não há chapéu feito para este modelo). O item continua vestido.
+@export var show_head_item: bool = true
+## Item de cabeça: onde assenta (m, a partir do início do osso da cabeça) e escala ([EquipmentView]).
+@export var head_item_offset: Vector3 = Vector3(0.0, 0.175, 0.0)
+@export var head_item_scale: float = 1.1
+
+@onready var skeleton: Skeleton3D = get_node(skeleton_path) as Skeleton3D
+@onready var _body: MeshInstance3D = get_node(body_path) as MeshInstance3D
 
 var _animator: CharacterAnimator = null
 var _equipment: EquipmentView = null
@@ -30,17 +47,19 @@ func _ready() -> void:
 	_animator = CharacterAnimator.new()
 	_animator.name = "Animator"
 	add_child(_animator)
-	var library: AnimationLibrary = load(ANIMATIONS_PATH) as AnimationLibrary
+	var library: AnimationLibrary = animations if animations != null else load(ANIMATIONS_PATH) as AnimationLibrary
 	if library != null:
-		_animator.setup(library)
+		_animator.setup(library, String(get_path_to(skeleton)))
 	_equipment = EquipmentView.new()
 	_equipment.name = "Equipment"
 	add_child(_equipment)
-	_equipment.setup(skeleton)
+	_equipment.setup(skeleton, head_item_offset, head_item_scale, show_head_item)
 
 
-## Cor da camisa (azul = você, vermelho = os outros).
+## Cor da camisa (azul = você, vermelho = os outros). Sem efeito se [member tint_shirt] for false.
 func set_shirt_color(color: Color) -> void:
+	if not tint_shirt:
+		return
 	var base: Material = _body.mesh.surface_get_material(SHIRT_SURFACE)
 	var material: StandardMaterial3D = (base.duplicate() as StandardMaterial3D) if base is StandardMaterial3D else StandardMaterial3D.new()
 	material.albedo_color = color
@@ -119,7 +138,8 @@ func _create_glow() -> void:
 	_glow.mesh = sphere
 	_glow.material_override = _glow_material
 	_glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_glow.position = Vector3(0.0, -0.08, 0.12)  # na frente do punho
+	# Na frente do punho (medido no osso do placeholder; mount_fix converte para o osso deste modelo).
+	_glow.position = SkeletonRetarget.mount_fix(skeleton, "RightHand") * Vector3(0.0, -0.08, 0.12)
 	_glow.visible = false
 	attachment.add_child(_glow)
 

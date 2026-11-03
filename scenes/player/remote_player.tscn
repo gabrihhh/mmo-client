@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/player/remote_player.gd" id="1_remote"]
 [ext_resource type="Script" path="res://scripts/combat/health_bar_3d.gd" id="9_bar"]
-[ext_resource type="PackedScene" path="res://assets/placeholders/character.tscn" id="8_character"]
+[ext_resource type="PackedScene" path="res://assets/characters/male/male_character.tscn" id="8_character"]
 
 [node name="RemotePlayer" type="Node3D"]
 script = ExtResource("1_remote")
