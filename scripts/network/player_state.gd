@@ -26,6 +26,8 @@ var tick: int = 0
 var hp: float = 0.0
 var max_hp: float = 0.0
 var dead: bool = false
+## Escudo ativo (dano que ainda absorve; 0 = sem escudo). Ver mmo-docs [JOGO-06].
+var shield: float = 0.0
 
 ## Última posição recebida, em metros.
 var position: Vector3:
@@ -58,6 +60,7 @@ func apply_snapshot(data: Dictionary, at_tick: int) -> void:
 	rot_y = Protocol.read_float(data, "rotY")
 	hp = Protocol.read_float(data, "hp", hp)
 	max_hp = Protocol.read_float(data, "maxHp", max_hp)
+	shield = Protocol.read_float(data, "shield")
 	var dead_value: Variant = data.get("dead")
 	if dead_value is bool:
 		var is_dead: bool = dead_value

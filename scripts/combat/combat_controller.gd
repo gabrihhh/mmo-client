@@ -8,9 +8,9 @@ extends Node
 ##   Arrastar: prévia translúcida saindo do personagem; soltar executa; voltar o dedo à carta cancela.
 ##
 ## Ataque e cartas vêm do que está vestido ([InventoryState], mensagem "inventory" do servidor).
-## Ataque simples: REAL (passo 3a, [JOGO-05]) — manda "attack" com o alvo; o servidor bate sozinho
-## quando em alcance; alvo fixo e relógio do ataque seguem o que o servidor confirma.
-## Cartas: ainda só aviso na HUD ([method _request]); efeitos no passo 3b do [ROAD-05].
+## Ataque simples ([JOGO-05]): manda "attack" com o alvo; o servidor bate sozinho quando em alcance.
+## Cartas ([JOGO-06]): mandam "cast" ([method _cast]); o servidor valida e aplica o efeito.
+## Alvo fixo e relógios seguem o que o servidor confirma.
 
 ## Arrastar o dedo esta distância (px) a partir do botão = mira no alcance máximo.
 const MAX_AIM_DRAG_PX: float = 220.0
@@ -130,12 +130,21 @@ func _on_card_index_released(offset: Vector2, index: int) -> void:
 		_end_aim()
 
 
-## Golpe começou no servidor ("cast_start" meu): o relógio do Atacar gira durante o lançamento.
+## Lançamento meu confirmado pelo servidor ("cast_start"): ataque simples → relógio do Atacar durante o
+## golpe; carta → começa a recarga dela.
 func _on_combat_event(event: Dictionary) -> void:
-	if Protocol.read_string(event, "type") == "cast_start" and Protocol.read_string(event, "source") == Network.instance.player_id:
+	if Protocol.read_string(event, "type") != "cast_start" or Protocol.read_string(event, "source") != Network.instance.player_id:
+		return
+	var ability_id: String = Protocol.read_string(event, "ability")
+	if ability_id == _attack.id:
 		var duration: float = Protocol.read_float(event, "duration")
-		_ready_at_ms[Protocol.read_string(event, "ability")] = Time.get_ticks_msec() + int(duration * 1000.0)
+		_ready_at_ms[ability_id] = Time.get_ticks_msec() + int(duration * 1000.0)
 		_hud.attack_button.set_cooldown(duration, duration)
+		return
+	for ability: AbilityView in _abilities:
+		if ability != null and ability.id == ability_id:
+			_start_cooldown(ability)
+			return
 
 
 func _process(_delta: float) -> void:
@@ -186,41 +195,39 @@ func _set_attack_target(target: RemotePlayer) -> void:
 
 # --- Cartas ---
 
+## Toque na carta: em si mesmo/ao redor sai na hora; "no alvo" usa o alvo fixo; direção/área vão na
+## direção do alvo fixo ou, sem alvo, para a frente.
 func _on_card_tapped(ability: AbilityView) -> void:
 	var target: RemotePlayer = _zone.get_target_node(_target_id) if not _target_id.is_empty() else null
 	match ability.aim_type:
 		AbilityView.AimType.SELF, AbilityView.AimType.AREA_SELF:
-			_request(ability.title, ability)
+			_cast(ability)
 		AbilityView.AimType.TARGET:
 			if target == null:
 				_hud.show_toast("%s: sem alvo (arraste para mirar)" % ability.title)
 			else:
-				_request("%s em %s" % [ability.title, target.display_name], ability, target.global_position)
+				_cast(ability, target.session_id, target.global_position)
 		AbilityView.AimType.DIRECTION, AbilityView.AimType.AREA:
-			if target != null:
-				_request("%s na direção de %s" % [ability.title, target.display_name], ability, target.global_position)
-			else:
-				_request("%s para a frente" % ability.title, ability, _player.global_position + _player.get_facing() * 3.0)
+			var point: Vector3 = target.global_position if target != null else _player.global_position + _player.get_facing() * maxf(ability.range_m, 3.0)
+			_cast(ability, "", point)
 
 
+## Soltar a carta depois de arrastar: lança no que estava na mira.
 func _on_card_released(offset: Vector2, ability: AbilityView) -> void:
 	var picked: String = _hovered_id
 	_end_aim()
 	var aim: Vector3 = _aim_point(offset, ability)
 	match ability.aim_type:
 		AbilityView.AimType.SELF, AbilityView.AimType.AREA_SELF:
-			_request(ability.title, ability)
+			_cast(ability)
 		AbilityView.AimType.TARGET:
 			var target: RemotePlayer = _zone.get_target_node(picked)
 			if target == null:
 				_hud.show_toast("%s: ninguém na mira" % ability.title)
 			else:
-				_request("%s em %s" % [ability.title, target.display_name], ability, target.global_position)
-		AbilityView.AimType.DIRECTION:
-			var direction: Vector3 = (aim - _player.global_position).normalized()
-			_request("%s → direção (%.2f, %.2f)" % [ability.title, direction.x, direction.z], ability, aim)
-		AbilityView.AimType.AREA:
-			_request("%s → ponto (%.1f, %.1f)" % [ability.title, aim.x, aim.z], ability, aim)
+				_cast(ability, target.session_id, target.global_position)
+		AbilityView.AimType.DIRECTION, AbilityView.AimType.AREA:
+			_cast(ability, "", aim)
 
 
 # --- Prévia da mira (ataque e cartas) ---
@@ -279,14 +286,18 @@ func _nearest_remote(point: Vector3, max_distance: float) -> RemotePlayer:
 	return best
 
 
-## Usa [param ability]: começa a recarga e mostra o pedido. Passo 3 ([ROAD-05]): envia ao servidor
-## (attack/cast), que decide e confirma a recarga.
-func _request(description: String, ability: AbilityView, aim_point: Vector3 = Vector3.INF) -> void:
-	# Vira para onde a habilidade vai durante o lançamento (habilidade em si mesmo não vira).
-	if aim_point != Vector3.INF:
-		_player.face_toward(aim_point, maxf(ability.cast_time_s, 0.3))
-	# Só reinicia o relógio se estava pronta (ex.: fixar alvo com o ataque recarregando não reinicia).
-	if _cooldown_left(ability) <= 0.0:
-		_start_cooldown(ability)
-	_hud.show_toast(description)
-	print("Combat: ", description)
+## Pede ao servidor para lançar [param ability] ([JOGO-06]): "no alvo" com [param target_id]; direção
+## (vetor até [param point]) ou área (o próprio [param point]). O servidor confere tudo; o relógio da carta
+## só começa quando ele confirma ("cast_start"), e a recusa aparece como aviso. Enquanto isso, o modelo
+## já vira para onde a habilidade vai (o servidor também vira, para todos).
+func _cast(ability: AbilityView, target_id: String = "", point: Vector3 = Vector3.INF) -> void:
+	if point != Vector3.INF:
+		_player.face_toward(point, maxf(ability.cast_time_s, 0.3))
+	var origin: Vector3 = _player.global_position
+	match ability.aim_type:
+		AbilityView.AimType.DIRECTION:
+			Network.instance.send_cast(ability.id, "", point.x - origin.x, point.z - origin.z)
+		AbilityView.AimType.AREA:
+			Network.instance.send_cast(ability.id, "", point.x, point.z)
+		_:
+			Network.instance.send_cast(ability.id, target_id)

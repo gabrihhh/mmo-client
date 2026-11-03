@@ -44,6 +44,7 @@ class PendingInput:
 @onready var _name_label: Label3D = $NameLabel
 @onready var _health_bar: HealthBar3D = $HealthBar
 @onready var _body: Node3D = $Body
+var _shield_bubble: ShieldBubble = null
 
 ## Estado previsto agora e o do tick anterior (o desenho interpola entre os dois).
 var _sim: Movement.State = Movement.State.new()
@@ -72,6 +73,8 @@ func _ready() -> void:
 	# Username exatamente como foi cadastrado.
 	_name_label.text = Network.instance.username
 	_bot_walk = BOT_WALK_ARG in OS.get_cmdline_user_args()
+	_shield_bubble = ShieldBubble.new()
+	add_child(_shield_bubble)
 
 
 ## Giro da câmera (rad): converte direções da tela (joystick, mira) em direções no mundo.
@@ -110,6 +113,7 @@ func _process(delta: float) -> void:
 		_health_bar.set_ratio(own.hp_ratio())
 		_body.visible = not own.dead
 		_health_bar.visible = not own.dead
+		_shield_bubble.set_active(own.shield > 0.0 and not own.dead)
 
 	# Desenho: entre o tick anterior e o atual, mais a correção visual que está sumindo.
 	var alpha: float = _accumulator / step_seconds

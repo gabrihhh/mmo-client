@@ -125,7 +125,22 @@ func _on_combat_event(event: Dictionary) -> void:
 				return
 			# Vermelho: dano em mim. Amarelo: dano que eu dei. Branco: entre outros.
 			var color: Color = Color(1, 0.35, 0.3) if target_id == me else (Color(1, 0.85, 0.4) if Protocol.read_string(event, "source") == me else Color(1, 1, 1, 0.85))
-			FloatingText.spawn(self, node.global_position + Vector3.UP * _FLOATING_TEXT_HEIGHT, "-%d" % roundi(Protocol.read_float(event, "amount")), color)
+			var above: Vector3 = node.global_position + Vector3.UP * _FLOATING_TEXT_HEIGHT
+			var amount: int = roundi(Protocol.read_float(event, "amount"))
+			var absorbed: int = roundi(Protocol.read_float(event, "absorbed"))
+			if amount > 0:
+				FloatingText.spawn(self, above, "-%d" % amount, color)
+			# Parte do golpe que o escudo segurou, em azul claro.
+			if absorbed > 0:
+				FloatingText.spawn(self, above + Vector3.UP * 0.4, "-%d escudo" % absorbed, Color(0.55, 0.8, 1.0))
+		"heal":
+			var healed: Node3D = get_entity_node(Protocol.read_string(event, "target"))
+			var heal_amount: int = roundi(Protocol.read_float(event, "amount"))
+			if healed != null and heal_amount > 0:
+				FloatingText.spawn(self, healed.global_position + Vector3.UP * _FLOATING_TEXT_HEIGHT, "+%d" % heal_amount, Color(0.4, 1.0, 0.45))
+		"impact":
+			# Onde a área/projétil bateu ([JOGO-06]).
+			ImpactFlash.spawn(self, Protocol.read_float(event, "x"), Protocol.read_float(event, "z"), Protocol.read_float(event, "radius"))
 		"miss":
 			# Golpe terminou com o alvo fora do alcance ([JOGO-05]).
 			var missed: Node3D = get_entity_node(Protocol.read_string(event, "target"))

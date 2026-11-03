@@ -21,6 +21,7 @@ var _state: PlayerState = null
 @onready var _name_label: Label3D = $NameLabel
 @onready var _health_bar: HealthBar3D = $HealthBar
 @onready var _body: Node3D = $Body
+var _shield_bubble: ShieldBubble = null
 
 
 ## Liga este nó ao estado do servidor. Chamar antes de adicionar à árvore.
@@ -30,6 +31,8 @@ func setup(id: String, state: PlayerState) -> void:
 
 
 func _ready() -> void:
+	_shield_bubble = ShieldBubble.new()
+	add_child(_shield_bubble)
 	# Username exatamente como foi cadastrado (o id é interno).
 	_name_label.text = display_name
 	if _state != null:
@@ -46,6 +49,7 @@ func _process(_delta: float) -> void:
 	_health_bar.set_ratio(_state.hp_ratio())
 	_body.visible = not _state.dead
 	_health_bar.visible = not _state.dead
+	_shield_bubble.set_active(_state.shield > 0.0 and not _state.dead)
 
 
 ## true se está vivo (pode ser alvo).

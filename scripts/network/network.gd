@@ -198,6 +198,20 @@ func send_attack(target_id: String) -> void:
 		_send(Protocol.MSG_ATTACK, {"targetId": target_id if not target_id.is_empty() else null})
 
 
+## Lança a habilidade [param ability_id] ([JOGO-06]). [param target_id]: mira "no alvo" ("" = nenhum).
+## [param x]/[param z]: direção (mira "direção") ou ponto no chão (mira "área"); NAN = não enviar.
+func send_cast(ability_id: String, target_id: String = "", x: float = NAN, z: float = NAN) -> void:
+	if not is_in_zone():
+		return
+	var data: Dictionary = {"abilityId": ability_id}
+	if not target_id.is_empty():
+		data["targetId"] = target_id
+	if not is_nan(x) and not is_nan(z):
+		data["x"] = x
+		data["z"] = z
+	_send(Protocol.MSG_CAST, data)
+
+
 ## Estado vivo de um jogador, ou null.
 func get_player(id: String) -> PlayerState:
 	if not _players.has(id):

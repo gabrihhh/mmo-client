@@ -10,7 +10,7 @@ extends RefCounted
 ## mmo-server/src/accounts/credentials.ts). Mudou lá → mude aqui e atualize mmo-docs [INFRA-04], [INFRA-07].
 
 ## Versão do protocolo enviada ao autenticar. Precisa ser igual a PROTOCOL_VERSION do servidor.
-const VERSION: int = 6
+const VERSION: int = 7
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, username, email, password }.
@@ -33,6 +33,9 @@ const MSG_UNEQUIP: String = "unequip"
 ## Fixa (ou limpa, com null) o alvo do ataque simples; o servidor bate sozinho quando em alcance.
 ## data: { targetId: String ou null }. Ver mmo-docs [JOGO-05].
 const MSG_ATTACK: String = "attack"
+## Lança uma habilidade vestida. data: { abilityId, targetId?, x?, z? } (x/z = direção ou ponto, conforme a
+## mira). Ver mmo-docs [JOGO-06].
+const MSG_CAST: String = "cast"
 
 # --- Servidor → cliente ---
 ## Autenticação aceita. data: { playerId, username (como foi cadastrado), sessionToken }.
@@ -45,9 +48,10 @@ const MSG_PLAYER_JOINED: String = "player_joined"
 ## Um jogador saiu. data: { id: String }.
 const MSG_PLAYER_LEFT: String = "player_left"
 ## Estado da zona a cada tick (20 Hz). data: { tick: int, ack: int (último input MEU aplicado),
-## players: Array[PlayerSnapshot], npcs: Array[NpcSnapshot], events: Array[CombatEvent],
+## players: Array[PlayerSnapshot] (com shield), npcs: Array[NpcSnapshot], events: Array[CombatEvent],
 ## me: { mana, maxMana, respawnIn, target } }. PlayerSnapshot = { id, x, y, z, rotY, hp, maxHp, dead }.
-## CombatEvent = { type: "damage", source, target, amount, ability } | { type: "cast_start", source, ability,
+## CombatEvent = { type: "damage", source, target, amount, absorbed, ability } | { type: "heal", source, target,
+## amount, ability } | { type: "impact", source, ability, x, z, radius } | { type: "cast_start", source, ability,
 ## target, duration } | { type: "miss", source, target, ability } | { type: "death", id, killer } | { type: "respawn", id }.
 ## me.casting = { ability, target, remaining } ou null (golpe em andamento).
 const MSG_SNAPSHOT: String = "snapshot"
