@@ -11,6 +11,8 @@ extends CanvasLayer
 signal logout_requested
 ## Tocou num item da mochila: vestir ([param uid]).
 signal equip_requested(uid: String)
+## O espaço livre entre as molduras mudou (tela girou/redimensionou): ver [method play_area_center_ratio].
+signal play_area_changed
 ## Tocou num slot vestido: tirar para a mochila ([param slot] = "hand", "head", "chest", "feet").
 signal unequip_requested(slot: String)
 
@@ -26,6 +28,8 @@ const _TOAST_SECONDS: float = 1.8
 @onready var _status_label: Label = %StatusLabel
 @onready var _toast: Label = %Toast
 @onready var _card_row: HBoxContainer = %CardRow
+@onready var _vitals_frame: Control = $Root/VitalsFrame
+@onready var _controls_frame: Control = $Root/ControlsFrame
 @onready var _menu_panel: PanelContainer = %MenuPanel
 ## Fundo escurecido atrás dos painéis do menu: bloqueia toques no jogo e, tocado, fecha o menu.
 @onready var _menu_dimmer: Panel = %MenuDimmer
@@ -66,6 +70,8 @@ func _ready() -> void:
 	(%SettingsBackButton as Button).pressed.connect(_open_panel.bind(_menu_panel))
 	_logout_button.pressed.connect(_on_logout_pressed)
 	_menu_dimmer.gui_input.connect(_on_dimmer_input)
+	_vitals_frame.resized.connect(play_area_changed.emit)
+	_controls_frame.resized.connect(play_area_changed.emit)
 	_toast.text = ""
 
 
@@ -73,6 +79,17 @@ func _process(delta: float) -> void:
 	if _toast_left > 0.0:
 		_toast_left -= delta
 		_toast.modulate.a = clampf(_toast_left / 0.4, 0.0, 1.0)
+
+
+## Altura (0 = topo, 1 = base da tela) do meio do espaço livre entre a moldura de vida/mana e a dos
+## controles. A câmera põe o boneco aí ([member IsometricCamera.screen_focus_y]), [CLI-08].
+func play_area_center_ratio() -> float:
+	var screen_height: float = _vitals_frame.get_viewport_rect().size.y
+	if screen_height <= 0.0:
+		return 0.5
+	var top: float = _vitals_frame.get_global_rect().end.y
+	var bottom: float = _controls_frame.get_global_rect().position.y
+	return clampf((top + bottom) / 2.0 / screen_height, 0.0, 1.0)
 
 
 ## Carta [param index] (0..5).

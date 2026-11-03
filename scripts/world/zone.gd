@@ -317,12 +317,20 @@ func _spawn_local_player(state: PlayerState) -> void:
 	_local_player.joystick = _hud.joystick
 	_players_root.add_child(_local_player)
 	_local_player.spawn_at(state)
+	# Boneco no meio do espaço livre entre as molduras da HUD, não no centro da tela ([CLI-02]).
+	_hud.play_area_changed.connect(_center_camera_on_play_area)
+	_center_camera_on_play_area()
 	BotFight.attach_if_requested(self, _local_player)
 
 	_combat = CombatController.new()
 	_combat.name = "CombatController"
 	add_child(_combat)
 	_combat.setup(self, _local_player, _hud, _aim_preview)
+
+
+func _center_camera_on_play_area() -> void:
+	if _local_player != null:
+		_local_player.get_camera().screen_focus_y = _hud.play_area_center_ratio()
 
 
 func _update_online_status() -> void:

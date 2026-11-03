@@ -120,6 +120,11 @@ func _ready() -> void:
 	model.set_shirt_color(SHIRT_COLOR)
 
 
+## Câmera que segue este jogador.
+func get_camera() -> IsometricCamera:
+	return _camera
+
+
 ## Giro da câmera (rad): converte direções da tela (joystick, mira) em direções no mundo.
 func get_camera_yaw() -> float:
 	return _camera.get_yaw_radians()

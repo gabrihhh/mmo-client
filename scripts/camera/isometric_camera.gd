@@ -28,6 +28,15 @@ enum ProjectionMode { PERSPECTIVE, ORTHOGRAPHIC }
 @export var focus_height: float = 0.9
 ## Suavidade do acompanhamento. 0 = colado no alvo.
 @export var follow_smoothing: float = 10.0
+## Altura na tela (0 = topo, 1 = base) onde o ponto focado aparece. 0.5 = centro da tela. A zona põe aqui
+## o meio do espaço livre entre as molduras da HUD ([method Hud.play_area_center_ratio]), para o boneco não
+## ficar colado nos controles. Só desloca a imagem ([member Camera3D.v_offset]): o tamanho da área visível
+## não muda (justiça no PvP, [CLI-02]).
+@export_range(0.0, 1.0) var screen_focus_y: float = 0.5:
+	set(value):
+		screen_focus_y = value
+		if is_inside_tree():
+			apply_settings()
 
 
 func _ready() -> void:
@@ -61,6 +70,21 @@ func apply_settings() -> void:
 		ProjectionMode.ORTHOGRAPHIC:
 			projection = Camera3D.PROJECTION_ORTHOGONAL
 			size = orthographic_size / reference_aspect if lock_height else orthographic_size
+	v_offset = _focus_offset(aspect, lock_height)
+
+
+## Quanto (m) baixar a câmera no eixo "para cima" dela para o ponto focado aparecer em
+## [member screen_focus_y]. Na distância do foco, metade da altura visível = d·tan(v/2) (perspectiva) ou
+## size/2 (ortográfica); o ponto sobe na tela (1 − 2·y) dessas metades.
+func _focus_offset(aspect: float, lock_height: bool) -> float:
+	var half_height: float = 0.0
+	if projection == Camera3D.PROJECTION_PERSPECTIVE:
+		var half_tan: float = tan(deg_to_rad(fov) / 2.0)
+		# KEEP_WIDTH: o fov é horizontal; a abertura vertical sai da proporção da tela.
+		half_height = distance * (half_tan if lock_height else half_tan / aspect)
+	else:
+		half_height = size / 2.0 if lock_height else size / 2.0 / aspect
+	return -(1.0 - 2.0 * screen_focus_y) * half_height
 
 
 ## Posiciona a câmera no alvo sem suavização (ex.: após teleporte/spawn).
