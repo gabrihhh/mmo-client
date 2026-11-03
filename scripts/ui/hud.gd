@@ -1,11 +1,11 @@
 class_name Hud
 extends CanvasLayer
 ## HUD do jogo em retrato ([CLI-08]): vida/mana no topo, 6 cartas acima do joystick, ataque simples no
-## canto inferior esquerdo e menu no direito (Inventário e Configuração, com o "Sair").
+## canto inferior esquerdo e menu no direito (Inventário, Configuração e "Sair da conta").
 ##
 ## Só mostra e repassa toques: quem decide o que fazer com ataque/cartas é o [CombatController].
 
-## O jogador pediu para sair da conta (botão em Configuração).
+## O jogador pediu para sair da conta (botão "Sair da conta" no Menu).
 signal logout_requested
 ## Tocou num item da mochila: vestir ([param uid]).
 signal equip_requested(uid: String)

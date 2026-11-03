@@ -169,7 +169,7 @@ func _on_left_zone(_code: int, _reason: String) -> void:
 	_back_to_login()
 
 
-## "Sair da conta" (menu > Configuração): encerra a sessão; a queda da conexão traz de volta ao login.
+## "Sair da conta" (Menu): encerra a sessão; a queda da conexão traz de volta ao login.
 func _on_logout_requested() -> void:
 	Network.instance.logout()
 

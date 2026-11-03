@@ -246,6 +246,13 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 34
 text = "Configuração"
 
+[node name="LogoutButton" type="Button" parent="Root/MenuPanel/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 96)
+layout_mode = 2
+theme_override_font_sizes/font_size = 34
+text = "Sair da conta"
+
 [node name="CloseMenuButton" type="Button" parent="Root/MenuPanel/VBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 96)
@@ -343,13 +350,6 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 44
 text = "Configuração"
 horizontal_alignment = 1
-
-[node name="LogoutButton" type="Button" parent="Root/SettingsPanel/VBox"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 96)
-layout_mode = 2
-theme_override_font_sizes/font_size = 34
-text = "Sair da conta"
 
 [node name="SettingsBackButton" type="Button" parent="Root/SettingsPanel/VBox"]
 unique_name_in_owner = true
