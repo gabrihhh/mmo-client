@@ -54,6 +54,11 @@ func play_action(animation_name: String, duration: float) -> void:
 	_animator.play_action(animation_name, duration)
 
 
+## Interrompe a ação em andamento.
+func stop_action() -> void:
+	_animator.stop_action()
+
+
 ## Recuo ao apanhar.
 func flinch() -> void:
 	_animator.flinch()

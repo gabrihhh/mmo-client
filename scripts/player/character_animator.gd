@@ -87,6 +87,11 @@ func play_action(animation_name: String, duration: float) -> void:
 	set("parameters/action/request", AnimationNodeOneShot.ONE_SHOT_REQUEST_FIRE)
 
 
+## Interrompe a ação (ex.: o servidor recusou o que foi animado no toque).
+func stop_action() -> void:
+	set("parameters/action/request", AnimationNodeOneShot.ONE_SHOT_REQUEST_FADE_OUT)
+
+
 ## Recuo rápido ao apanhar (só se não estiver no meio de uma ação).
 func flinch() -> void:
 	if _action_node == null or bool(get("parameters/action/active")):

@@ -1,31 +1,16 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/player/remote_player.gd" id="1_remote"]
 [ext_resource type="Script" path="res://scripts/combat/health_bar_3d.gd" id="2_bar"]
-
-[sub_resource type="StandardMaterial3D" id="Material_body"]
-albedo_color = Color(0.62, 0.45, 0.28, 1)
-
-[sub_resource type="CylinderMesh" id="CylinderMesh_body"]
-material = SubResource("Material_body")
-top_radius = 0.35
-bottom_radius = 0.45
-height = 1.8
-
-[sub_resource type="BoxMesh" id="BoxMesh_arms"]
-material = SubResource("Material_body")
-size = Vector3(1.4, 0.18, 0.18)
+[ext_resource type="PackedScene" path="res://assets/placeholders/dummy.glb" id="3_dummy"]
 
 [node name="TrainingDummy" type="Node3D"]
 script = ExtResource("1_remote")
 
-[node name="Body" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
-mesh = SubResource("CylinderMesh_body")
+[node name="Body" type="Node3D" parent="."]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
 
-[node name="Arms" type="MeshInstance3D" parent="Body"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
-mesh = SubResource("BoxMesh_arms")
+[node name="Model" parent="Body" instance=ExtResource("3_dummy")]
 
 [node name="NameLabel" type="Label3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)

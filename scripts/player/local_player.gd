@@ -58,6 +58,11 @@ class PendingInput:
 var _shield_bubble: ShieldBubble = null
 ## Velocidade (m/s) suavizada, para a animação de correr.
 var _anim_speed: float = 0.0
+## Ação animada no toque, antes do "cast_start" do servidor ([JOGO-08]): habilidade e quando (ms).
+var _predicted_ability: String = ""
+var _predicted_at_ms: int = 0
+## Até quanto tempo (ms) depois do toque o "cast_start" conta como confirmação da animação prevista.
+const _PREDICTION_WINDOW_MS: int = 800
 
 ## Estado previsto agora e o do tick anterior (o desenho interpola entre os dois).
 var _sim: Movement.State = Movement.State.new()
@@ -146,6 +151,29 @@ func _process(delta: float) -> void:
 	tick_move.y = 0.0
 	_anim_speed = lerpf(_anim_speed, tick_move.length() / step_seconds, 1.0 - exp(-12.0 * delta))
 	model.set_move_speed(_anim_speed / maxf(network.move_speed, 0.1))
+
+
+## Anima a ação de [param ability_id] já no toque (sem esperar a ida e volta pela rede). O "cast_start" do
+## servidor confirma ([method consume_prediction]); uma recusa interrompe ([method cancel_prediction]).
+func predict_action(ability_id: String, cast_time: float) -> void:
+	model.play_action(AbilityVisuals.animation(ability_id), cast_time)
+	_predicted_ability = ability_id
+	_predicted_at_ms = Time.get_ticks_msec()
+
+
+## true se [param ability_id] já foi animada no toque há pouco (aí o "cast_start" não reinicia a animação).
+func consume_prediction(ability_id: String) -> bool:
+	var predicted: bool = _predicted_ability == ability_id and Time.get_ticks_msec() - _predicted_at_ms < _PREDICTION_WINDOW_MS
+	if predicted:
+		_predicted_ability = ""
+	return predicted
+
+
+## O servidor recusou: para a animação prevista (se ainda não foi confirmada).
+func cancel_prediction() -> void:
+	if not _predicted_ability.is_empty() and Time.get_ticks_msec() - _predicted_at_ms < _PREDICTION_WINDOW_MS:
+		model.stop_action()
+	_predicted_ability = ""
 
 
 ## Mantém o modelo virado para [param world_point] por [param seconds] (lançamento). Só visual: a

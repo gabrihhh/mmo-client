@@ -27,6 +27,9 @@ var _shield_bubble: ShieldBubble = null
 ## Velocidade (m/s) suavizada, para a animação de correr.
 var _anim_speed: float = 0.0
 var _last_position: Vector3 = Vector3.ZERO
+## Balanço do boneco de treino ao apanhar (1 = acabou de apanhar, some em ~0,6 s).
+var _wobble: float = 0.0
+var _wobble_time: float = 0.0
 
 ## Cor da camisa dos outros jogadores (a sua é azul).
 const SHIRT_COLOR: Color = Color(0.9, 0.3, 0.25)
@@ -68,6 +71,22 @@ func _process(delta: float) -> void:
 		_anim_speed = lerpf(_anim_speed, moved.length() / delta, 1.0 - exp(-10.0 * delta))
 		model.set_move_speed(_anim_speed / maxf(Network.instance.move_speed, 0.1))
 	_last_position = position
+	# Boneco de treino apanhando: balança para trás e para a frente e para.
+	if _wobble > 0.0:
+		_wobble = maxf(_wobble - delta / 0.6, 0.0)
+		_wobble_time += delta
+		_body.rotation.x = sin(_wobble_time * 28.0) * 0.14 * _wobble
+	elif _wobble_time > 0.0:
+		_wobble_time = 0.0
+		_body.rotation.x = 0.0
+
+
+## Apanhou: o personagem recua; boneco de treino (sem personagem) balança.
+func react_to_hit() -> void:
+	if model != null:
+		model.flinch()
+	else:
+		_wobble = 1.0
 
 
 ## true se está vivo (pode ser alvo).

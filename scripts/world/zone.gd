@@ -43,7 +43,7 @@ func _ready() -> void:
 	_hud.equip_requested.connect(Network.instance.send_equip)
 	_hud.unequip_requested.connect(Network.instance.send_unequip)
 	# Recusas que não são de login (ex.: mochila cheia) viram aviso na tela.
-	Network.instance.server_error.connect(func(_code: String, message: String) -> void: _hud.show_toast(message))
+	Network.instance.server_error.connect(_on_server_error)
 
 	_aim_preview = AimPreview.new()
 	_aim_preview.name = "AimPreview"
@@ -139,9 +139,11 @@ func _on_combat_event(event: Dictionary) -> void:
 			var node: Node3D = get_entity_node(target_id)
 			if node == null:
 				return
-			var hurt: CharacterModel = _character_of(target_id)
+			var hurt: RemotePlayer = get_target_node(target_id)
 			if hurt != null:
-				hurt.flinch()
+				hurt.react_to_hit()
+			elif target_id == me and _local_player != null:
+				_local_player.model.flinch()
 			# Vermelho: dano em mim. Amarelo: dano que eu dei. Branco: entre outros.
 			var color: Color = Color(1, 0.35, 0.3) if target_id == me else (Color(1, 0.85, 0.4) if Protocol.read_string(event, "source") == me else Color(1, 1, 1, 0.85))
 			var above: Vector3 = node.global_position + Vector3.UP * _FLOATING_TEXT_HEIGHT
@@ -179,7 +181,8 @@ func _on_cast_start(event: Dictionary) -> void:
 	var ability: String = Protocol.read_string(event, "ability")
 	var duration: float = Protocol.read_float(event, "duration")
 	var model: CharacterModel = _character_of(source_id)
-	if model != null:
+	var already_animated: bool = _local_player != null and source_id == Network.instance.player_id and _local_player.consume_prediction(ability)
+	if model != null and not already_animated:
 		model.play_action(AbilityVisuals.animation(ability), duration)
 	var color: Color = AbilityVisuals.color(ability)
 	var radius: float = Protocol.read_float(event, "radius")
@@ -221,6 +224,13 @@ func _on_projectile(event: Dictionary) -> void:
 	for old: int in _projectiles.keys():
 		if not is_instance_valid(_projectiles[old]):
 			_projectiles.erase(old)
+
+
+## Recusa do servidor (ex.: mochila cheia, recarga): aviso na tela; se era uma carta animada no toque, para.
+func _on_server_error(_code: String, message: String) -> void:
+	_hud.show_toast(message)
+	if _local_player != null:
+		_local_player.cancel_prediction()
 
 
 ## Boneco animado de [param id] (você ou outro jogador); null para bonecos de treino e desconhecidos.

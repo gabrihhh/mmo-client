@@ -301,10 +301,14 @@ func _cast(ability: AbilityView, target_id: String = "", point: Vector3 = Vector
 			_hud.show_toast("Mana insuficiente.")
 			return
 		var direction: Vector3 = (point - origin) if point != Vector3.INF else _player.get_facing()
-		_player.cast_movement(ability, direction.x, direction.z)
+		if _player.cast_movement(ability, direction.x, direction.z):
+			_player.predict_action(ability.id, 0.0)
 		return
 	if point != Vector3.INF:
 		_player.face_toward(point, maxf(ability.cast_time_s, 0.3))
+	# Pronta e com mana: já anima no toque ([JOGO-08]); o servidor ainda pode recusar (aí a animação para).
+	if _cooldown_left(ability) <= 0.0 and Network.instance.mana >= ability.mana_cost:
+		_player.predict_action(ability.id, ability.cast_time_s)
 	match ability.aim_type:
 		AbilityView.AimType.DIRECTION:
 			Network.instance.send_cast(ability.id, "", point.x - origin.x, point.z - origin.z)

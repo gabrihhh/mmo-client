@@ -13,7 +13,7 @@ extends SceneTree
 const OUTPUT_DIR: String = "res://assets/placeholders"
 
 ## Nome do arquivo (sem .glb) → função que monta o modelo.
-const _MODELS: Array[String] = ["sword", "staff", "cap"]
+const _MODELS: Array[String] = ["sword", "staff", "cap", "dummy"]
 
 const _STEEL: Color = Color(0.72, 0.75, 0.8)
 const _DARK_STEEL: Color = Color(0.35, 0.37, 0.42)
@@ -21,6 +21,11 @@ const _WOOD: Color = Color(0.45, 0.3, 0.17)
 const _CRYSTAL: Color = Color(0.3, 0.8, 1.0)
 const _CLOTH: Color = Color(0.75, 0.2, 0.2)
 const _GOLD: Color = Color(0.9, 0.72, 0.25)
+const _BURLAP: Color = Color(0.78, 0.66, 0.45)
+const _ROPE: Color = Color(0.55, 0.4, 0.25)
+const _DARK_WOOD: Color = Color(0.32, 0.22, 0.13)
+const _TARGET_RED: Color = Color(0.8, 0.15, 0.12)
+const _WHITE: Color = Color(0.95, 0.95, 0.9)
 
 
 func _initialize() -> void:
@@ -60,6 +65,26 @@ func _make_cap() -> LowPolyBuilder:
 	b.dome(0.0, 0.105, 8, 3, 0.85, _CLOTH)                          # copa (cabeça ~ 0,1 m de raio)
 	b.box(Vector3(0.0, 0.006, 0.125), Vector3(0.17, 0.012, 0.09), _CLOTH)  # aba
 	b.gem(Vector3(0.0, 0.092, 0.0), 0.012, 0.006, 6, _CLOTH)        # botão
+	return b
+
+
+## Boneco de treino (~1,7 m): base, poste, saco de palha com alvo no peito (+Z), braços de madeira e cabeça de saco.
+## Origem no chão, no centro (o balanço ao apanhar gira em volta da base).
+func _make_dummy() -> LowPolyBuilder:
+	var b: LowPolyBuilder = LowPolyBuilder.new()
+	b.prism(8, 0.32, 0.28, 0.0, 0.08, _DARK_WOOD)                       # base
+	b.prism(6, 0.06, 0.06, 0.08, 1.0, _WOOD)                            # poste
+	b.prism(8, 0.2, 0.24, 0.75, 1.35, _BURLAP)                          # saco do corpo
+	b.prism(8, 0.245, 0.245, 1.0, 1.04, _ROPE)                          # amarração
+	b.prism(8, 0.25, 0.25, 1.24, 1.28, _ROPE)
+	b.box(Vector3(0.0, 1.25, 0.0), Vector3(0.9, 0.07, 0.07), _WOOD)     # braços
+	for x: float in [-0.42, 0.42]:
+		b.box(Vector3(x, 1.25, 0.0), Vector3(0.12, 0.11, 0.11), _BURLAP)
+	b.prism(6, 0.04, 0.04, 1.35, 1.45, _WOOD)                           # pescoço
+	b.gem(Vector3(0.0, 1.56, 0.0), 0.15, 0.14, 8, _BURLAP)              # cabeça
+	b.box(Vector3(0.0, 1.12, 0.235), Vector3(0.18, 0.18, 0.02), _TARGET_RED)  # alvo
+	b.box(Vector3(0.0, 1.12, 0.245), Vector3(0.09, 0.09, 0.02), _WHITE)
+	b.box(Vector3(0.0, 1.12, 0.255), Vector3(0.04, 0.04, 0.02), _TARGET_RED)
 	return b
 
 
