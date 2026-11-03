@@ -22,6 +22,9 @@ const SHIRT_SURFACE: int = 0
 ## true: [method set_shirt_color] pinta a superfície da camisa (placeholder de cores sólidas). Em modelo com
 ## textura fica false (pintar tingiria o corpo todo).
 @export var tint_shirt: bool = true
+## Item de segurar: ponto de pegada (m) a partir do início do osso da mão (pulso), medido como no osso do
+## placeholder (braço caído: −Y = para os dedos, +Z = para a frente). Mão maior → mais para baixo.
+@export var hand_item_offset: Vector3 = Vector3(0.0, -0.06, 0.02)
 ## false: não desenha o item de cabeça (ainda não há chapéu feito para este modelo). O item continua vestido.
 @export var show_head_item: bool = true
 ## Item de cabeça: onde assenta (m, a partir do início do osso da cabeça) e escala ([EquipmentView]).
@@ -53,7 +56,7 @@ func _ready() -> void:
 	_equipment = EquipmentView.new()
 	_equipment.name = "Equipment"
 	add_child(_equipment)
-	_equipment.setup(skeleton, head_item_offset, head_item_scale, show_head_item)
+	_equipment.setup(skeleton, hand_item_offset, head_item_offset, head_item_scale, show_head_item)
 
 
 ## Cor da camisa (azul = você, vermelho = os outros). Sem efeito se [member tint_shirt] for false.

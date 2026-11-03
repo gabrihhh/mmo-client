@@ -8,7 +8,7 @@ extends RefCounted
 
 ## itemId → cena do modelo (.glb importado).
 const _PATHS: Dictionary[String, String] = {
-	"training_sword": "res://assets/placeholders/sword.glb",
+	"training_sword": "res://assets/items/sword/curved_sword.tscn",
 	"training_staff": "res://assets/placeholders/staff.glb",
 	"training_hood": "res://assets/items/hood/cloth_hood.tscn",
 }

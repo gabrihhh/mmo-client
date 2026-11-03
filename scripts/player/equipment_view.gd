@@ -9,16 +9,15 @@ extends Node
 
 ## Slot → osso do encaixe. Slot fora daqui (peito, pés) ainda não tem modelo.
 const MOUNT_BONES: Dictionary[String, String] = {"hand": "RightHand", "head": "Head"}
-## Ponto de pegada (m) a partir do início do osso da mão (pulso): o meio do punho fechado.
-const HAND_OFFSET: Vector3 = Vector3(0.0, -0.06, 0.02)
 var _mounts: Dictionary[String, Node3D] = {}
 var _state: PlayerState = null
 
 
-## Cria os encaixes nos ossos de [param skeleton]. Item de cabeça: em [param head_offset] (m, a partir do início
+## Cria os encaixes nos ossos de [param skeleton]. Item de segurar: pegada em [param hand_offset] (m, a partir do
+## pulso, no osso do placeholder). Item de cabeça: em [param head_offset] (m, a partir do início
 ## do osso da cabeça) com escala [param head_scale] (cada modelo tem um tamanho de cabeça). [param show_head] false =
 ## sem encaixe de cabeça (o item não aparece).
-func setup(skeleton: Skeleton3D, head_offset: Vector3, head_scale: float, show_head: bool = true) -> void:
+func setup(skeleton: Skeleton3D, hand_offset: Vector3, head_offset: Vector3, head_scale: float, show_head: bool = true) -> void:
 	for slot: String in MOUNT_BONES:
 		if slot == "head" and not show_head:
 			continue
@@ -34,7 +33,7 @@ func setup(skeleton: Skeleton3D, head_offset: Vector3, head_scale: float, show_h
 		if slot == "head":
 			mount.transform = fix * Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * head_scale), head_offset)
 		else:
-			mount.transform = fix * Transform3D(Basis.IDENTITY, HAND_OFFSET)
+			mount.transform = fix * Transform3D(Basis.IDENTITY, hand_offset)
 		attachment.add_child(mount)
 		_mounts[slot] = mount
 	_refresh()

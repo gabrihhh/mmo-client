@@ -10,6 +10,7 @@ animations = ExtResource("3_anims")
 skeleton_path = NodePath("Model/Armature/GeneralSkeleton")
 body_path = NodePath("Model/Armature/GeneralSkeleton/char1")
 tint_shirt = false
+hand_item_offset = Vector3(0, -0.1, 0)
 show_head_item = true
 head_item_offset = Vector3(0, -0.06, 0.045)
 head_item_scale = 0.92

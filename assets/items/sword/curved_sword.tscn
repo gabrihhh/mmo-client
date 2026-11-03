@@ -1,0 +1,12 @@
+[gd_scene load_steps=2 format=3]
+
+; Espada curva (training_sword), gerada no Meshy a partir de foto (design original, inspirado). O .glb vem com
+; ~1,9 m e origem no centro: aqui fica com 1,0 m (×0,527) e a origem no MEIO DO CABO, comprimento em +Y
+; (convenção dos itens de segurar, [ART-02]).
+
+[ext_resource type="PackedScene" path="res://assets/items/sword/curved_sword.glb" id="1_glb"]
+
+[node name="CurvedSword" type="Node3D"]
+
+[node name="Model" parent="." instance=ExtResource("1_glb")]
+transform = Transform3D(0.527, 0, 0, 0, 0.527, 0, 0, 0, 0.527, 0, 0.358, 0)
