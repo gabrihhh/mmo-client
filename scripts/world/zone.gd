@@ -26,6 +26,11 @@ var _aim_preview: AimPreview = null
 var _combat: CombatController = null
 ## Projéteis do servidor na tela, por id do evento "projectile" ([JOGO-08]).
 var _projectiles: Dictionary[int, ProjectileVisual] = {}
+## Lançamento atual de cada personagem (id → número que sobe a cada início/cancelamento): efeitos agendados
+## para o fim do lançamento (clarão, projétil visual) só saem se o lançamento ainda for o mesmo ([JOGO-06]).
+var _cast_serial: Dictionary[String, int] = {}
+## Aviso no chão do lançamento atual de cada personagem (some na hora se for cancelado).
+var _cast_warnings: Dictionary[String, GroundWarning] = {}
 
 ## Altura (m) de onde os projéteis voam (mais ou menos a mão de quem lança).
 const _PROJECTILE_HEIGHT: float = 1.3
@@ -125,6 +130,8 @@ func _on_combat_event(event: Dictionary) -> void:
 	match type:
 		"cast_start":
 			_on_cast_start(event)
+		"cast_cancel":
+			_on_cast_cancel(Protocol.read_string(event, "source"))
 		"projectile":
 			_on_projectile(event)
 		"projectile_end":
@@ -181,6 +188,8 @@ func _on_cast_start(event: Dictionary) -> void:
 	var ability: String = Protocol.read_string(event, "ability")
 	var duration: float = Protocol.read_float(event, "duration")
 	var model: CharacterModel = _character_of(source_id)
+	var serial: int = _cast_serial.get(source_id, 0) + 1
+	_cast_serial[source_id] = serial
 	var already_animated: bool = _local_player != null and source_id == Network.instance.player_id and _local_player.consume_prediction(ability)
 	if model != null and not already_animated:
 		model.play_action(AbilityVisuals.animation(ability), duration)
@@ -193,30 +202,49 @@ func _on_cast_start(event: Dictionary) -> void:
 	if has_point and radius > 0.0 and duration > 0.0 and caster != null:
 		var point: Vector3 = Vector3(Protocol.read_float(event, "x"), 0.0, Protocol.read_float(event, "z"))
 		if Protocol.read_string(event, "aim") == "direction":
-			GroundWarning.spawn_line(self, caster.global_position, point, radius, duration, color)
+			_cast_warnings[source_id] = GroundWarning.spawn_line(self, caster.global_position, point, radius, duration, color)
 		else:
-			GroundWarning.spawn_area(self, point.x, point.z, radius, duration, color)
+			_cast_warnings[source_id] = GroundWarning.spawn_area(self, point.x, point.z, radius, duration, color)
 	var reach: float = AbilityVisuals.slash_reach(ability)
 	if reach != 0.0 and caster != null:
-		get_tree().create_timer(maxf(duration, 0.0)).timeout.connect(_slash.bind(caster, reach, color))
+		get_tree().create_timer(maxf(duration, 0.0)).timeout.connect(_slash.bind(source_id, serial, caster, reach, color))
 	var flight: float = AbilityVisuals.homing_flight(ability)
 	var target: Node3D = get_entity_node(Protocol.read_string(event, "target"))
 	if flight > 0.0 and target != null and model != null:
 		# Sai antes do fim do lançamento para chegar junto com o dano.
 		var delay: float = maxf(duration - flight, 0.0)
-		get_tree().create_timer(delay).timeout.connect(_launch_homing.bind(model, target, minf(flight, duration), color))
+		get_tree().create_timer(delay).timeout.connect(_launch_homing.bind(source_id, serial, model, target, minf(flight, duration), color))
+
+
+## [param source_id] andou durante o lançamento e o servidor cancelou ([JOGO-06]): para a animação e o brilho,
+## tira o aviso do chão e invalida os efeitos agendados (clarão, projétil visual).
+func _on_cast_cancel(source_id: String) -> void:
+	_cast_serial[source_id] = _cast_serial.get(source_id, 0) + 1
+	var model: CharacterModel = _character_of(source_id)
+	if model != null:
+		model.stop_action()
+		model.hide_cast_glow()
+	var warning: GroundWarning = _cast_warnings.get(source_id, null)
+	if warning != null and is_instance_valid(warning):
+		warning.queue_free()
+	_cast_warnings.erase(source_id)
+
+
+## true se o lançamento [param serial] de [param source_id] ainda é o atual (não foi cancelado nem substituído).
+func _is_current_cast(source_id: String, serial: int) -> bool:
+	return _cast_serial.get(source_id, 0) == serial
 
 
 ## Clarão do golpe corpo a corpo no momento do golpe, na frente de [param caster] ([JOGO-08]).
-func _slash(caster: Node3D, reach: float, color: Color) -> void:
-	if not is_instance_valid(caster) or not caster.is_visible_in_tree():
+func _slash(source_id: String, serial: int, caster: Node3D, reach: float, color: Color) -> void:
+	if not _is_current_cast(source_id, serial) or not is_instance_valid(caster) or not caster.is_visible_in_tree():
 		return
 	SlashArc.spawn(self, caster.global_position, caster.global_rotation.y, absf(reach), reach < 0.0, Color(1, 1, 1) if color == AbilityVisuals.DEFAULT_COLOR else color)
 
 
 ## Projétil de alvo (visual): sai da mão de [param model] e chega em [param target] em [param seconds].
-func _launch_homing(model: CharacterModel, target: Node3D, seconds: float, color: Color) -> void:
-	if not is_instance_valid(model) or not is_instance_valid(target) or not model.is_visible_in_tree():
+func _launch_homing(source_id: String, serial: int, model: CharacterModel, target: Node3D, seconds: float, color: Color) -> void:
+	if not _is_current_cast(source_id, serial) or not is_instance_valid(model) or not is_instance_valid(target) or not model.is_visible_in_tree():
 		return
 	ProjectileVisual.spawn_homing(self, model.cast_point(), target, seconds, color)
 

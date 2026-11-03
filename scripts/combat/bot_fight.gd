@@ -61,7 +61,8 @@ func _process(delta: float) -> void:
 	var walk: bool = _weapon == "training_sword" and to_target.length() > MELEE_DISTANCE
 	_player.bot_direction = Vector2(to_target.x, to_target.z).normalized() if walk else Vector2.ZERO
 	_next_cast -= delta
-	if _next_cast > 0.0:
+	# Andar cancela o lançamento ([JOGO-06]): só lança parado.
+	if _next_cast > 0.0 or walk:
 		return
 	_next_cast = CAST_INTERVAL
 	var ability: String = _rotation[_index % _rotation.size()]
@@ -73,7 +74,7 @@ func _process(delta: float) -> void:
 			network.send_cast(ability, "", to_dummy.x, to_dummy.z)
 		"meteor":
 			network.send_cast(ability, "", dummy.x, dummy.z)
-		"bolt", "heavy_strike":
+		"bolt":
 			network.send_cast(ability, dummy.id)
 		_:
 			network.send_cast(ability)

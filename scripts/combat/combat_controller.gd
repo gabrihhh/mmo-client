@@ -131,11 +131,22 @@ func _on_card_index_released(offset: Vector2, index: int) -> void:
 
 
 ## Lançamento meu confirmado pelo servidor ("cast_start"): ataque simples → relógio do Atacar durante o
-## golpe; carta → começa a recarga dela.
+## golpe; carta → começa a recarga dela. "cast_cancel" (andei durante o lançamento, [JOGO-06]): a carta
+## volta pronta (o servidor zerou a recarga e devolveu a mana).
 func _on_combat_event(event: Dictionary) -> void:
-	if Protocol.read_string(event, "type") != "cast_start" or Protocol.read_string(event, "source") != Network.instance.player_id:
+	if Protocol.read_string(event, "source") != Network.instance.player_id:
 		return
+	var type: String = Protocol.read_string(event, "type")
 	var ability_id: String = Protocol.read_string(event, "ability")
+	if type == "cast_cancel":
+		_ready_at_ms.erase(ability_id)
+		_refresh_cooldowns()
+		for ability: AbilityView in _abilities:
+			if ability != null and ability.id == ability_id:
+				_hud.show_toast("%s cancelado (você andou)" % ability.title)
+		return
+	if type != "cast_start":
+		return
 	if ability_id == _attack.id:
 		var duration: float = Protocol.read_float(event, "duration")
 		_ready_at_ms[ability_id] = Time.get_ticks_msec() + int(duration * 1000.0)

@@ -34,7 +34,7 @@ const DEFAULT_COLOR: Color = Color(1.0, 0.85, 0.5)
 ## Golpes corpo a corpo com clarão no momento do golpe: alcance do clarão (m). Negativo = anel inteiro (ao redor).
 const SLASH_REACH: Dictionary[String, float] = {
 	"sword_attack": 1.8,
-	"heavy_strike": 2.3,
+	"heavy_strike": -2.5,
 	"punch": 1.1,
 	"spin": -3.0,
 }

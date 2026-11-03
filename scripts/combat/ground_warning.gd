@@ -14,8 +14,9 @@ var _age: float = 0.0
 var _fill: MeshInstance3D = null
 
 
-## Círculo de [param radius] m em ([param x], [param z]) por [param duration] s.
-static func spawn_area(parent: Node, x: float, z: float, radius: float, duration: float, color: Color) -> void:
+## Círculo de [param radius] m em ([param x], [param z]) por [param duration] s. Devolve o aviso (para tirar antes,
+## se o lançamento for cancelado).
+static func spawn_area(parent: Node, x: float, z: float, radius: float, duration: float, color: Color) -> GroundWarning:
 	var warning: GroundWarning = GroundWarning.new()
 	warning._duration = maxf(duration, 0.1)
 	warning.add_child(_disc(radius, Color(color, 0.25)))
@@ -24,13 +25,15 @@ static func spawn_area(parent: Node, x: float, z: float, radius: float, duration
 	warning.add_child(warning._fill)
 	parent.add_child(warning)
 	warning.global_position = Vector3(x, HEIGHT, z)
+	return warning
 
 
 ## Faixa de [param from] até [param to] (no chão), com meia-largura [param half_width] m, por [param duration] s.
-static func spawn_line(parent: Node, from: Vector3, to: Vector3, half_width: float, duration: float, color: Color) -> void:
+## Devolve o aviso, ou null se a faixa for curta demais.
+static func spawn_line(parent: Node, from: Vector3, to: Vector3, half_width: float, duration: float, color: Color) -> GroundWarning:
 	var flat: Vector3 = Vector3(to.x - from.x, 0.0, to.z - from.z)
 	if flat.length() < 0.1:
-		return
+		return null
 	var warning: GroundWarning = GroundWarning.new()
 	warning._duration = maxf(duration, 0.1)
 	var strip: MeshInstance3D = MeshInstance3D.new()
@@ -45,6 +48,7 @@ static func spawn_line(parent: Node, from: Vector3, to: Vector3, half_width: flo
 	warning.global_position = Vector3(from.x, HEIGHT, from.z)
 	# −Z do aviso aponta para o alvo.
 	warning.rotation.y = atan2(-flat.x, -flat.z)
+	return warning
 
 
 func _process(delta: float) -> void:

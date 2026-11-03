@@ -37,8 +37,10 @@ var cooldown_s: float = 0.0
 var cast_time_s: float = 0.0
 ## Mana gasta (conferida antes de prever Investida/Disparada).
 var mana_cost: float = 0.0
-## Investida: metros deslocados. Disparada: multiplicador de velocidade e duração (s). 0 nas outras ([JOGO-07]).
+## Investida: metros percorridos e em quantos segundos. Disparada: multiplicador de velocidade e duração (s).
+## 0 nas outras ([JOGO-07]).
 var dash_distance: float = 0.0
+var dash_seconds: float = 0.0
 var speed_multiplier: float = 0.0
 var speed_seconds: float = 0.0
 
@@ -80,9 +82,16 @@ static func from_dict(data: Dictionary, slot: String) -> AbilityView:
 func with_movement(data: Dictionary) -> AbilityView:
 	mana_cost = Protocol.read_float(data, "manaCost")
 	dash_distance = Protocol.read_float(data, "dashDistance")
+	dash_seconds = Protocol.read_float(data, "dashSeconds")
 	speed_multiplier = Protocol.read_float(data, "speedMultiplier")
 	speed_seconds = Protocol.read_float(data, "speedSeconds")
 	return self
+
+
+## Passos de movimento que a Investida dura (pelo menos 1), com [param tick_rate] em Hz.
+## ATENÇÃO: mesma conta de dashSteps em mmo-server/src/items/catalog.ts.
+func dash_steps(tick_rate: int) -> int:
+	return maxi(1, roundi(dash_seconds * tick_rate))
 
 
 ## true se mexe no movimento: vai na fila de passos com predição ([JOGO-07]).

@@ -10,7 +10,7 @@ extends RefCounted
 ## mmo-server/src/accounts/credentials.ts). Mudou lá → mude aqui e atualize mmo-docs [INFRA-04], [INFRA-07].
 
 ## Versão do protocolo enviada ao autenticar. Precisa ser igual a PROTOCOL_VERSION do servidor.
-const VERSION: int = 9
+const VERSION: int = 10
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, username, email, password }.
@@ -53,7 +53,8 @@ const MSG_PLAYER_LEFT: String = "player_left"
 ## me: { mana, maxMana, respawnIn, target } }. PlayerSnapshot = { id, x, y, z, rotY, hp, maxHp, dead }.
 ## CombatEvent = { type: "damage", source, target, amount, absorbed, ability } | { type: "heal", source, target,
 ## amount, ability } | { type: "impact", source, ability, x, z, radius } | { type: "cast_start", source, ability,
-## target, duration, x?, z?, radius?, aim? } | { type: "miss", source, target, ability } | { type: "death", id, killer } | { type: "respawn", id }
+## target, duration, x?, z?, radius?, aim? } | { type: "cast_cancel", source, ability } (andou durante o lançamento:
+## sem efeito, mana devolvida, recarga zerada; [JOGO-06]) | { type: "miss", source, target, ability } | { type: "death", id, killer } | { type: "respawn", id }
 ## | { type: "look", id, look } (trocou o que veste) | { type: "projectile", id, source, ability, x, z, dirX, dirZ,
 ## speed, range, radius } | { type: "projectile_end", id, x, z } ([JOGO-08]).
 ## me.casting = { ability, target, remaining } ou null (golpe em andamento).

@@ -40,8 +40,10 @@ class PendingInput:
 	var z: float
 	## Multiplicador de velocidade usado neste passo (Disparada = 2; normal = 1).
 	var speed_multiplier: float = 1.0
-	## > 0: é uma Investida desta distância (x, z = direção), não um passo.
+	## > 0: é um passo da Investida: anda esta distância na direção (x, z), não pelo joystick ([JOGO-07]).
 	var dash_distance: float = 0.0
+	## true: é o comando de Investida/Disparada (vai como "cast"); não move nada, só ocupa o seq ([JOGO-07]).
+	var ability_command: bool = false
 
 	func _init(input_seq: int, input_x: float, input_z: float) -> void:
 		seq = input_seq
@@ -84,6 +86,11 @@ var _face_until_ms: int = 0
 var _boost_multiplier: float = 1.0
 var _boost_steps_left: int = 0
 var _boost_until_ms: int = 0
+## Investida prevista ([JOGO-07]): direção e metros por passo nos próximos [member _dash_steps_left] passos.
+## Mesma regra do servidor (Zone.step): enquanto dura, todo tick manda um passo (mesmo parado) e o joystick é ignorado.
+var _dash_dir: Vector2 = Vector2.ZERO
+var _dash_step_distance: float = 0.0
+var _dash_steps_left: int = 0
 var _bot_walk: bool = false
 ## Dev ([BotFight]): direção de movimento forçada no mundo (x, z); zero = joystick/teclado normais.
 var bot_direction: Vector2 = Vector2.ZERO
@@ -120,6 +127,7 @@ func spawn_at(state: PlayerState) -> void:
 	_sim = Movement.State.new(state.x, state.y, state.z, state.rot_y)
 	_previous_sim = _sim.duplicate_state()
 	_pending.clear()
+	_dash_steps_left = 0
 	_visual_offset = Vector3.ZERO
 	global_position = _sim.position()
 	rotation.y = _sim.rot_y
@@ -200,13 +208,22 @@ func _simulate_tick(network: Network, step_seconds: float) -> void:
 	_previous_sim = _sim
 	var own: PlayerState = network.get_player(network.player_id)
 	if own != null and own.dead:
+		_dash_steps_left = 0
 		return
 	var direction: Vector2 = _read_world_direction()
-	if direction.length() < _MIN_INPUT:
+	var dashing: bool = _dash_steps_left > 0
+	if direction.length() < _MIN_INPUT and not dashing:
 		return
 	var input: PendingInput = PendingInput.new(_next_seq, direction.x, direction.y)
 	_next_seq += 1
-	input.speed_multiplier = _consume_boost_step()
+	if dashing:
+		# Passo da Investida: o servidor ignora o joystick e anda o trecho dela (não gasta Disparada).
+		input.x = _dash_dir.x
+		input.z = _dash_dir.y
+		input.dash_distance = _dash_step_distance
+		_dash_steps_left -= 1
+	else:
+		input.speed_multiplier = _consume_boost_step()
 	_pending.append(input)
 	network.send_input(input.seq, input.x, input.z)
 	_sim = _apply_pending(_sim, input, step_seconds, network)
@@ -221,34 +238,46 @@ func _consume_boost_step() -> float:
 	return _boost_multiplier
 
 
-## Aplica um comando previsto: Investida (deslocamento) ou passo (com o multiplicador que foi previsto).
+## Aplica um comando previsto: comando de habilidade (não move), passo da Investida (trecho na direção dela) ou
+## passo normal (com o multiplicador que foi previsto).
 func _apply_pending(state: Movement.State, input: PendingInput, step_seconds: float, network: Network) -> Movement.State:
+	if input.ability_command:
+		return state.duplicate_state()
 	if input.dash_distance > 0.0:
 		return Movement.dash(state, input.x, input.z, input.dash_distance, network.zone_half_size)
 	return Movement.step(state, input.x, input.z, step_seconds, network.move_speed * input.speed_multiplier, network.zone_half_size)
 
 
-## Investida/Disparada com predição ([JOGO-07]): entra na MESMA sequência dos passos, aplica na hora aqui e
-## manda ao servidor com o seq, que processa na mesma ordem. Se o servidor recusar (recarga, mana), a
-## reconciliação desfaz. [param dir_x]/[param dir_z] = direção da Investida. Devolve false se morto.
+## Investida/Disparada com predição ([JOGO-07]): o comando entra na MESMA sequência dos passos e vai ao servidor
+## com o seq, que processa na mesma ordem. O comando em si não move: a Investida anda nos próximos
+## [method AbilityView.dash_steps] passos (um trecho por passo); a Disparada acelera os próximos passos. Se o
+## servidor recusar (recarga, mana), a reconciliação desfaz. [param dir_x]/[param dir_z] = direção da Investida.
+## Devolve false se morto.
 func cast_movement(ability: AbilityView, dir_x: float, dir_z: float) -> bool:
 	var network: Network = Network.instance
 	var own: PlayerState = network.get_player(network.player_id)
 	if own != null and own.dead:
 		return false
 	var command: PendingInput = PendingInput.new(_next_seq, 0.0, 0.0)
+	command.ability_command = true
 	_next_seq += 1
 	if ability.dash_distance > 0.0:
+		var length: float = sqrt(dir_x * dir_x + dir_z * dir_z)
+		# Sem direção: para onde o personagem está virado (igual ao servidor).
+		var dx: float = dir_x / length if length > 1e-6 else -sin(_sim.rot_y)
+		var dz: float = dir_z / length if length > 1e-6 else -cos(_sim.rot_y)
 		command.x = dir_x
 		command.z = dir_z
-		command.dash_distance = ability.dash_distance
+		var steps: int = ability.dash_steps(network.tick_rate)
+		_dash_dir = Vector2(dx, dz)
+		_dash_step_distance = ability.dash_distance / steps
+		_dash_steps_left = steps
 	if ability.speed_multiplier > 0.0:
 		_boost_multiplier = ability.speed_multiplier
 		_boost_steps_left = roundi(ability.speed_seconds * network.tick_rate)
 		_boost_until_ms = Time.get_ticks_msec() + int(ability.speed_seconds * 1000.0)
 	_pending.append(command)
-	_sim = _apply_pending(_sim, command, network.tick_seconds(), network)
-	if command.dash_distance > 0.0:
+	if ability.dash_distance > 0.0:
 		network.send_cast(ability.id, "", command.x, command.z, command.seq)
 	else:
 		network.send_cast(ability.id, "", NAN, NAN, command.seq)

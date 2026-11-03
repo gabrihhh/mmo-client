@@ -84,6 +84,13 @@ func show_cast_glow(color: Color, seconds: float) -> void:
 	_glow.visible = true
 
 
+## Apaga o brilho do lançamento na hora (lançamento cancelado).
+func hide_cast_glow() -> void:
+	_glow_left = 0.0
+	if _glow != null:
+		_glow.visible = false
+
+
 func _process(delta: float) -> void:
 	if _glow == null or _glow_left <= 0.0:
 		return
