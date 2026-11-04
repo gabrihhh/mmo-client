@@ -6,11 +6,38 @@ extends Node
 ## ("RightHand"), chapéu/capuz na cabeça ("Head"). Os encaixes acompanham as animações.
 ## Modelos e o jeito de segurar cada item: [ItemModels]. Pegada e offsets são medidos no osso do placeholder;
 ## [method SkeletonRetarget.mount_fix] converte para o osso de outro modelo (eixos diferentes).
+## Item "em pé" ([method ItemModels.upright_pull], ex.: cajado): a cada quadro, depois da animação, o comprimento é
+## puxado para cima (segue a posição da mão, mas não vira de ponta-cabeça quando o braço sobe).
 
 ## Slot → osso do encaixe. Slot fora daqui (peito, pés) ainda não tem modelo.
 const MOUNT_BONES: Dictionary[String, String] = {"hand": "RightHand", "head": "Head"}
 var _mounts: Dictionary[String, Node3D] = {}
 var _state: PlayerState = null
+## Item de segurar que fica em pé (null = nenhum) e quanto ele é puxado para cima.
+var _upright_model: Node3D = null
+var _upright_pull: float = 0.0
+## Pegada do item em pé (rotação na mão, [method ItemModels.grip]).
+var _upright_grip: Basis = Basis.IDENTITY
+
+
+func _ready() -> void:
+	process_priority = 100  # depois do AnimationTree, com a pose do quadro já aplicada
+
+
+func _process(_delta: float) -> void:
+	if _upright_model == null or not is_instance_valid(_upright_model):
+		return
+	var mount: Node3D = _upright_model.get_parent() as Node3D
+	# Como ficaria preso ao osso (pegada normal) → comprimento puxado para cima, frente mantida.
+	var rigid: Basis = mount.global_basis * _upright_grip
+	var size: float = rigid.get_scale().y
+	var up: Vector3 = (rigid.y.normalized() + Vector3.UP * _upright_pull).normalized()
+	var forward: Vector3 = rigid.z.normalized()
+	forward = forward - up * forward.dot(up)
+	if forward.length() < 0.001:
+		return
+	forward = forward.normalized()
+	_upright_model.global_basis = Basis(up.cross(forward), up, forward).scaled_local(Vector3.ONE * size)
 
 
 ## Cria os encaixes nos ossos de [param skeleton]. Item de segurar: pegada em [param hand_offset] (m, a partir do
@@ -51,6 +78,7 @@ func bind(state: PlayerState) -> void:
 
 ## Recria os modelos de todos os slots a partir do look atual.
 func _refresh() -> void:
+	_upright_model = null
 	for slot: String in _mounts:
 		var mount: Node3D = _mounts[slot]
 		for child: Node in mount.get_children():
@@ -63,4 +91,7 @@ func _refresh() -> void:
 			continue
 		if slot == "hand":
 			model.basis = ItemModels.grip(item_id)
+			_upright_grip = model.basis
+			_upright_pull = ItemModels.upright_pull(item_id)
+			_upright_model = model if _upright_pull > 0.0 else null
 		mount.add_child(model)

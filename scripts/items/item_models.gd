@@ -20,6 +20,12 @@ const _GRIP_PITCH: Dictionary[String, float] = {
 }
 ## Pegada padrão (armas de lâmina).
 const DEFAULT_GRIP_PITCH: float = 90.0
+## Itens que ficam "em pé" na mão: quanto o comprimento (+Y) é puxado para cima a cada quadro (0 = preso ao osso).
+## As animações do Meshy são de mão vazia: ao erguer o braço o pulso gira e o cajado preso ao osso ficava de ponta
+## cabeça. Com puxão > 1 a ponta (+Y) fica sempre para cima, mas o cajado ainda balança com o movimento da mão.
+const _UPRIGHT_PULL: Dictionary[String, float] = {
+	"training_staff": 1.5,
+}
 
 
 ## Cria o modelo do item [param item_id], ou null se ele não tiver modelo.
@@ -36,3 +42,8 @@ static func instantiate(item_id: String) -> Node3D:
 ## Rotação do item na mão (no espaço do osso da mão).
 static func grip(item_id: String) -> Basis:
 	return Basis(Vector3.RIGHT, deg_to_rad(_GRIP_PITCH.get(item_id, DEFAULT_GRIP_PITCH)))
+
+
+## Quanto o item [param item_id] é puxado para ficar em pé na mão (0 = segue o osso da mão sem correção).
+static func upright_pull(item_id: String) -> float:
+	return _UPRIGHT_PULL.get(item_id, 0.0)
