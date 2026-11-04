@@ -4,8 +4,8 @@ extends Node
 ##
 ## Cada slot com modelo tem um encaixe ([BoneAttachment3D]) num osso do esqueleto: arma na mão direita
 ## ("RightHand"), chapéu/capuz/elmo na cabeça ("Head"), túnica/peitoral no peito ("Chest") e um calçado em cada pé
-## ("LeftFoot"; no "RightFoot" o mesmo modelo espelhado em X). Os encaixes acompanham as animações; peito e pés são
-## peças rígidas (não dobram com o corpo), o bastante para low poly visto de cima.
+## ("LeftFoot"; no "RightFoot" o mesmo modelo espelhado em X). Os encaixes acompanham as animações. Pés são peças
+## rígidas; o **peito** é "vestido" no esqueleto ([BodySkinning]): as ombreiras seguem ombro e braço, o resto o peito.
 ## Modelos e o jeito de segurar cada item: [ItemModels]. Pegada e offsets são medidos no osso do placeholder;
 ## [method SkeletonRetarget.mount_fix] converte para o osso de outro modelo (eixos diferentes).
 ##
@@ -64,6 +64,8 @@ var _held_grip: Basis = Basis.IDENTITY
 var _held_pull: float = 0.0
 ## Direção de puxão atual (global, suavizada: não pula ao começar/terminar a ação). Zero = ainda não definida.
 var _held_direction: Vector3 = Vector3.ZERO
+## Malhas com pesos criadas para o item de peito ([BodySkinning]); liberadas a cada troca de roupa.
+var _skinned: Array[MeshInstance3D] = []
 ## Fecha os dedos de quem segura algo (null = corpo sem ossos de dedo).
 var _hand_grip: HandGrip = null
 ## Quanto a arma está na posição de carregar (0 = segue a mão animada, 1 = carregada à frente com IK).
@@ -223,6 +225,9 @@ func bind(state: PlayerState) -> void:
 ## Recria os modelos de todos os slots a partir do look atual.
 func _refresh() -> void:
 	_held_model = null
+	for instance: MeshInstance3D in _skinned:
+		instance.queue_free()
+	_skinned.clear()
 	var hand_item: String = _state.look.get("hand", "") if _state != null else ""
 	if animator != null:
 		animator.set_idle_animation(ItemModels.idle_animation(hand_item))
@@ -257,6 +262,23 @@ func _refresh() -> void:
 		elif fit_boxes.has(key):
 			_fit(model, fit_boxes[key], slot)
 		mount.add_child(model)
+		if slot == "chest":
+			_skin_to_body(model, mount, MOUNTS[key][1])
+
+
+## Troca o item rígido [param model] (no encaixe [param mount] do osso [param bone_name]) por malhas com pesos que
+## seguem o esqueleto ([BodySkinning]). Sem os ossos necessários, o item fica rígido como estava.
+func _skin_to_body(model: Node3D, mount: Node3D, bone_name: String) -> void:
+	var bone: int = _skeleton.find_bone(bone_name)
+	if bone < 0:
+		return
+	# Onde o item fica com o corpo em repouso: repouso do osso × encaixe × item (espaço do esqueleto).
+	var rest: Transform3D = _skeleton.get_bone_global_rest(bone) * mount.transform * model.transform
+	var created: Array[MeshInstance3D] = BodySkinning.skin(model, _skeleton, rest, bone_name)
+	if created.is_empty():
+		return
+	_skinned.append_array(created)
+	model.visible = false
 
 
 ## Encaixa [param model] na caixa [param box] do corpo (espaço do encaixe), a partir do tamanho real dele (a escala e a
