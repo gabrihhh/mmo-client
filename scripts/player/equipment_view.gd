@@ -16,6 +16,8 @@ extends Node
 ##   direção de descanso ou para o antebraço ([method ItemModels.hold_direction]); ao terminar, volta suave para a
 ##   posição de carregar.
 ## A arma também escolhe a postura parada do personagem ([method CharacterAnimator.set_idle_animation]).
+## Mãos fechadas ([HandGrip], [ART-07]): com item na mão a direita fecha; a esquerda também em arma de duas mãos ou em
+## par. Só nos corpos importados com ossos de dedo.
 
 ## Encaixe → [slot do item, osso]. O slot "feet" tem dois encaixes (um por pé); o "hand" tem a mão esquerda só
 ## para armas em par ([method ItemModels.is_paired], ex.: adagas gêmeas).
@@ -62,6 +64,8 @@ var _held_grip: Basis = Basis.IDENTITY
 var _held_pull: float = 0.0
 ## Direção de puxão atual (global, suavizada: não pula ao começar/terminar a ação). Zero = ainda não definida.
 var _held_direction: Vector3 = Vector3.ZERO
+## Fecha os dedos de quem segura algo (null = corpo sem ossos de dedo).
+var _hand_grip: HandGrip = null
 ## Quanto a arma está na posição de carregar (0 = segue a mão animada, 1 = carregada à frente com IK).
 var _carry_weight: float = 0.0
 
@@ -148,6 +152,10 @@ func setup(skeleton: Skeleton3D, placements: Dictionary[String, Transform3D]) ->
 		_mounts[key] = mount
 	for side: String in POLES:
 		_setup_arm_ik(skeleton, side)
+	if HandGrip.supports(skeleton):
+		_hand_grip = HandGrip.new()
+		_hand_grip.name = "HandGrip"
+		skeleton.add_child(_hand_grip)
 	_refresh()
 
 
@@ -218,6 +226,9 @@ func _refresh() -> void:
 	var hand_item: String = _state.look.get("hand", "") if _state != null else ""
 	if animator != null:
 		animator.set_idle_animation(ItemModels.idle_animation(hand_item))
+	if _hand_grip != null:
+		var holding: bool = not hand_item.is_empty() and _mounts.has("hand")
+		_hand_grip.set_grip(holding, holding and (ItemModels.is_two_handed(hand_item) or ItemModels.is_paired(hand_item)))
 	for key: String in _mounts:
 		var mount: Node3D = _mounts[key]
 		for child: Node in mount.get_children():
