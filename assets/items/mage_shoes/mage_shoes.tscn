@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3]
+
+; Sapatilha arcana (mage_shoes), UM pé, Meshy image→3D. Item de pés (rígido, um por pé; o direito é espelhado):
+; origem no TORNOZELO do corpo masculino (sola no chão, envolve o pé), bico para +Z. O .glb tem o bico em −X.
+
+[ext_resource type="PackedScene" path="res://assets/items/mage_shoes/mage_shoes.glb" id="1_glb"]
+
+[node name="MageShoes" type="Node3D"]
+
+[node name="Model" parent="." instance=ExtResource("1_glb")]
+transform = Transform3D(0, 0, -0.334, 0, 0.35, 0, 0.366, 0, 0, 0.014, -0.047, 0.084)

@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3]
+
+; Chapéu de mago (mage_hat), Meshy image→3D. Item de cabeça: origem no centro da base do encaixe (pescoço,
+; como o capuz). O chapéu assenta na testa, então a aba fica acima da origem. Frente para +Z.
+
+[ext_resource type="PackedScene" path="res://assets/items/mage_hat/mage_hat.glb" id="1_glb"]
+
+[node name="MageHat" type="Node3D"]
+
+[node name="Model" parent="." instance=ExtResource("1_glb")]
+transform = Transform3D(0.46, 0, 0, 0, 0.46, 0, 0, 0, 0.46, 0, 0.42, 0)

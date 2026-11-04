@@ -3,17 +3,18 @@ extends CanvasLayer
 ## HUD do jogo em retrato ([CLI-08]): vida/mana numa moldura de madeira ([WoodPanel]) no topo; embaixo, outra
 ## moldura de madeira junta as 6 cartas e a linha joystick | ataque simples (+ "Desfocar" embaixo) | menu,
 ## com espaços iguais entre eles e nas bordas. O Menu (Inventário, Configuração, "Sair da conta") fecha
-## pelo X no canto ou tocando fora dele (no fundo escurecido).
+## pelo X no canto ou tocando fora dele (no fundo escurecido). Inventário ([CLI-10]): boneco com o que está
+## vestido ([PaperDoll]) + mochila em grade de ícones; tocar num item abre a ficha dele ([ItemDetailPanel]).
 ##
 ## Só mostra e repassa toques: quem decide o que fazer com ataque/cartas é o [CombatController].
 
 ## O jogador pediu para sair da conta (botão "Sair da conta" no Menu).
 signal logout_requested
-## Tocou num item da mochila: vestir ([param uid]).
+## Apertou "Vestir" na ficha de um item da mochila ([param uid]).
 signal equip_requested(uid: String)
 ## O espaço livre entre as molduras mudou (tela girou/redimensionou): ver [method play_area_center_ratio].
 signal play_area_changed
-## Tocou num slot vestido: tirar para a mochila ([param slot] = "hand", "head", "chest", "feet").
+## Apertou "Tirar" na ficha de um item vestido: tirar para a mochila ([param slot] = "hand", "head", "chest", "feet").
 signal unequip_requested(slot: String)
 
 ## Quantas cartas de habilidade a HUD mostra ([JOGO-01]: 3 da arma + cabeça + peito + pés).
@@ -36,9 +37,11 @@ const _TOAST_SECONDS: float = 1.8
 @onready var _inventory_panel: PanelContainer = %InventoryPanel
 @onready var _settings_panel: PanelContainer = %SettingsPanel
 @onready var _logout_button: Button = %LogoutButton
-@onready var _equipped_grid: GridContainer = %EquippedGrid
+@onready var _paper_doll: PaperDoll = %PaperDoll
 @onready var _bag_title: Label = %BagTitle
-@onready var _bag_list: VBoxContainer = %BagList
+@onready var _bag_grid: GridContainer = %BagGrid
+## Ficha do item tocado (abre por cima do inventário; "Voltar" volta para ele).
+@onready var _item_detail: ItemDetailPanel = %ItemDetailPanel
 
 ## Joystick de movimento (o [LocalPlayer] lê dele).
 @onready var joystick: TouchJoystick = %TouchJoystick
@@ -49,6 +52,8 @@ const _TOAST_SECONDS: float = 1.8
 @onready var _menu_button: TouchActionButton = %MenuButton
 
 var _cards: Array[TouchActionButton] = []
+## Último inventário recebido (para a ficha saber o que está vestido no mesmo slot).
+var _inventory: InventoryState = null
 var _toast_left: float = 0.0
 ## Há alvo fixo agora (liga o "Desfocar"); ver [method set_target_active].
 var _has_target: bool = false
@@ -69,6 +74,9 @@ func _ready() -> void:
 	(%InventoryBackButton as Button).pressed.connect(_open_panel.bind(_menu_panel))
 	(%SettingsBackButton as Button).pressed.connect(_open_panel.bind(_menu_panel))
 	_logout_button.pressed.connect(_on_logout_pressed)
+	_paper_doll.slot_pressed.connect(_on_equipped_slot_pressed)
+	_item_detail.back_pressed.connect(_open_panel.bind(_inventory_panel))
+	_item_detail.action_pressed.connect(_on_item_action)
 	_menu_dimmer.gui_input.connect(_on_dimmer_input)
 	_vitals_frame.resized.connect(play_area_changed.emit)
 	_controls_frame.resized.connect(play_area_changed.emit)
@@ -104,41 +112,58 @@ func set_abilities(abilities: Array[AbilityView]) -> void:
 		var ability: AbilityView = abilities[i] if i < abilities.size() else null
 		_cards[i].text = ability.title if ability != null else ""
 		_cards[i].caption = ability.slot_label if ability != null else ""
+		_cards[i].picture = ItemIcons.ability(ability.id) if ability != null else null
 		_cards[i].enabled = ability != null and not is_menu_open()
 		_cards[i].queue_redraw()
 
 
-## Monta a tela de Inventário: os 4 slots vestidos e a mochila. Ver mmo-docs [JOGO-04].
+## Monta a tela de Inventário ([CLI-10]): o boneco com os 4 slots vestidos e a mochila em grade (vagas livres
+## aparecem vazias até a capacidade). Ver mmo-docs [JOGO-04].
 func set_inventory(inventory: InventoryState) -> void:
-	for child: Node in _equipped_grid.get_children() + _bag_list.get_children():
+	_inventory = inventory
+	_paper_doll.show_inventory(inventory)
+	for child: Node in _bag_grid.get_children():
 		child.queue_free()
-	for slot: String in InventoryState.SLOTS:
-		var item: InventoryState.Item = inventory.item_in(slot)
-		var slot_label: String = AbilityView.SLOT_LABELS[slot]
-		var button: Button = _inventory_button("%s\n%s" % [slot_label, item.name if item != null else "(vazio)"])
-		button.disabled = item == null
-		button.pressed.connect(unequip_requested.emit.bind(slot))
-		_equipped_grid.add_child(button)
-	_bag_title.text = "Mochila %d/%d (toque para vestir)" % [inventory.bag.size(), inventory.bag_capacity]
-	if inventory.bag.is_empty():
-		var empty: Label = Label.new()
-		empty.text = "(vazia)"
-		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_bag_list.add_child(empty)
-	for item: InventoryState.Item in inventory.bag:
-		var button: Button = _inventory_button("%s · %s" % [item.name, AbilityView.SLOT_LABELS[item.slot]])
-		button.pressed.connect(equip_requested.emit.bind(item.uid))
-		_bag_list.add_child(button)
+	_bag_title.text = "Mochila %d/%d (toque para ver)" % [inventory.bag.size(), inventory.bag_capacity]
+	for i: int in range(maxi(inventory.bag_capacity, inventory.bag.size())):
+		var view: ItemSlot = ItemSlot.new()
+		if i < inventory.bag.size():
+			var item: InventoryState.Item = inventory.bag[i]
+			view.show_item(item)
+			view.pressed.connect(_show_item_detail.bind(item, false))
+		else:
+			view.show_item(null)
+			view.disabled = true
+		_bag_grid.add_child(view)
+	# A ficha aberta mostrava o inventário antigo: volta para a tela do inventário.
+	if _item_detail.visible:
+		_open_panel(_inventory_panel)
 
 
-func _inventory_button(text: String) -> Button:
-	var button: Button = Button.new()
-	button.text = text
-	button.custom_minimum_size = Vector2(260, 96)
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.add_theme_font_size_override("font_size", 24)
-	button.autowrap_mode = TextServer.AUTOWRAP_WORD
-	return button
+## Abre a ficha de [param item] ([param equipped] = está vestido).
+func _show_item_detail(item: InventoryState.Item, equipped: bool) -> void:
+	var replaces: InventoryState.Item = null
+	if not equipped and _inventory != null:
+		replaces = _inventory.item_in(item.slot)
+	_item_detail.show_item(item, equipped, replaces)
+	_open_panel(_item_detail)
+
+
+func _on_equipped_slot_pressed(slot: String) -> void:
+	var item: InventoryState.Item = _inventory.item_in(slot) if _inventory != null else null
+	if item == null:
+		show_toast("Nada vestido em %s: escolha um item na mochila" % AbilityView.SLOT_LABELS[slot].to_lower())
+		return
+	_show_item_detail(item, true)
+
+
+## "Vestir"/"Tirar" na ficha: pede ao servidor (a tela atualiza quando o inventário novo chegar).
+func _on_item_action(item: InventoryState.Item, equipped: bool) -> void:
+	if equipped:
+		unequip_requested.emit(item.slot)
+	else:
+		equip_requested.emit(item.uid)
+	_open_panel(_inventory_panel)
 
 
 ## Atualiza a barra de vida (valores absolutos).
@@ -179,12 +204,12 @@ func _refresh_clear_target() -> void:
 
 ## true com algum painel do menu aberto.
 func is_menu_open() -> bool:
-	return _menu_panel.visible or _inventory_panel.visible or _settings_panel.visible
+	return _menu_panel.visible or _inventory_panel.visible or _settings_panel.visible or _item_detail.visible
 
 
 ## Abre [param panel] e fecha os outros; null fecha tudo. Com menu aberto, os controles do jogo param.
 func _open_panel(panel: PanelContainer) -> void:
-	for candidate: PanelContainer in [_menu_panel, _inventory_panel, _settings_panel]:
+	for candidate: PanelContainer in [_menu_panel, _inventory_panel, _settings_panel, _item_detail]:
 		candidate.visible = candidate == panel
 	var playing: bool = panel == null
 	_menu_dimmer.visible = not playing

@@ -15,6 +15,9 @@ class Item:
 	var uid: String = ""
 	var item_id: String = ""
 	var name: String = ""
+	## Frase curta e conjunto ("Treino", "Mago", "Cavaleiro") para a ficha e a cor da moldura ([ItemIcons]).
+	var description: String = ""
+	var set_name: String = ""
 	## "hand", "head", "chest" ou "feet".
 	var slot: String = ""
 	## Ataque simples (só armas); null nos outros.
@@ -26,6 +29,8 @@ class Item:
 		item.uid = Protocol.read_string(data, "uid")
 		item.item_id = Protocol.read_string(data, "itemId")
 		item.name = Protocol.read_string(data, "name")
+		item.description = Protocol.read_string(data, "description")
+		item.set_name = Protocol.read_string(data, "set")
 		item.slot = Protocol.read_string(data, "slot")
 		var attack: Dictionary = Protocol.read_dict(data, "basicAttack")
 		if not attack.is_empty():

@@ -2,8 +2,9 @@ class_name ItemModels
 extends RefCounted
 ## Liga cada item ao modelo 3D que aparece no boneco quando ele está vestido ([ART-02]) e ao jeito de segurar.
 ##
-## Item sem modelo aqui simplesmente não aparece (ex.: colete e bota, que ainda não têm placeholder).
-## Modelo novo: gere o .glb ([ART-02]) e adicione a linha itemId → caminho.
+## Item sem modelo aqui simplesmente não aparece (ex.: colete e bota de treino, que ainda não têm modelo).
+## Modelo novo: gere o .glb ([ART-02], [MESHY-07]), faça a cena com escala/origem e adicione a linha itemId → caminho.
+## Itens de peito e pés são peças rígidas presas a ossos ([EquipmentView]); o de pés é um pé só (o direito espelha).
 ## ATENÇÃO: os itemIds vêm de mmo-server/src/items/catalog.ts.
 
 ## itemId → cena do modelo (.glb importado).
@@ -11,12 +12,21 @@ const _PATHS: Dictionary[String, String] = {
 	"training_sword": "res://assets/items/sword/curved_sword.tscn",
 	"training_staff": "res://assets/placeholders/staff.glb",
 	"training_hood": "res://assets/items/hood/cloth_hood.tscn",
+	"arcane_staff": "res://assets/items/arcane_staff/arcane_staff.tscn",
+	"mage_hat": "res://assets/items/mage_hat/mage_hat.tscn",
+	"mage_tunic": "res://assets/items/mage_tunic/mage_tunic.tscn",
+	"mage_shoes": "res://assets/items/mage_shoes/mage_shoes.tscn",
+	"knight_sword": "res://assets/items/knight_sword/knight_sword.tscn",
+	"knight_helm": "res://assets/items/knight_helm/knight_helm.tscn",
+	"knight_plate": "res://assets/items/knight_plate/knight_plate.tscn",
+	"knight_greaves": "res://assets/items/knight_greaves/knight_greaves.tscn",
 }
 
 ## Como a mão segura (giro em X, graus, a partir do osso da mão). Os modelos de segurar têm o comprimento em +Y:
 ## 90 = "lâmina para a frente" (espada: com o braço caído aponta para a frente); 0 = em pé (cajado).
 const _GRIP_PITCH: Dictionary[String, float] = {
 	"training_staff": 0.0,
+	"arcane_staff": 0.0,
 }
 ## Pegada padrão (armas de lâmina).
 const DEFAULT_GRIP_PITCH: float = 90.0
@@ -29,6 +39,8 @@ const DEFAULT_GRIP_PITCH: float = 90.0
 const _HOLD: Dictionary[String, Array] = {
 	"training_sword": [Vector3(0.0, 0.55, 1.0), 2.0, 2.0, true],
 	"training_staff": [Vector3(0.0, 1.0, 0.3), 4.0, 4.0, false],
+	"knight_sword": [Vector3(0.0, 0.55, 1.0), 2.0, 2.0, true],
+	"arcane_staff": [Vector3(0.0, 1.0, 0.3), 4.0, 4.0, false],
 }
 ## Posição de carregar (parado/correndo), no espaço do personagem (m; +Z frente, +Y cima, lado direito = −X):
 ## [onde fica a pegada da mão direita, direção do comprimento]. As mãos vão até a arma por IK ([EquipmentView]).
@@ -36,16 +48,21 @@ const _HOLD: Dictionary[String, Array] = {
 const _CARRY: Dictionary[String, Array] = {
 	"training_sword": [Vector3(-0.10, 1.10, 0.30), Vector3(0.0, 0.6, 1.0)],
 	"training_staff": [Vector3(-0.24, 1.12, 0.26), Vector3(0.0, 1.0, 0.18)],
+	"knight_sword": [Vector3(-0.10, 1.10, 0.30), Vector3(0.0, 0.6, 1.0)],
+	"arcane_staff": [Vector3(-0.24, 1.12, 0.26), Vector3(0.0, 1.0, 0.18)],
 }
 ## Postura parada por arma na mão ([CharacterAnimator.set_idle_animation]); sem linha = "idle".
 const _IDLE: Dictionary[String, String] = {
 	"training_sword": "idle_sword",
 	"training_staff": "idle_staff",
+	"knight_sword": "idle_sword",
+	"arcane_staff": "idle_staff",
 }
 ## Armas de duas mãos: onde a mão esquerda segura (m, no espaço do modelo do item: comprimento em +Y, origem na mão
 ## direita). A mão esquerda vai até lá por IK ([EquipmentView]).
 const _OFF_HAND_GRIP: Dictionary[String, Vector3] = {
 	"training_sword": Vector3(0.0, -0.11, 0.0),
+	"knight_sword": Vector3(0.0, -0.09, 0.0),
 }
 
 

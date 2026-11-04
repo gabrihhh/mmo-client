@@ -49,6 +49,14 @@ enum Icon { NONE, SWORD }
 		caption = value
 		if _caption_label != null:
 			_caption_label.text = value
+## Imagem da habilidade (pixel art, [ItemIcons]) no alto da carta, com o nome embaixo. null = só o texto.
+## Desenhada sem filtro (pixels nítidos) e apagada junto com a carta em recarga/desligada.
+@export var picture: Texture2D = null:
+	set(value):
+		picture = value
+		if _label != null:
+			_layout_labels()
+			queue_redraw()
 @export var fill_color: Color = Color(0.22, 0.29, 0.4, 0.92)
 @export var pressed_color: Color = Color(0.34, 0.43, 0.58, 0.95)
 @export var border_color: Color = Color(1.0, 0.85, 0.6, 1.0)
@@ -78,14 +86,40 @@ var _cooldown_total_s: float = 0.0
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_label = _make_label(text, font_size, 0.0, 1.0 if caption.is_empty() else 0.72)
 	_caption_label = _make_label(caption, maxi(14, font_size - 10), 0.66, 0.96)
+	_layout_labels()
 	_cooldown_label = _make_label("", font_size + 10, 0.0, 1.0)
 	_cooldown_label.add_theme_color_override("font_color", Color.WHITE)
 	_cooldown_label.add_theme_constant_override("outline_size", 6)
 	_cooldown_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	set_process(false)
 	_update_cooldown_visual()
+
+
+## Com imagem: o nome desce para a faixa de baixo da carta (a imagem ocupa o alto) e a legenda some (a imagem já
+## diz de onde vem a carta; não cabe tudo em 104 px).
+func _layout_labels() -> void:
+	_caption_label.visible = picture == null or shape != Shape.CARD
+	if picture != null and shape == Shape.CARD:
+		_label.anchor_top = 0.62
+		_label.anchor_bottom = 0.98
+		_label.add_theme_font_size_override("font_size", maxi(12, font_size - 3))
+		_label.add_theme_constant_override("outline_size", 4)
+		_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
+	else:
+		_label.anchor_top = 0.0
+		_label.anchor_bottom = 1.0 if caption.is_empty() else 0.72
+		_caption_label.anchor_top = 0.66
+		_caption_label.anchor_bottom = 0.96
+		_label.add_theme_font_size_override("font_size", font_size)
+
+
+## Retângulo (px) da imagem na carta: quadrado no alto, centrado.
+func _picture_rect() -> Rect2:
+	var side: float = minf(size.x - 2.0 * (frame_width + 6.0), size.y * 0.58)
+	return Rect2(Vector2((size.x - side) / 2.0, frame_width + 5.0), Vector2(side, side))
 
 
 ## Começa a recarga: [param remaining] segundos de [param total]. O botão fica apagado com o relógio
@@ -180,6 +214,10 @@ func _draw() -> void:
 		if not enabled:
 			box.border_color.a *= 0.45
 		draw_style_box(box, Rect2(Vector2.ZERO, size))
+		if picture != null:
+			var rect: Rect2 = _picture_rect()
+			draw_rect(rect.grow(2.0), _dim(Color(0.05, 0.04, 0.08, 0.9)))
+			draw_texture_rect(picture, rect, false, _dim(Color.WHITE))
 	if icon == Icon.SWORD:
 		_draw_sword(held)
 	if cooling:

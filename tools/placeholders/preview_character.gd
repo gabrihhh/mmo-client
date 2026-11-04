@@ -2,7 +2,8 @@ extends SceneTree
 ## Foto de conferência de um personagem ([ART-03]): o boneco em várias poses lado a lado, com itens.
 ##
 ## Rodar da pasta mmo-client (precisa de tela, não roda com --headless):
-##   godot --path . --script res://tools/placeholders/preview_character.gd -- /caminho/saida.png [espada|cajado] [cena.tscn]
+##   godot --path . --script res://tools/placeholders/preview_character.gd -- /caminho/saida.png [espada|cajado|mago|cavaleiro] [cena.tscn]
+## espada/cajado: arma de treino + capuz. mago/cavaleiro: o conjunto inteiro (arma, cabeça, peito e pés, [JOGO-03]).
 ## Sem a cena: o placeholder. Ex. de cena: res://assets/characters/male/male_character.tscn.
 ##
 ## Cada coluna é uma animação parada num instante (nome: tempo em s). Útil para ver proporção, pegada da arma
@@ -15,6 +16,13 @@ const POSES: Array[Array] = [
 	["attack_staff", 0.55], ["cast_forward", 0.55], ["cast_up", 0.4], ["spin", 0.25], ["buff", 0.5],
 ]
 const SPACING: float = 1.1
+## O que o boneco veste em cada opção da linha de comando.
+const _KITS: Dictionary[String, Dictionary] = {
+	"espada": {"hand": "training_sword", "head": "training_hood"},
+	"cajado": {"hand": "training_staff", "head": "training_hood"},
+	"mago": {"hand": "arcane_staff", "head": "mage_hat", "chest": "mage_tunic", "feet": "mage_shoes"},
+	"cavaleiro": {"hand": "knight_sword", "head": "knight_helm", "chest": "knight_plate", "feet": "knight_greaves"},
+}
 
 var _frames: int = 0
 var _output: String = ""
@@ -35,14 +43,14 @@ func _process(_delta: float) -> bool:
 func _build() -> void:
 	var args: PackedStringArray = OS.get_cmdline_user_args()
 	_output = args[0] if args.size() > 0 else "user://preview_character.png"
-	var weapon: String = "training_staff" if args.size() > 1 and args[1] == "cajado" else "training_sword"
+	var kit: String = args[1] if args.size() > 1 else "espada"
 	var scene_path: String = args[2] if args.size() > 2 else CHARACTER
 	var world: Node3D = Node3D.new()
 	get_root().add_child(world)
 	_add_environment(world)
 
 	var look: PlayerState = PlayerState.new()
-	look.set_look({"hand": weapon, "head": "training_hood"})
+	look.set_look(_KITS.get(kit, _KITS["espada"]))
 	for i: int in range(POSES.size()):
 		var model: CharacterModel = (load(scene_path) as PackedScene).instantiate() as CharacterModel
 		model.position = Vector3((float(i) - float(POSES.size() - 1) * 0.5) * SPACING, 0.0, 0.0)

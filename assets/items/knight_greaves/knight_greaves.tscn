@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3]
+
+; Greva do cavaleiro (knight_greaves), UM pé, Meshy image→3D. Item de pés (rígido, um por pé; o direito é
+; espelhado): origem no TORNOZELO do corpo masculino, bico para +Z. O .glb tem o bico em −X.
+
+[ext_resource type="PackedScene" path="res://assets/items/knight_greaves/knight_greaves.glb" id="1_glb"]
+
+[node name="KnightGreaves" type="Node3D"]
+
+[node name="Model" parent="." instance=ExtResource("1_glb")]
+transform = Transform3D(0, 0, -0.356, 0, 0.357, 0, 0.39, 0, 0, 0.014, 0.038, 0.084)

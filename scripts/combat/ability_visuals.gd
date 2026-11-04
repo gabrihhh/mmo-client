@@ -20,6 +20,22 @@ const ANIMATIONS: Dictionary[String, String] = {
 	"heal": "buff",
 	"shield": "buff",
 	"sprint": "buff",
+	# Conjunto do Mago
+	"arcane_attack": "attack_staff",
+	"ice_lance": "cast_forward",
+	"arcane_nova": "cast_up",
+	"starfall": "cast_up",
+	"meditation": "buff",
+	"arcane_barrier": "buff",
+	"blink": "dash",
+	# Conjunto do Cavaleiro
+	"knight_attack": "attack_sword",
+	"line_cleave": "heavy_strike",
+	"heroic_charge": "dash",
+	"ground_slam": "heavy_strike",
+	"second_wind": "buff",
+	"steel_wall": "buff",
+	"steady_march": "buff",
 }
 ## Cor dos efeitos (projétil, aviso no chão).
 const COLORS: Dictionary[String, Color] = {
@@ -29,6 +45,16 @@ const COLORS: Dictionary[String, Color] = {
 	"bolt": Color(0.55, 0.9, 1.0),
 	"heal": Color(0.4, 1.0, 0.45),
 	"shield": Color(0.5, 0.75, 1.0),
+	"arcane_attack": Color(0.6, 0.5, 1.0),
+	"ice_lance": Color(0.6, 0.95, 1.0),
+	"arcane_nova": Color(0.85, 0.4, 1.0),
+	"starfall": Color(1.0, 0.9, 0.4),
+	"meditation": Color(0.5, 0.9, 1.0),
+	"arcane_barrier": Color(0.75, 0.5, 1.0),
+	"line_cleave": Color(0.9, 0.95, 1.0),
+	"ground_slam": Color(1.0, 0.6, 0.3),
+	"second_wind": Color(1.0, 0.45, 0.45),
+	"steel_wall": Color(0.8, 0.85, 0.95),
 }
 const DEFAULT_COLOR: Color = Color(1.0, 0.85, 0.5)
 ## Golpes corpo a corpo com clarão no momento do golpe: alcance do clarão (m). Negativo = anel inteiro (ao redor).
@@ -37,15 +63,22 @@ const SLASH_REACH: Dictionary[String, float] = {
 	"heavy_strike": -2.5,
 	"punch": 1.1,
 	"spin": -3.0,
+	"knight_attack": 1.9,
+	"line_cleave": 3.0,
+	"ground_slam": -3.5,
 }
 ## Magias que acendem um brilho na mão durante o lançamento (mostra aos outros que vem coisa aí).
-const CAST_GLOW: Array[String] = ["fireball", "meteor", "bolt", "heal", "shield"]
+const CAST_GLOW: Array[String] = [
+	"fireball", "meteor", "bolt", "heal", "shield",
+	"ice_lance", "arcane_nova", "starfall", "meditation", "arcane_barrier",
+]
 ## Habilidades de alvo com projétil só visual: tempo de voo (s). Ele sai de modo a chegar junto com o dano.
 ## Reserva: o tempo de verdade vem do servidor no `cast_start.release` (AbilityDef.releaseTime em
 ## mmo-server/src/items/catalog.ts); manter igual.
 const HOMING_FLIGHT: Dictionary[String, float] = {
 	"staff_attack": 0.3,
 	"bolt": 0.15,
+	"arcane_attack": 0.3,
 }
 
 

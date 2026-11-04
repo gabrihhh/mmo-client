@@ -14,5 +14,10 @@ hand_item_offset = Vector3(0, -0.1, 0)
 show_head_item = true
 head_item_offset = Vector3(0, -0.06, 0.045)
 head_item_scale = 0.92
+show_body_items = true
+chest_item_offset = Vector3(0, 0.22, 0.043)
+chest_item_scale = Vector3(1, 1, 1)
+feet_item_offset = Vector3(0, 0, 0)
+feet_item_scale = 1.0
 
 [node name="Model" parent="." instance=ExtResource("2_glb")]

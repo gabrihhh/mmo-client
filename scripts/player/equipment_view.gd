@@ -3,7 +3,9 @@ extends Node
 ## Mostra no boneco os itens vestidos ([ART-02], [ART-03]): segue o [member PlayerState.look] e troca os modelos.
 ##
 ## Cada slot com modelo tem um encaixe ([BoneAttachment3D]) num osso do esqueleto: arma na mão direita
-## ("RightHand"), chapéu/capuz na cabeça ("Head"). Os encaixes acompanham as animações.
+## ("RightHand"), chapéu/capuz/elmo na cabeça ("Head"), túnica/peitoral no peito ("Chest") e um calçado em cada pé
+## ("LeftFoot"; no "RightFoot" o mesmo modelo espelhado em X). Os encaixes acompanham as animações; peito e pés são
+## peças rígidas (não dobram com o corpo), o bastante para low poly visto de cima.
 ## Modelos e o jeito de segurar cada item: [ItemModels]. Pegada e offsets são medidos no osso do placeholder;
 ## [method SkeletonRetarget.mount_fix] converte para o osso de outro modelo (eixos diferentes).
 ##
@@ -15,8 +17,14 @@ extends Node
 ##   posição de carregar.
 ## A arma também escolhe a postura parada do personagem ([method CharacterAnimator.set_idle_animation]).
 
-## Slot → osso do encaixe. Slot fora daqui (peito, pés) ainda não tem modelo.
-const MOUNT_BONES: Dictionary[String, String] = {"hand": "RightHand", "head": "Head"}
+## Encaixe → [slot do item, osso]. O slot "feet" tem dois encaixes (um por pé).
+const MOUNTS: Dictionary[String, Array] = {
+	"hand": ["hand", "RightHand"],
+	"head": ["head", "Head"],
+	"chest": ["chest", "Chest"],
+	"foot_left": ["feet", "LeftFoot"],
+	"foot_right": ["feet", "RightFoot"],
+}
 ## Para onde cada cotovelo aponta no IK (espaço do personagem, m): para fora e para baixo. Lado direito = −X.
 const POLES: Dictionary[String, Vector3] = {"Left": Vector3(0.8, 0.6, -0.2), "Right": Vector3(-0.8, 0.6, -0.2)}
 ## Pulso em relação ao ponto de pegada (espaço do personagem, m): a pegada fica na palma, o pulso um pouco atrás.
@@ -103,16 +111,21 @@ func _process(delta: float) -> void:
 		_set_arm_weight("Left", 0.0)
 
 
-## Cria os encaixes nos ossos de [param skeleton]. Item de segurar: pegada em [param hand_offset] (m, a partir do
-## pulso, no osso do placeholder). Item de cabeça: em [param head_offset] (m, a partir do início
-## do osso da cabeça) com escala [param head_scale] (cada modelo tem um tamanho de cabeça). [param show_head] false =
-## sem encaixe de cabeça (o item não aparece).
-func setup(skeleton: Skeleton3D, hand_offset: Vector3, head_offset: Vector3, head_scale: float, show_head: bool = true) -> void:
+## Cria os encaixes nos ossos de [param skeleton]. [param placements]: encaixe ("hand", "head", "chest", "foot_left")
+## → onde o item assenta, a partir do início do osso, com os eixos do personagem em repouso (+Y cima, +Z frente;
+## escala = tamanho do item para este corpo). Item de segurar: a origem é a pegada (osso do placeholder, ver
+## [member CharacterModel.hand_item_offset]). "foot_right" = "foot_left" espelhado em X. Encaixe fora de
+## [param placements] não é criado (o item daquele slot não aparece neste corpo).
+func setup(skeleton: Skeleton3D, placements: Dictionary[String, Transform3D]) -> void:
 	_skeleton = skeleton
-	for slot: String in MOUNT_BONES:
-		if slot == "head" and not show_head:
+	var all: Dictionary[String, Transform3D] = placements.duplicate()
+	if all.has("foot_left"):
+		# Espelho em X (lado direito do corpo): posição com X trocado e o modelo espelhado (pé esquerdo → direito).
+		all["foot_right"] = Transform3D(Basis.FLIP_X, Vector3.ZERO) * all["foot_left"]
+	for key: String in MOUNTS:
+		if not all.has(key):
 			continue
-		var bone_name: String = MOUNT_BONES[slot]
+		var bone_name: String = MOUNTS[key][1]
 		if skeleton.find_bone(bone_name) < 0:
 			continue
 		var attachment: BoneAttachment3D = BoneAttachment3D.new()
@@ -120,13 +133,9 @@ func setup(skeleton: Skeleton3D, hand_offset: Vector3, head_offset: Vector3, hea
 		attachment.bone_name = bone_name
 		skeleton.add_child(attachment)
 		var mount: Node3D = Node3D.new()
-		var fix: Transform3D = SkeletonRetarget.mount_fix(skeleton, bone_name)
-		if slot == "head":
-			mount.transform = fix * Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * head_scale), head_offset)
-		else:
-			mount.transform = fix * Transform3D(Basis.IDENTITY, hand_offset)
+		mount.transform = SkeletonRetarget.mount_fix(skeleton, bone_name) * all[key]
 		attachment.add_child(mount)
-		_mounts[slot] = mount
+		_mounts[key] = mount
 	for side: String in POLES:
 		_setup_arm_ik(skeleton, side)
 	_refresh()
@@ -199,10 +208,11 @@ func _refresh() -> void:
 	var hand_item: String = _state.look.get("hand", "") if _state != null else ""
 	if animator != null:
 		animator.set_idle_animation(ItemModels.idle_animation(hand_item))
-	for slot: String in _mounts:
-		var mount: Node3D = _mounts[slot]
+	for key: String in _mounts:
+		var mount: Node3D = _mounts[key]
 		for child: Node in mount.get_children():
 			child.queue_free()
+		var slot: String = MOUNTS[key][0]
 		var item_id: String = _state.look.get(slot, "") if _state != null else ""
 		if item_id.is_empty():
 			continue

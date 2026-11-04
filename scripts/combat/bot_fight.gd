@@ -1,8 +1,10 @@
 class_name BotFight
 extends Node
-## Ferramenta de desenvolvimento (`-- --bot-fight`): o jogador local veste o cajado e luta sozinho contra o boneco
-## de treino mais perto — ataque simples + uma carta por vez (Bola de fogo, Meteoro, Raio, Cura, Escudo).
-## `-- --bot-fight=espada`: veste a espada, anda até o boneco e usa Golpe forte e Giro.
+## Ferramenta de desenvolvimento (`-- --bot-fight`): o jogador local veste o kit de treino com o cajado e luta sozinho
+## contra o boneco de treino mais perto — ataque simples + uma carta por vez (Bola de fogo, Meteoro, Raio, Cura, Escudo).
+## `-- --bot-fight=espada`: kit de treino com a espada, anda até o boneco e usa Golpe forte e Giro.
+## `-- --bot-fight=mago` / `=cavaleiro`: veste o conjunto inteiro ([JOGO-03]) e usa as cartas dele.
+## A conta nasce pelada ([JOGO-04]): o bot veste da mochila o que faltar antes de lutar.
 ## Serve para ver animações, projéteis e avisos no chão sem tocar na tela ([JOGO-08]).
 ##
 ## Exemplo: `godot --path . -- --dev-user=Bot --bot-fight`. Só pede coisas ao servidor (que decide tudo).
@@ -12,13 +14,22 @@ const ARG: String = "--bot-fight"
 ## Intervalo (s) entre uma carta e outra.
 const CAST_INTERVAL: float = 2.2
 ## Ordem das cartas (cajado) e (espada).
-const STAFF_ROTATION: Array[String] = ["fireball", "meteor", "bolt", "heal", "shield"]
-const SWORD_ROTATION: Array[String] = ["heavy_strike", "spin"]
-## Com a espada, chega até esta distância (m) do boneco antes de bater.
+## Modo → [itens a vestir (o primeiro é a arma), cartas em ordem, anda até o boneco (corpo a corpo)?].
+const MODES: Dictionary[String, Array] = {
+	"": [["training_staff", "training_hood", "training_vest", "training_boots"], ["fireball", "meteor", "bolt", "heal", "shield"], false],
+	"espada": [["training_sword", "training_hood", "training_vest", "training_boots"], ["heavy_strike", "spin"], true],
+	"mago": [["arcane_staff", "mage_hat", "mage_tunic", "mage_shoes"], ["ice_lance", "arcane_nova", "starfall", "meditation", "arcane_barrier"], false],
+	"cavaleiro": [["knight_sword", "knight_helm", "knight_plate", "knight_greaves"], ["line_cleave", "ground_slam", "second_wind", "steel_wall"], true],
+}
+## Corpo a corpo: chega até esta distância (m) do boneco antes de bater.
 const MELEE_DISTANCE: float = 1.8
 
-var _weapon: String = "training_staff"
-var _rotation: Array[String] = STAFF_ROTATION
+## Itens a vestir (o primeiro é a arma), cartas e se anda até o boneco.
+var _wear: Array[String] = []
+var _rotation: Array[String] = []
+var _melee: bool = false
+## Espera (s) a resposta do último "vestir" antes de pedir outro (senão repete o pedido a cada quadro).
+var _equip_wait: float = 0.0
 
 var _player: LocalPlayer = null
 var _next_cast: float = 1.5
@@ -27,16 +38,20 @@ var _index: int = 0
 
 ## Cria o bot em [param parent] se o argumento estiver na linha de comando.
 static func attach_if_requested(parent: Node, player: LocalPlayer) -> void:
-	var args: PackedStringArray = OS.get_cmdline_user_args()
-	var sword: bool = (ARG + "=espada") in args
-	if not ARG in args and not sword:
+	var mode: String = ""
+	var found: bool = false
+	for arg: String in OS.get_cmdline_user_args():
+		if arg == ARG or arg.begins_with(ARG + "="):
+			mode = arg.trim_prefix(ARG).trim_prefix("=")
+			found = MODES.has(mode)
+	if not found:
 		return
 	var bot: BotFight = BotFight.new()
 	bot.name = "BotFight"
 	bot._player = player
-	if sword:
-		bot._weapon = "training_sword"
-		bot._rotation = SWORD_ROTATION
+	bot._wear.assign(MODES[mode][0])
+	bot._rotation.assign(MODES[mode][1])
+	bot._melee = MODES[mode][2]
 	parent.add_child(bot)
 
 
@@ -44,12 +59,17 @@ func _process(delta: float) -> void:
 	var network: Network = Network.instance
 	if network == null or network.inventory == null or not is_instance_valid(_player):
 		return
-	var weapon: InventoryState.Item = network.inventory.item_in("hand")
-	if weapon == null or weapon.item_id != _weapon:
-		for item: InventoryState.Item in network.inventory.bag:
-			if item.item_id == _weapon:
+	# Veste um item por vez (o inventário novo chega antes do próximo).
+	_equip_wait -= delta
+	if _equip_wait > 0.0:
+		return
+	for item: InventoryState.Item in network.inventory.bag:
+		if item.item_id in _wear:
+			var worn: InventoryState.Item = network.inventory.item_in(item.slot)
+			if worn == null or worn.item_id != item.item_id:
 				network.send_equip(item.uid)
 				_next_cast = 1.0
+				_equip_wait = 0.5
 				return
 	var dummy: PlayerState = _nearest_dummy(network)
 	if dummy == null:
@@ -58,7 +78,7 @@ func _process(delta: float) -> void:
 		network.send_attack(dummy.id)
 	var to_target: Vector3 = dummy.position - _player.global_position
 	to_target.y = 0.0
-	var walk: bool = _weapon == "training_sword" and to_target.length() > MELEE_DISTANCE
+	var walk: bool = _melee and to_target.length() > MELEE_DISTANCE
 	_player.bot_direction = Vector2(to_target.x, to_target.z).normalized() if walk else Vector2.ZERO
 	_next_cast -= delta
 	# Andar cancela o lançamento ([JOGO-06]): só lança parado.
@@ -70,9 +90,9 @@ func _process(delta: float) -> void:
 	var me: Vector3 = _player.global_position
 	var to_dummy: Vector3 = dummy.position - me
 	match ability:
-		"fireball":
+		"fireball", "ice_lance", "line_cleave":
 			network.send_cast(ability, "", to_dummy.x, to_dummy.z)
-		"meteor":
+		"meteor", "starfall":
 			network.send_cast(ability, "", dummy.x, dummy.z)
 		"bolt":
 			network.send_cast(ability, dummy.id)

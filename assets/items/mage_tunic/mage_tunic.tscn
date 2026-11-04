@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3]
+
+; Túnica arcana (mage_tunic), Meshy image→3D. Item de peito (peça rígida presa ao osso do peito):
+; origem no meio da GOLA, pendurada para baixo (−Y). Medida no corpo masculino. Frente para +Z.
+
+[ext_resource type="PackedScene" path="res://assets/items/mage_tunic/mage_tunic.glb" id="1_glb"]
+
+[node name="MageTunic" type="Node3D"]
+
+[node name="Model" parent="." instance=ExtResource("1_glb")]
+transform = Transform3D(0.82, 0, 0, 0, 0.82, 0, 0, 0, 0.82, 0, -0.391, 0)

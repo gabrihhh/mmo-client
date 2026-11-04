@@ -1,10 +1,12 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/hud.gd" id="1_hud"]
 [ext_resource type="Theme" path="res://assets/ui/theme.tres" id="2_theme"]
 [ext_resource type="Script" path="res://scripts/ui/touch_action_button.gd" id="3_button"]
 [ext_resource type="Script" path="res://scripts/ui/touch_joystick.gd" id="4_joystick"]
 [ext_resource type="Script" path="res://scripts/ui/wood_panel.gd" id="5_wood"]
+[ext_resource type="Script" path="res://scripts/ui/paper_doll.gd" id="6_doll"]
+[ext_resource type="Script" path="res://scripts/ui/item_detail_panel.gd" id="7_detail"]
 
 [node name="Hud" type="CanvasLayer"]
 script = ExtResource("1_hud")
@@ -355,16 +357,16 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -320.0
-offset_top = -420.0
-offset_right = 320.0
-offset_bottom = 420.0
+offset_left = -345.0
+offset_top = -580.0
+offset_right = 345.0
+offset_bottom = 580.0
 grow_horizontal = 2
 grow_vertical = 2
 
 [node name="VBox" type="VBoxContainer" parent="Root/InventoryPanel"]
 layout_mode = 2
-theme_override_constants/separation = 20
+theme_override_constants/separation = 14
 
 [node name="Title" type="Label" parent="Root/InventoryPanel/VBox"]
 layout_mode = 2
@@ -376,40 +378,58 @@ horizontal_alignment = 1
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 0.7)
 theme_override_font_sizes/font_size = 22
-text = "Vestido (toque para tirar)"
+text = "Equipado (toque para ver)"
 
-[node name="EquippedGrid" type="GridContainer" parent="Root/InventoryPanel/VBox"]
+[node name="PaperDoll" type="Control" parent="Root/InventoryPanel/VBox"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 440)
 layout_mode = 2
-theme_override_constants/h_separation = 12
-theme_override_constants/v_separation = 12
-columns = 2
+script = ExtResource("6_doll")
 
 [node name="BagTitle" type="Label" parent="Root/InventoryPanel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 0.7)
 theme_override_font_sizes/font_size = 22
-text = "Mochila (toque para vestir)"
+text = "Mochila"
 
 [node name="BagScroll" type="ScrollContainer" parent="Root/InventoryPanel/VBox"]
-custom_minimum_size = Vector2(0, 220)
+custom_minimum_size = Vector2(0, 230)
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="BagList" type="VBoxContainer" parent="Root/InventoryPanel/VBox/BagScroll"]
+[node name="BagGrid" type="GridContainer" parent="Root/InventoryPanel/VBox/BagScroll"]
 unique_name_in_owner = true
 layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 10
+size_flags_horizontal = 6
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+columns = 5
 
 [node name="InventoryBackButton" type="Button" parent="Root/InventoryPanel/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 96)
+custom_minimum_size = Vector2(0, 92)
 layout_mode = 2
 theme_override_font_sizes/font_size = 34
 text = "Voltar"
+
+[node name="ItemDetailPanel" type="PanelContainer" parent="Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -345.0
+offset_top = -580.0
+offset_right = 345.0
+offset_bottom = 580.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("7_detail")
 
 [node name="SettingsPanel" type="PanelContainer" parent="Root"]
 unique_name_in_owner = true
