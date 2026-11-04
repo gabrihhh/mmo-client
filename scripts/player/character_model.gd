@@ -57,6 +57,7 @@ func _ready() -> void:
 	_equipment.name = "Equipment"
 	add_child(_equipment)
 	_equipment.setup(skeleton, hand_item_offset, head_item_offset, head_item_scale, show_head_item)
+	_equipment.animator = _animator
 
 
 ## Cor da camisa (azul = você, vermelho = os outros). Sem efeito se [member tint_shirt] for false.

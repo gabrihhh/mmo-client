@@ -20,11 +20,14 @@ const _GRIP_PITCH: Dictionary[String, float] = {
 }
 ## Pegada padrão (armas de lâmina).
 const DEFAULT_GRIP_PITCH: float = 90.0
-## Itens que ficam "em pé" na mão: quanto o comprimento (+Y) é puxado para cima a cada quadro (0 = preso ao osso).
-## As animações do Meshy são de mão vazia: ao erguer o braço o pulso gira e o cajado preso ao osso ficava de ponta
-## cabeça. Com puxão > 1 a ponta (+Y) fica sempre para cima, mas o cajado ainda balança com o movimento da mão.
-const _UPRIGHT_PULL: Dictionary[String, float] = {
-	"training_staff": 1.5,
+## Como cada item de segurar se acomoda na mão: [direção de descanso (espaço do personagem: +Z frente, +Y cima),
+## puxão fora de ação, puxão durante uma ação]. A cada quadro o comprimento (+Y) do item é somado a direção × puxão
+## (puxão 0 = preso ao osso da mão). As animações do Meshy são de mão vazia: o pulso gira e, preso ao osso, a espada
+## apontava para cima e o cajado deitava para trás correndo (ou ficava de ponta-cabeça ao erguer o braço). Puxão > 1
+## garante a direção; durante a ação a espada é puxada pouco, para o golpe seguir a mão.
+const _HOLD: Dictionary[String, Array] = {
+	"training_sword": [Vector3(0.0, -0.3, 1.0), 2.0, 0.4],
+	"training_staff": [Vector3(0.0, 1.0, 0.35), 2.5, 2.5],
 }
 
 
@@ -44,6 +47,16 @@ static func grip(item_id: String) -> Basis:
 	return Basis(Vector3.RIGHT, deg_to_rad(_GRIP_PITCH.get(item_id, DEFAULT_GRIP_PITCH)))
 
 
-## Quanto o item [param item_id] é puxado para ficar em pé na mão (0 = segue o osso da mão sem correção).
-static func upright_pull(item_id: String) -> float:
-	return _UPRIGHT_PULL.get(item_id, 0.0)
+## Direção de descanso do item [param item_id] na mão (espaço do personagem, normalizada); zero = sem correção.
+static func hold_direction(item_id: String) -> Vector3:
+	if not _HOLD.has(item_id):
+		return Vector3.ZERO
+	var direction: Vector3 = _HOLD[item_id][0]
+	return direction.normalized()
+
+
+## Quanto o item [param item_id] é puxado para a direção de descanso: fora de ação ([param acting] false) ou durante.
+static func hold_pull(item_id: String, acting: bool) -> float:
+	if not _HOLD.has(item_id):
+		return 0.0
+	return float(_HOLD[item_id][2 if acting else 1])

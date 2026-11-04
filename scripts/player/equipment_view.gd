@@ -6,38 +6,47 @@ extends Node
 ## ("RightHand"), chapéu/capuz na cabeça ("Head"). Os encaixes acompanham as animações.
 ## Modelos e o jeito de segurar cada item: [ItemModels]. Pegada e offsets são medidos no osso do placeholder;
 ## [method SkeletonRetarget.mount_fix] converte para o osso de outro modelo (eixos diferentes).
-## Item "em pé" ([method ItemModels.upright_pull], ex.: cajado): a cada quadro, depois da animação, o comprimento é
-## puxado para cima (segue a posição da mão, mas não vira de ponta-cabeça quando o braço sobe).
+## Item de segurar com direção de descanso ([method ItemModels.hold_direction]): a cada quadro, depois da animação, o
+## comprimento é puxado para ela (espada para a frente, cajado em pé), menos durante uma ação ([member animator]).
 
 ## Slot → osso do encaixe. Slot fora daqui (peito, pés) ainda não tem modelo.
 const MOUNT_BONES: Dictionary[String, String] = {"hand": "RightHand", "head": "Head"}
 var _mounts: Dictionary[String, Node3D] = {}
 var _state: PlayerState = null
-## Item de segurar que fica em pé (null = nenhum) e quanto ele é puxado para cima.
-var _upright_model: Node3D = null
-var _upright_pull: float = 0.0
-## Pegada do item em pé (rotação na mão, [method ItemModels.grip]).
-var _upright_grip: Basis = Basis.IDENTITY
+## Animador do personagem (para saber se há ação tocando); null = sempre "fora de ação".
+var animator: CharacterAnimator = null
+## Item de segurar com direção de descanso (null = nenhum), o id dele e a pegada (rotação na mão).
+var _held_model: Node3D = null
+var _held_id: String = ""
+var _held_grip: Basis = Basis.IDENTITY
+## Puxão atual (suavizado entre fora de ação e durante a ação).
+var _held_pull: float = 0.0
+## Rapidez da troca de puxão (unidades de puxão por segundo).
+const PULL_BLEND_RATE: float = 20.0
 
 
 func _ready() -> void:
 	process_priority = 100  # depois do AnimationTree, com a pose do quadro já aplicada
 
 
-func _process(_delta: float) -> void:
-	if _upright_model == null or not is_instance_valid(_upright_model):
+func _process(delta: float) -> void:
+	if _held_model == null or not is_instance_valid(_held_model):
 		return
-	var mount: Node3D = _upright_model.get_parent() as Node3D
-	# Como ficaria preso ao osso (pegada normal) → comprimento puxado para cima, frente mantida.
-	var rigid: Basis = mount.global_basis * _upright_grip
+	var acting: bool = animator != null and animator.is_acting()
+	_held_pull = move_toward(_held_pull, ItemModels.hold_pull(_held_id, acting), PULL_BLEND_RATE * delta)
+	var body: Node3D = get_parent() as Node3D
+	var rest_direction: Vector3 = body.global_basis.orthonormalized() * ItemModels.hold_direction(_held_id)
+	var mount: Node3D = _held_model.get_parent() as Node3D
+	# Como ficaria preso ao osso (pegada normal) → comprimento puxado para a direção de descanso.
+	var rigid: Basis = mount.global_basis * _held_grip
 	var size: float = rigid.get_scale().y
-	var up: Vector3 = (rigid.y.normalized() + Vector3.UP * _upright_pull).normalized()
-	var forward: Vector3 = rigid.z.normalized()
-	forward = forward - up * forward.dot(up)
-	if forward.length() < 0.001:
+	var length_axis: Vector3 = (rigid.y.normalized() + rest_direction * _held_pull).normalized()
+	var side: Vector3 = rigid.z.normalized()
+	side = side - length_axis * side.dot(length_axis)
+	if side.length() < 0.001:
 		return
-	forward = forward.normalized()
-	_upright_model.global_basis = Basis(up.cross(forward), up, forward).scaled_local(Vector3.ONE * size)
+	side = side.normalized()
+	_held_model.global_basis = Basis(length_axis.cross(side), length_axis, side).scaled_local(Vector3.ONE * size)
 
 
 ## Cria os encaixes nos ossos de [param skeleton]. Item de segurar: pegada em [param hand_offset] (m, a partir do
@@ -78,7 +87,7 @@ func bind(state: PlayerState) -> void:
 
 ## Recria os modelos de todos os slots a partir do look atual.
 func _refresh() -> void:
-	_upright_model = null
+	_held_model = null
 	for slot: String in _mounts:
 		var mount: Node3D = _mounts[slot]
 		for child: Node in mount.get_children():
@@ -91,7 +100,9 @@ func _refresh() -> void:
 			continue
 		if slot == "hand":
 			model.basis = ItemModels.grip(item_id)
-			_upright_grip = model.basis
-			_upright_pull = ItemModels.upright_pull(item_id)
-			_upright_model = model if _upright_pull > 0.0 else null
+			if ItemModels.hold_direction(item_id) != Vector3.ZERO:
+				_held_model = model
+				_held_id = item_id
+				_held_grip = model.basis
+				_held_pull = ItemModels.hold_pull(item_id, false)
 		mount.add_child(model)

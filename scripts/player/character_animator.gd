@@ -144,6 +144,12 @@ func _fire_upper(animation_name: String, speed: float, from: float) -> void:
 	set("parameters/action/request", AnimationNodeOneShot.ONE_SHOT_REQUEST_FIRE)
 
 
+## true enquanto uma ação (ou o recuo ao apanhar) está tocando.
+func is_acting() -> bool:
+	return bool(get("parameters/action/active")) or bool(get("parameters/action_full/active")) \
+		or bool(get("parameters/flinch/active"))
+
+
 ## Interrompe a ação (ex.: o servidor recusou o que foi animado no toque).
 func stop_action() -> void:
 	set("parameters/action/request", AnimationNodeOneShot.ONE_SHOT_REQUEST_FADE_OUT)
