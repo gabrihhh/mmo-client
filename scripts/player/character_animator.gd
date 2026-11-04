@@ -4,7 +4,8 @@ extends AnimationTree
 ## - pernas (corpo todo, por baixo): mistura "idle" ↔ "run" pela velocidade de movimento;
 ## - tronco e braços (por cima, só os ossos de [constant UPPER_BONES]): uma ação de cada vez (ataque, magia).
 ## Assim dá para andar lançando. Parado, a ação toca no corpo todo (versão "<nome>_full", com quadril e pernas: o
-## giro gira o corpo inteiro); se começar a andar no meio, troca para a versão só de cima no mesmo ponto. A ação toca na velocidade que faz o momento do golpe ([constant HIT_TIMES])
+## giro gira o corpo inteiro); se começar a andar no meio, troca para a versão só de cima no mesmo ponto. As ações de
+## [constant ALWAYS_FULL] tocam no corpo todo mesmo andando. A ação toca na velocidade que faz o momento do golpe ([constant HIT_TIMES])
 ## cair no fim do lançamento do servidor ([method play_action]).
 ##
 ## A árvore é montada em código ([method setup]) com a biblioteca de animações do personagem.
@@ -41,6 +42,8 @@ const MIN_ACTION_SPEED: float = 0.25
 const MAX_ACTION_SPEED: float = 4.0
 ## Sufixo da versão de corpo todo de uma ação na biblioteca (gerada por tools/characters/make_animations.gd).
 const FULL_SUFFIX: String = "_full"
+## Ações que tocam no corpo todo mesmo andando (o giro gira o corpo inteiro enquanto o personagem se move).
+const ALWAYS_FULL: Array[String] = ["spin"]
 ## Mistura idle↔corrida acima da qual o personagem conta como andando (ação só no tronco).
 const MOVING_BLEND: float = 0.1
 
@@ -103,7 +106,7 @@ func set_move_speed(ratio: float) -> void:
 	set("parameters/move/blend_amount", blend)
 	set("parameters/run_speed/scale", clampf(ratio, 0.6, 2.2))
 	# Começou a andar no meio de uma ação de corpo todo: continua só no tronco, do mesmo ponto.
-	if blend > MOVING_BLEND and bool(get("parameters/action_full/active")):
+	if blend > MOVING_BLEND and _action_name not in ALWAYS_FULL and bool(get("parameters/action_full/active")):
 		var elapsed: float = float(Time.get_ticks_msec() - _action_started_ms) / 1000.0 * _action_speed
 		set("parameters/action_full/request", AnimationNodeOneShot.ONE_SHOT_REQUEST_FADE_OUT)
 		_fire_upper(_action_name, _action_speed, elapsed)
@@ -123,7 +126,7 @@ func play_action(animation_name: String, duration: float) -> void:
 	_action_started_ms = Time.get_ticks_msec()
 	var full_name: String = animation_name + FULL_SUFFIX
 	var moving: bool = float(get("parameters/move/blend_amount")) > MOVING_BLEND
-	if not moving and has_animation(full_name):
+	if (not moving or animation_name in ALWAYS_FULL) and has_animation(full_name):
 		set("parameters/action/request", AnimationNodeOneShot.ONE_SHOT_REQUEST_FADE_OUT)
 		_full_node.animation = full_name
 		set("parameters/full_speed/scale", speed)
