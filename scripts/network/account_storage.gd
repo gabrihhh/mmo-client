@@ -46,36 +46,6 @@ static func save_session_token(token: String) -> void:
 		push_warning("AccountStorage: não foi possível salvar a sessão (%s)" % error_string(error))
 
 
-## Credenciais da conta de convidado deste aparelho/perfil: { "username", "password" } ou {} se ainda
-## não existe. Conveniência de TESTE ([CLI-05]): é uma conta normal com dados gerados pelo cliente.
-static func load_guest_credentials() -> Dictionary:
-	var config: ConfigFile = ConfigFile.new()
-	if config.load(_guest_path()) != OK:
-		return {}
-	var username: Variant = config.get_value("guest", "username", "")
-	var password: Variant = config.get_value("guest", "password", "")
-	if not (username is String and password is String):
-		return {}
-	var name_text: String = username
-	var password_text: String = password
-	if name_text.is_empty() or password_text.is_empty():
-		return {}
-	return {"username": name_text, "password": password_text}
-
-
-## Guarda as credenciais do convidado (só depois que o servidor aceitou o cadastro).
-static func save_guest_credentials(username: String, password: String) -> void:
-	var config: ConfigFile = ConfigFile.new()
-	config.set_value("guest", "username", username)
-	config.set_value("guest", "password", password)
-	config.save(_guest_path())
-
-
-## Arquivo do convidado (separado da sessão: "Sair" apaga a sessão, mas o convidado continua o mesmo).
-static func _guest_path() -> String:
-	return _path().replace("account", "guest")
-
-
 ## Apaga o token (logout ou sessão recusada pelo servidor).
 static func clear_session_token() -> void:
 	if FileAccess.file_exists(_path()):
