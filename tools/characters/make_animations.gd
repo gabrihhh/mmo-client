@@ -57,6 +57,9 @@ const CHARACTERS: Array[Dictionary] = [
 ]
 ## Animações de verdade que dão a volta (ciclo).
 const LOOPED: Array[String] = ["run", "idle"]
+## Animações de corpo todo (camada de movimento). As outras são ações da camada de cima, que no jogo não mexe no
+## quadril ([CharacterAnimator]): nelas a rotação do quadril passa para a base da coluna ([method _hips_to_spine]).
+const FULL_BODY: Array[String] = ["run", "idle"]
 ## Osso raiz (o único com trilha de posição que importa).
 const HIPS: StringName = &"Hips"
 ## Quadros por segundo da reconversão entre rigs ([method _bake]).
@@ -155,6 +158,8 @@ func _own_animations(glb_path: String, clips: Dictionary, target: Skeleton3D, ta
 			if bone == String(HIPS) and anim.track_get_type(track) == Animation.TYPE_POSITION_3D:
 				_keep_in_place(anim, track, hips_offset)
 		var game_name: String = String(spec[0])
+		if game_name not in FULL_BODY:
+			_hips_to_spine(anim, target)
 		anim.loop_mode = Animation.LOOP_LINEAR if game_name in LOOPED else Animation.LOOP_NONE
 		result[game_name] = anim
 	model.free()
@@ -296,3 +301,28 @@ func _bone_order(skeleton: Skeleton3D) -> PackedInt32Array:
 		order.append(bone)
 		pending.append_array(skeleton.get_bone_children(bone))
 	return order
+
+
+## Passa a rotação do quadril de [param anim] para o osso "Spine" (tira a trilha de rotação do quadril). No jogo a
+## ação toca só nos ossos de cima, sobre o quadril do idle/corrida: sem isso o tronco perdia a inclinação e o giro
+## que o clipe faz pelo quadril (ex.: o golpe forte curva o corpo todo para a frente).
+func _hips_to_spine(anim: Animation, skeleton: Skeleton3D) -> void:
+	var hips_track: int = -1
+	var spine_track: int = -1
+	for track: int in range(anim.get_track_count()):
+		if anim.track_get_type(track) != Animation.TYPE_ROTATION_3D:
+			continue
+		var bone: String = String(anim.track_get_path(track)).get_slice(":", 1)
+		if bone == String(HIPS):
+			hips_track = track
+		elif bone == "Spine":
+			spine_track = track
+	if hips_track < 0 or spine_track < 0:
+		return
+	var rest_inverse: Quaternion = skeleton.get_bone_rest(skeleton.find_bone(HIPS)).basis.get_rotation_quaternion().inverse()
+	for key: int in range(anim.track_get_key_count(spine_track)):
+		var time: float = anim.track_get_key_time(spine_track, key)
+		var hips: Quaternion = anim.rotation_track_interpolate(hips_track, time)
+		var spine: Quaternion = anim.track_get_key_value(spine_track, key)
+		anim.track_set_key_value(spine_track, key, (rest_inverse * hips * spine).normalized())
+	anim.remove_track(hips_track)
