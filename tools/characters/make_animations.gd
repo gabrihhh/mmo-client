@@ -20,7 +20,6 @@ extends SceneTree
 ## Cada clipe é cortado no trecho útil (sem preparação parada nem recuperação longa); o momento do golpe dentro do
 ## trecho cortado está em [constant CharacterAnimator.HIT_TIMES] (medido pelo pico de velocidade da mão).
 const MESHY_ACTIONS: Dictionary[String, Array] = {
-	"Right_Hand_Sword_Slash": ["attack_sword", 0.0, 1.3],
 	"Heavy_Hammer_Swing": ["heavy_strike", 0.3, 1.83],
 	"Axe_Spin_Attack": ["spin", 0.0, 1.5],
 	"mage_soell_cast_7": ["attack_staff", 0.3, 1.4],
@@ -31,6 +30,10 @@ const MESHY_ACTIONS: Dictionary[String, Array] = {
 	"Stand_Dodge_3": ["dash", 0.9, 2.7],
 	"Hit_Reaction": ["flinch", 0.0, 1.0],
 }
+## Posturas de combate e golpe de duas mãos (Meshy texto→movimento e catálogo, [MESHY-06]), por corpo.
+const MESHY_IDLE_SWORD: Dictionary[String, Array] = {"IdleSword": ["idle_sword", 0.0, -1.0]}
+const MESHY_IDLE_STAFF: Dictionary[String, Array] = {"IdleStaff": ["idle_staff", 0.0, -1.0]}
+const MESHY_TWO_HANDED: Dictionary[String, Array] = {"Attack2H": ["attack_sword", 0.2, 1.7]}
 ## Clipe inteiro (sem corte): fim negativo.
 const WHOLE: float = -1.0
 ## Personagens: cena, biblioteca gerada e fontes ("glb" → {nome do clipe no .glb → [nome no jogo, início, fim]}).
@@ -42,6 +45,9 @@ const CHARACTERS: Array[Dictionary] = [
 		"sources": {
 			"res://assets/characters/male/male.glb": {"Running": ["run", 0.0, WHOLE]},
 			"res://tools/characters/animations/male_idle.glb": {"Idle": ["idle", 0.0, WHOLE]},
+			"res://tools/characters/animations/male_idle_sword.glb": MESHY_IDLE_SWORD,
+			"res://tools/characters/animations/male_idle_staff.glb": MESHY_IDLE_STAFF,
+			"res://tools/characters/animations/male_attack2h.glb": MESHY_TWO_HANDED,
 			"res://tools/characters/animations/male_combat.glb": MESHY_ACTIONS,
 		},
 	},
@@ -51,16 +57,19 @@ const CHARACTERS: Array[Dictionary] = [
 		"sources": {
 			"res://assets/characters/female/female.glb": {"Running": ["run", 0.0, WHOLE]},
 			"res://tools/characters/animations/female_idle.glb": {"Idle": ["idle", 0.0, WHOLE]},
+			"res://tools/characters/animations/female_idle_sword.glb": MESHY_IDLE_SWORD,
+			"res://tools/characters/animations/female_idle_staff.glb": MESHY_IDLE_STAFF,
+			"res://tools/characters/animations/female_attack2h.glb": MESHY_TWO_HANDED,
 			"res://tools/characters/animations/female_combat.glb": MESHY_ACTIONS,
 		},
 	},
 ]
 ## Animações de verdade que dão a volta (ciclo).
-const LOOPED: Array[String] = ["run", "idle"]
+const LOOPED: Array[String] = ["run", "idle", "idle_sword", "idle_staff"]
 ## Animações de corpo todo (camada de movimento). As outras são ações da camada de cima, que no jogo não mexe no
 ## quadril ([CharacterAnimator]): nelas a rotação do quadril passa para a base da coluna ([method _hips_to_spine]).
 ## Cada ação também sai como "<nome>_full" (corpo todo, com quadril e pernas), que o jogo toca com o personagem parado.
-const FULL_BODY: Array[String] = ["run", "idle"]
+const FULL_BODY: Array[String] = ["run", "idle", "idle_sword", "idle_staff"]
 ## Ações que só existem na versão de cima (sem "<nome>_full" para tocar parado no corpo todo).
 const UPPER_ONLY: Array[String] = ["flinch"]
 ## Osso raiz (o único com trilha de posição que importa).

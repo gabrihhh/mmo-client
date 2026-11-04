@@ -26,7 +26,7 @@ const LOWER_BONES: Array[String] = [
 ## (tools/characters/make_animations.gd, MESHY_ACTIONS); mudou o clipe ou o corte → medir de novo. O placeholder
 ## (tools/placeholders/make_character.gd) tem outros tempos e fica fora de sincronia (não é usado no jogo).
 const HIT_TIMES: Dictionary[String, float] = {
-	"attack_sword": 0.57,
+	"attack_sword": 0.87,
 	"attack_staff": 0.47,
 	"attack_punch": 0.3,
 	"heavy_strike": 1.23,
@@ -49,6 +49,7 @@ const MOVING_BLEND: float = 0.1
 
 var _action_node: AnimationNodeAnimation = null
 var _full_node: AnimationNodeAnimation = null
+var _idle_node: AnimationNodeAnimation = null
 ## Ação atual, velocidade dela e há quanto tempo começou (s de relógio): para trocar de corpo todo para só tronco.
 var _action_name: String = ""
 var _action_speed: float = 1.0
@@ -63,7 +64,8 @@ func setup(library: AnimationLibrary, skeleton_path: String = "Skeleton3D") -> v
 	_skeleton_path = skeleton_path
 	add_animation_library("", library)
 	var tree: AnimationNodeBlendTree = AnimationNodeBlendTree.new()
-	tree.add_node("idle", _animation_node("idle"))
+	_idle_node = _animation_node("idle")
+	tree.add_node("idle", _idle_node)
 	tree.add_node("run", _animation_node("run"))
 	tree.add_node("run_speed", AnimationNodeTimeScale.new())
 	tree.add_node("move", AnimationNodeBlend2.new())
@@ -98,6 +100,13 @@ func setup(library: AnimationLibrary, skeleton_path: String = "Skeleton3D") -> v
 	root_node = NodePath("..")
 	active = true
 	set_move_speed(0.0)
+
+
+## Troca a postura parada (ex.: "idle_sword" com espada). Animação que a biblioteca não tem → "idle".
+func set_idle_animation(animation_name: String) -> void:
+	if _idle_node == null:
+		return
+	_idle_node.animation = animation_name if has_animation(animation_name) else "idle"
 
 
 ## Velocidade de movimento como fração da normal (0 = parado, 1 = correndo, 2 = Disparada).
