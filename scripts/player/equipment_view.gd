@@ -4,8 +4,9 @@ extends Node
 ##
 ## Cada slot com modelo tem um encaixe ([BoneAttachment3D]) num osso do esqueleto: arma na mão direita
 ## ("RightHand"), chapéu/capuz/elmo na cabeça ("Head"), túnica/peitoral no peito ("Chest") e um calçado em cada pé
-## ("LeftFoot"; no "RightFoot" o mesmo modelo espelhado em X). Os encaixes acompanham as animações. Pés são peças
-## rígidas; o **peito** é "vestido" no esqueleto ([BodySkinning]): as ombreiras seguem ombro e braço, o resto o peito.
+## ("LeftFoot"; no "RightFoot" o mesmo modelo espelhado em X). Os encaixes acompanham as animações. **Peito e pés**
+## são "vestidos" no corpo ([BodySkinning]): viram malhas com os pesos do corpo embaixo delas (dobram junto: ombreira
+## com o braço, barra com a coxa, bota com pé e canela); o calçado é encaixado pelos vértices do pé do corpo.
 ## Modelos e o jeito de segurar cada item: [ItemModels]. Pegada e offsets são medidos no osso do placeholder;
 ## [method SkeletonRetarget.mount_fix] converte para o osso de outro modelo (eixos diferentes).
 ##
@@ -41,10 +42,13 @@ const PULL_BLEND_RATE: float = 20.0
 const CARRY_OUT_RATE: float = 10.0
 const CARRY_IN_RATE: float = 4.0
 
-## Encaixe automático ([ART-02]): encaixe ("chest", "foot_left", "foot_right") → caixa (m, espaço do encaixe) que o
-## item deve preencher. Vem de [member CharacterModel.chest_fit_box] / [member CharacterModel.foot_fit_box].
+## Encaixe automático ([ART-04]): encaixe ("chest") → caixa (m, espaço do encaixe) que o item deve preencher. Vem de
+## [member CharacterModel.chest_fit_box]. Calçados não usam caixa (encaixe pelo pé do corpo, [BodySkinning]).
 ## Encaixe sem caixa usa o item como a cena dele está (ex.: mão e cabeça).
 var fit_boxes: Dictionary[String, AABB] = {}
+
+## Malha do corpo (com pesos): de onde as roupas copiam os pesos ([BodySkinning]). null = roupas rígidas.
+var body: MeshInstance3D = null
 
 ## Animador do personagem (ação tocando? postura parada da arma); null = sem isso.
 var animator: CharacterAnimator = null
@@ -262,49 +266,43 @@ func _refresh() -> void:
 		elif fit_boxes.has(key):
 			_fit(model, fit_boxes[key], slot)
 		mount.add_child(model)
-		if slot == "chest":
-			_skin_to_body(model, mount, MOUNTS[key][1])
+		if (slot == "chest" or slot == "feet") and body != null:
+			_dress(model, mount, key)
 
 
-## Troca o item rígido [param model] (no encaixe [param mount] do osso [param bone_name]) por malhas com pesos que
-## seguem o esqueleto ([BodySkinning]). Sem os ossos necessários, o item fica rígido como estava.
-func _skin_to_body(model: Node3D, mount: Node3D, bone_name: String) -> void:
-	var bone: int = _skeleton.find_bone(bone_name)
-	if bone < 0:
-		return
-	# Onde o item fica com o corpo em repouso: repouso do osso × encaixe × item (espaço do esqueleto).
-	var rest: Transform3D = _skeleton.get_bone_global_rest(bone) * mount.transform * model.transform
-	var created: Array[MeshInstance3D] = BodySkinning.skin(model, _skeleton, rest, bone_name)
+## Troca o item rígido [param model] (no encaixe [param mount], chave [param key]) por malhas com os pesos do corpo
+## ([BodySkinning]). Peito: fica onde o encaixe pela caixa o pôs. Calçado: encaixado pelo pé do corpo.
+func _dress(model: Node3D, mount: Node3D, key: String) -> void:
+	var data: BodySkinning.BodyData = BodySkinning.sample(body, _skeleton)
+	var rest: Transform3D
+	if key == "chest":
+		# Onde o item fica com o corpo em repouso: repouso do osso × encaixe × item (espaço do esqueleto).
+		rest = _skeleton.get_bone_global_rest(_skeleton.find_bone(MOUNTS[key][1])) * mount.transform * model.transform
+	else:
+		rest = BodySkinning.foot_rest(model, data, _skeleton, "Left" if key == "foot_left" else "Right")
+		if rest == Transform3D.IDENTITY:
+			return
+	var created: Array[MeshInstance3D] = BodySkinning.skin(model, _skeleton, rest, data)
 	if created.is_empty():
 		return
 	_skinned.append_array(created)
 	model.visible = false
 
 
-## Encaixa [param model] na caixa [param box] do corpo (espaço do encaixe), a partir do tamanho real dele (a escala e a
-## posição da cena do item não importam, só a direção: frente/bico em +Z).
-## - peito: largura e profundidade esticadas para cobrir o tronco; altura proporcional à largura (túnica comprida
-##   continua comprida); topo na gola, centrado no tronco;
-## - pés: escala única pelo comprimento do pé (bota alta sobe pela canela); sola, calcanhar e meio do pé alinhados.
+## Encaixa o item de peito [param model] na caixa [param box] do tronco (espaço do encaixe), a partir do tamanho real
+## dele (a escala e a posição da cena do item não importam, só a direção: frente em +Z): largura e profundidade
+## esticadas para cobrir o tronco; altura proporcional à largura (túnica comprida continua comprida); topo na gola,
+## centrado no tronco. [param slot] fica para itens futuros com caixa (hoje só "chest").
 func _fit(model: Node3D, box: AABB, slot: String) -> void:
 	var bounds: AABB = ItemModels.local_bounds(model)
-	if bounds.size.x <= 0.0 or bounds.size.y <= 0.0 or bounds.size.z <= 0.0:
+	if slot != "chest" or bounds.size.x <= 0.0 or bounds.size.y <= 0.0 or bounds.size.z <= 0.0:
 		return
 	var center: Vector3 = box.get_center()
-	var scale: Vector3
-	var anchor: Vector3
-	if slot == "chest":
-		var width: float = box.size.x / bounds.size.x
-		scale = Vector3(width, width, box.size.z / bounds.size.z)
-		anchor = Vector3(center.x, box.end.y, center.z)
-		var top: Vector3 = Vector3(bounds.get_center().x, bounds.end.y, bounds.get_center().z)
-		model.transform = Transform3D(Basis.from_scale(scale), anchor - top * scale)
-	else:
-		var length: float = box.size.z / bounds.size.z
-		scale = Vector3.ONE * length
-		anchor = Vector3(center.x, box.position.y, box.position.z)
-		var heel: Vector3 = Vector3(bounds.get_center().x, bounds.position.y, bounds.position.z)
-		model.transform = Transform3D(Basis.from_scale(scale), anchor - heel * scale)
+	var width: float = box.size.x / bounds.size.x
+	var scale: Vector3 = Vector3(width, width, box.size.z / bounds.size.z)
+	var anchor: Vector3 = Vector3(center.x, box.end.y, center.z)
+	var top: Vector3 = Vector3(bounds.get_center().x, bounds.end.y, bounds.get_center().z)
+	model.transform = Transform3D(Basis.from_scale(scale), anchor - top * scale)
 
 
 ## Base com o eixo Y em [param length_axis] e o Z o mais perto possível de [param side_hint].

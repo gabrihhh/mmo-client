@@ -2,7 +2,7 @@ extends SceneTree
 ## Mede o corpo de um personagem para o encaixe dos itens ([ART-02]): caixa (m) do tronco e do pé esquerdo em repouso,
 ## a partir do início do osso de encaixe ("Chest" / "LeftFoot") e com os eixos do personagem (+Y cima, +Z frente).
 ## Usa os vértices da malha presos (peso dominante) aos ossos de cada parte. Os números vão para
-## [member CharacterModel.chest_fit_box] e [member CharacterModel.foot_fit_box] da cena do corpo.
+## [member CharacterModel.chest_fit_box] da cena do corpo (o pé é medido sozinho no jogo, [BodySkinning]).
 ##
 ## Rodar da pasta mmo-client:
 ##   godot --headless --path . --script res://tools/placeholders/measure_body.gd -- res://assets/characters/male/male_character.tscn

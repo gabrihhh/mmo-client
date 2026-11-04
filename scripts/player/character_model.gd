@@ -37,10 +37,6 @@ const SHIRT_SURFACE: int = 0
 ## ombros, das costas ao peito, com folga. Medida com tools/placeholders/measure_body.gd. O item é encaixado nela
 ## sozinho ([EquipmentView], [ART-02]): largura e profundidade esticadas para cobrir o tronco, topo na gola.
 @export var chest_fit_box: AABB = AABB(Vector3(-0.27, -0.28, -0.165), Vector3(0.54, 0.58, 0.41))
-## Item de pés: caixa (m) do PÉ ESQUERDO deste corpo, a partir do início do osso "LeftFoot" (tornozelo): sola
-## embaixo, calcanhar atrás, bico à frente (+Z), com folga. O calçado é escalado pelo comprimento do pé (proporção
-## mantida: bota alta sobe pela canela) e assentado na sola. O pé direito usa o mesmo, espelhado.
-@export var foot_fit_box: AABB = AABB(Vector3(-0.06, -0.135, -0.07), Vector3(0.15, 0.2, 0.32))
 
 @onready var skeleton: Skeleton3D = get_node(skeleton_path) as Skeleton3D
 @onready var _body: MeshInstance3D = get_node(body_path) as MeshInstance3D
@@ -73,7 +69,9 @@ func _ready() -> void:
 	if show_body_items:
 		placements["chest"] = Transform3D.IDENTITY
 		placements["foot_left"] = Transform3D.IDENTITY
-		_equipment.fit_boxes = {"chest": chest_fit_box, "foot_left": foot_fit_box, "foot_right": foot_fit_box}
+		_equipment.fit_boxes = {"chest": chest_fit_box}
+		# Peito e calçados copiam os pesos do corpo; o calçado é encaixado pelo pé do corpo ([BodySkinning]).
+		_equipment.body = _body if _body.skin != null else null
 	_equipment.setup(skeleton, placements)
 	_equipment.animator = _animator
 
