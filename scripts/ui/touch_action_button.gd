@@ -31,6 +31,10 @@ enum Shape { CARD, CIRCLE }
 ## Fração do raio do círculo que é o "miolo" do botão redondo pixel art (`round_button.png`): o relógio de
 ## recarga cobre só ele, não o aro dourado.
 const CIRCLE_CORE_RATIO: float = 0.72
+## Margem do 9-slice de [member card_texture], em px (4 pixels do desenho × 3, ver tools/ui/make_pixel_ui.gd).
+const CARD_TEXTURE_MARGIN: int = 12
+## Espessura da borda desenhada em [member card_texture], em px (3 pixels do desenho × 3): imagem e relógio ficam dentro.
+const CARD_TEXTURE_BORDER: int = 9
 
 @export var shape: Shape = Shape.CARD
 ## Fundo do botão redondo (pixel art, [code]assets/ui/pixel/round_button.png[/code]), esticado no tamanho do botão.
@@ -68,8 +72,13 @@ const CIRCLE_CORE_RATIO: float = 0.72
 @export var border_color: Color = Color(1.0, 0.85, 0.6, 1.0)
 ## Moldura da carta (sempre visível em [constant Shape.CARD]; dentro dela vai a imagem da habilidade).
 @export var frame_color: Color = Color(0.62, 0.68, 0.8, 0.9)
-## Espessura da moldura da carta, em px.
+## Espessura da moldura da carta, em px (sem [member card_texture]).
 @export var frame_width: int = 3
+## Fundo pixel art da carta ([constant Shape.CARD]; [code]assets/ui/pixel/card.png[/code]), em 9-slice com margem
+## [constant CARD_TEXTURE_MARGIN]. null = retângulo arredondado liso ([member fill_color], [member frame_color]).
+@export var card_texture: Texture2D = null
+## Fundo da carta enquanto apertada (borda dourada). null = usa [member card_texture].
+@export var card_pressed_texture: Texture2D = null
 @export var font_size: int = 26
 ## Desligado: ignora toques (ex.: menu aberto, "Desfocar" sem alvo) e fica apagado (fundo e texto).
 @export var enabled: bool = true:
@@ -126,8 +135,14 @@ func _layout_labels() -> void:
 
 ## Retângulo (px) da imagem na carta: quadrado no alto, centrado.
 func _picture_rect() -> Rect2:
-	var side: float = minf(size.x - 2.0 * (frame_width + 6.0), size.y * 0.58)
-	return Rect2(Vector2((size.x - side) / 2.0, frame_width + 5.0), Vector2(side, side))
+	var inset: float = _frame_inset()
+	var side: float = minf(size.x - 2.0 * (inset + 6.0), size.y * 0.58)
+	return Rect2(Vector2((size.x - side) / 2.0, inset + 5.0), Vector2(side, side))
+
+
+## Espessura (px) da borda da carta: a da textura pixel art ou [member frame_width].
+func _frame_inset() -> float:
+	return float(CARD_TEXTURE_BORDER if card_texture != null else frame_width)
 
 
 ## Retângulo (px) do símbolo: centrado no círculo; na carta, centrado na faixa da direita (de 58% a 100% da largura).
@@ -221,16 +236,7 @@ func _draw() -> void:
 	if shape == Shape.CIRCLE:
 		_draw_round_button(color, held)
 	else:
-		color = _dim(color)
-		var box: StyleBoxFlat = StyleBoxFlat.new()
-		box.bg_color = color
-		box.set_corner_radius_all(16)
-		# Moldura sempre visível; pressionada fica dourada e um pouco mais grossa.
-		box.set_border_width_all(frame_width + 1 if held else frame_width)
-		box.border_color = border_color if held else frame_color
-		if not enabled:
-			box.border_color.a *= 0.45
-		draw_style_box(box, Rect2(Vector2.ZERO, size))
+		_draw_card_background(_dim(color), held)
 		if picture != null:
 			var rect: Rect2 = _picture_rect()
 			draw_rect(rect.grow(2.0), _dim(Color(0.05, 0.04, 0.08, 0.9)))
@@ -239,6 +245,27 @@ func _draw() -> void:
 		draw_texture_rect(icon_texture, _icon_rect(), false, _dim(Color.WHITE))
 	if cooling:
 		_draw_cooldown_clock(cooldown_remaining() / _cooldown_total_s)
+
+
+## Fundo da carta: textura pixel art em 9-slice ([member card_texture]; apertada = [member card_pressed_texture])
+## ou, sem textura, retângulo arredondado na cor [param color] com moldura (dourada e mais grossa ao apertar).
+func _draw_card_background(color: Color, held: bool) -> void:
+	if card_texture != null:
+		var pixel_box: StyleBoxTexture = StyleBoxTexture.new()
+		pixel_box.texture = card_pressed_texture if held and card_pressed_texture != null else card_texture
+		pixel_box.set_texture_margin_all(CARD_TEXTURE_MARGIN)
+		pixel_box.modulate_color = _dim(Color.WHITE)
+		draw_style_box(pixel_box, Rect2(Vector2.ZERO, size))
+		return
+	var box: StyleBoxFlat = StyleBoxFlat.new()
+	box.bg_color = color
+	box.set_corner_radius_all(16)
+	# Moldura sempre visível; pressionada fica dourada e um pouco mais grossa.
+	box.set_border_width_all(frame_width + 1 if held else frame_width)
+	box.border_color = border_color if held else frame_color
+	if not enabled:
+		box.border_color.a *= 0.45
+	draw_style_box(box, Rect2(Vector2.ZERO, size))
 
 
 ## Multiplica a opacidade de [param color] quando desligado/recarregando (tudo "apagado" junto).
@@ -286,7 +313,7 @@ func _shape_polygon() -> PackedVector2Array:
 			var angle: float = TAU * float(i) / 48.0
 			points.append(size / 2.0 + Vector2(cos(angle), sin(angle)) * radius)
 		return points
-	var inset: float = float(frame_width)
+	var inset: float = _frame_inset()
 	return PackedVector2Array([
 		Vector2(inset, inset), Vector2(size.x - inset, inset),
 		Vector2(size.x - inset, size.y - inset), Vector2(inset, size.y - inset),

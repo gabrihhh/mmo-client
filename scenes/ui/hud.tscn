@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/hud.gd" id="1_hud"]
 [ext_resource type="Theme" path="res://assets/ui/theme.tres" id="2_theme"]
@@ -12,6 +12,8 @@
 [ext_resource type="Texture2D" path="res://assets/ui/pixel/icon_bag.png" id="13_icon_bag"]
 [ext_resource type="Texture2D" path="res://assets/ui/pixel/icon_gear.png" id="14_icon_gear"]
 [ext_resource type="Texture2D" path="res://assets/ui/pixel/icon_exit.png" id="15_icon_exit"]
+[ext_resource type="Texture2D" path="res://assets/ui/pixel/card.png" id="16_card"]
+[ext_resource type="Texture2D" path="res://assets/ui/pixel/card_pressed.png" id="17_card_pressed"]
 [ext_resource type="Script" path="res://scripts/ui/paper_doll.gd" id="6_doll"]
 [ext_resource type="Script" path="res://scripts/ui/item_detail_panel.gd" id="7_detail"]
 
@@ -150,36 +152,48 @@ alignment = 1
 custom_minimum_size = Vector2(104, 140)
 layout_mode = 2
 script = ExtResource("3_button")
+card_texture = ExtResource("16_card")
+card_pressed_texture = ExtResource("17_card_pressed")
 font_size = 19
 
 [node name="Card2" type="Control" parent="Root/ControlsFrame/VBox/CardRow"]
 custom_minimum_size = Vector2(104, 140)
 layout_mode = 2
 script = ExtResource("3_button")
+card_texture = ExtResource("16_card")
+card_pressed_texture = ExtResource("17_card_pressed")
 font_size = 19
 
 [node name="Card3" type="Control" parent="Root/ControlsFrame/VBox/CardRow"]
 custom_minimum_size = Vector2(104, 140)
 layout_mode = 2
 script = ExtResource("3_button")
+card_texture = ExtResource("16_card")
+card_pressed_texture = ExtResource("17_card_pressed")
 font_size = 19
 
 [node name="Card4" type="Control" parent="Root/ControlsFrame/VBox/CardRow"]
 custom_minimum_size = Vector2(104, 140)
 layout_mode = 2
 script = ExtResource("3_button")
+card_texture = ExtResource("16_card")
+card_pressed_texture = ExtResource("17_card_pressed")
 font_size = 19
 
 [node name="Card5" type="Control" parent="Root/ControlsFrame/VBox/CardRow"]
 custom_minimum_size = Vector2(104, 140)
 layout_mode = 2
 script = ExtResource("3_button")
+card_texture = ExtResource("16_card")
+card_pressed_texture = ExtResource("17_card_pressed")
 font_size = 19
 
 [node name="Card6" type="Control" parent="Root/ControlsFrame/VBox/CardRow"]
 custom_minimum_size = Vector2(104, 140)
 layout_mode = 2
 script = ExtResource("3_button")
+card_texture = ExtResource("16_card")
+card_pressed_texture = ExtResource("17_card_pressed")
 font_size = 19
 
 [node name="BottomRow" type="HBoxContainer" parent="Root/ControlsFrame/VBox"]
@@ -264,6 +278,8 @@ custom_minimum_size = Vector2(160, 96)
 layout_mode = 2
 script = ExtResource("3_button")
 text = "Menu"
+card_texture = ExtResource("16_card")
+card_pressed_texture = ExtResource("17_card_pressed")
 icon_texture = ExtResource("12_icon_menu")
 font_size = 28
 

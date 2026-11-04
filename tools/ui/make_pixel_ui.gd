@@ -1,5 +1,6 @@
 extends SceneTree
-## Gera as peças pixel art da HUD ([CLI-08]) em `assets/ui/pixel/`: moldura das barras/controles, botão redondo
+## Gera as peças pixel art da HUD ([CLI-08]) em `assets/ui/pixel/`: moldura das barras/controles, fundo das cartas
+## e do Menu (normal e apertado), botão redondo
 ## (ataque e "Desfocar"), espada, espada riscada e os ícones do menu (☰, mochila, engrenagem, sair).
 ##
 ## Tudo é desenhado pixel a pixel aqui (sem Meshy, sem imagem de fora): mudar uma cor ou um desenho e rodar de novo.
@@ -19,6 +20,12 @@ const FRAME_SCALE: int = 4
 const FRAME_SIZE: int = 16
 ## Margem do 9-slice, em pixels do desenho (o tema usa FRAME_MARGIN * FRAME_SCALE).
 const FRAME_MARGIN: int = 6
+
+## Ampliação do fundo das cartas/Menu (9-slice: as bordas são desenhadas em tamanho real, por isso já sai ampliado).
+const CARD_SCALE: int = 3
+## Lado do fundo da carta antes de ampliar; a margem do 9-slice é [constant CARD_MARGIN] (o tema/botão usa ×CARD_SCALE).
+const CARD_SIZE: int = 12
+const CARD_MARGIN: int = 4
 
 ## Cores por letra. Contorno = "k".
 const PALETTE: Dictionary[String, Color] = {
@@ -163,6 +170,10 @@ func _init() -> void:
 	_save(_outlined(_from_map(ICON_EXIT)), "icon_exit")
 	_save(_round_button(32, false), "round_button")
 	_save(_round_button(32, true), "round_button_pressed")
+	for pressed: bool in [false, true]:
+		var card: Image = _card(pressed)
+		card.resize(CARD_SIZE * CARD_SCALE, CARD_SIZE * CARD_SCALE, Image.INTERPOLATE_NEAREST)
+		_save(card, "card_pressed" if pressed else "card")
 	var frame: Image = _frame()
 	frame.resize(FRAME_SIZE * FRAME_SCALE, FRAME_SIZE * FRAME_SCALE, Image.INTERPOLATE_NEAREST)
 	_save(frame, "frame")
@@ -275,6 +286,32 @@ func _frame() -> Image:
 				var border: bool = px == 0 or py == 0 or px == 3 or py == 3
 				image.set_pixel(corner.x + px, corner.y + py, PALETTE["k"] if border else PALETTE["g"])
 		image.set_pixel(corner.x + 2, corner.y + 2, PALETTE["G"])
+	return image
+
+
+## Fundo das cartas e do botão Menu ([constant CARD_SIZE] px antes de ampliar): contorno, filete de metal (prata;
+## apertado = dourado) claro em cima/esquerda e escuro embaixo/direita, contorno interno e fundo azul-escuro com
+## sombra na primeira linha. Cantos externos com 1 pixel transparente (arredondado em pixel).
+func _card(pressed: bool) -> Image:
+	var n: int = CARD_SIZE
+	var image: Image = Image.create_empty(n, n, false, Image.FORMAT_RGBA8)
+	var light: Color = PALETTE["g"] if pressed else Color8(200, 208, 224)
+	var dark: Color = PALETTE["G"] if pressed else Color8(104, 114, 138)
+	var fill: Color = Color8(52, 66, 92, 235) if pressed else Color8(36, 46, 66, 235)
+	for y: int in range(n):
+		for x: int in range(n):
+			var edge: int = mini(mini(x, y), mini(n - 1 - x, n - 1 - y))
+			var color: Color = fill
+			match edge:
+				0, 2:
+					color = PALETTE["k"]
+				1:
+					color = light if (y == 1 and x < n - 2) or (x == 1 and y < n - 2) else dark
+				3:
+					color = fill.darkened(0.3) if (y == 3 or x == 3) else fill
+			image.set_pixel(x, y, color)
+	for c: Vector2i in [Vector2i(0, 0), Vector2i(n - 1, 0), Vector2i(0, n - 1), Vector2i(n - 1, n - 1)]:
+		image.set_pixelv(c, Color(0, 0, 0, 0))
 	return image
 
 
