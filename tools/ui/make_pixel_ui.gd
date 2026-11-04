@@ -1,5 +1,6 @@
 extends SceneTree
-## Gera as peças pixel art da HUD ([CLI-08]) em `assets/ui/pixel/`: moldura das barras/controles, fundo das cartas
+## Gera as peças pixel art da HUD ([CLI-08]) em `assets/ui/pixel/`: moldura das barras/controles (e a versão opaca
+## dos painéis do Menu), fundo das cartas
 ## e do Menu (normal e apertado), botão redondo
 ## (ataque e "Desfocar"), espada, espada riscada e os ícones do menu (☰, mochila, engrenagem, sair).
 ##
@@ -174,9 +175,10 @@ func _init() -> void:
 		var card: Image = _card(pressed)
 		card.resize(CARD_SIZE * CARD_SCALE, CARD_SIZE * CARD_SCALE, Image.INTERPOLATE_NEAREST)
 		_save(card, "card_pressed" if pressed else "card")
-	var frame: Image = _frame()
-	frame.resize(FRAME_SIZE * FRAME_SCALE, FRAME_SIZE * FRAME_SCALE, Image.INTERPOLATE_NEAREST)
-	_save(frame, "frame")
+	for opaque: bool in [false, true]:
+		var frame: Image = _frame(opaque)
+		frame.resize(FRAME_SIZE * FRAME_SCALE, FRAME_SIZE * FRAME_SCALE, Image.INTERPOLATE_NEAREST)
+		_save(frame, "panel" if opaque else "frame")
 	print("pixel ui: ok -> ", OUT_DIR)
 	quit()
 
@@ -255,11 +257,12 @@ func _round_button(side: int, pressed: bool) -> Image:
 
 ## Moldura 9-slice ([constant FRAME_SIZE] px antes de ampliar): contorno, filete dourado com luz em cima/esquerda,
 ## dourado médio, contorno interno, fundo escuro translúcido e uma placa dourada em cada canto.
-func _frame() -> Image:
+## [param opaque] = fundo opaco (`panel.png`, painéis do Menu: nada do jogo aparece por trás); senão `frame.png` (HUD).
+func _frame(opaque: bool) -> Image:
 	var n: int = FRAME_SIZE
 	var image: Image = Image.create_empty(n, n, false, Image.FORMAT_RGBA8)
-	var fill: Color = Color8(34, 24, 18, 225)
-	var fill_shadow: Color = Color8(22, 15, 11, 230)
+	var fill: Color = Color8(34, 24, 18, 255 if opaque else 225)
+	var fill_shadow: Color = Color8(22, 15, 11, 255 if opaque else 230)
 	for y: int in range(n):
 		for x: int in range(n):
 			var edge: int = mini(mini(x, y), mini(n - 1 - x, n - 1 - y))

@@ -1,6 +1,9 @@
-[gd_resource type="Theme" load_steps=15 format=3]
+[gd_resource type="Theme" load_steps=23 format=3]
 
 [ext_resource type="Texture2D" path="res://assets/ui/pixel/frame.png" id="1_frame"]
+[ext_resource type="Texture2D" path="res://assets/ui/pixel/card.png" id="2_card"]
+[ext_resource type="Texture2D" path="res://assets/ui/pixel/panel.png" id="4_panel"]
+[ext_resource type="Texture2D" path="res://assets/ui/pixel/card_pressed.png" id="3_card_pressed"]
 
 ; Tema da interface do jogo (telas de login, HUD...). Ver mmo-docs [CLI-07].
 ; Campos de texto e botões: cantos arredondados e espaço interno para o texto não encostar na borda.
@@ -150,6 +153,66 @@ content_margin_right = 24.0
 content_margin_bottom = 40.0
 bg_color = Color(0.1, 0.13, 0.18, 1)
 
+; Painéis do Menu (Menu, Configuração): a moldura pixel art com fundo opaco (panel.png) e mais espaço interno. Ver [CLI-08].
+[sub_resource type="StyleBoxTexture" id="PixelPanel_panel"]
+content_margin_left = 36.0
+content_margin_top = 32.0
+content_margin_right = 36.0
+content_margin_bottom = 36.0
+texture = ExtResource("4_panel")
+texture_margin_left = 24.0
+texture_margin_top = 24.0
+texture_margin_right = 24.0
+texture_margin_bottom = 24.0
+
+; Botões dos painéis do Menu: fundo pixel art das cartas (card.png; apertado = card_pressed.png, borda dourada),
+; 9-slice com margem 12 px (4 pixels do desenho x 3). Ver [CLI-08].
+[sub_resource type="StyleBoxTexture" id="PixelButton_normal"]
+content_margin_left = 24.0
+content_margin_top = 12.0
+content_margin_right = 24.0
+content_margin_bottom = 12.0
+texture = ExtResource("2_card")
+texture_margin_left = 12.0
+texture_margin_top = 12.0
+texture_margin_right = 12.0
+texture_margin_bottom = 12.0
+
+[sub_resource type="StyleBoxTexture" id="PixelButton_hover"]
+content_margin_left = 24.0
+content_margin_top = 12.0
+content_margin_right = 24.0
+content_margin_bottom = 12.0
+texture = ExtResource("2_card")
+texture_margin_left = 12.0
+texture_margin_top = 12.0
+texture_margin_right = 12.0
+texture_margin_bottom = 12.0
+modulate_color = Color(1.15, 1.15, 1.2, 1)
+
+[sub_resource type="StyleBoxTexture" id="PixelButton_pressed"]
+content_margin_left = 24.0
+content_margin_top = 12.0
+content_margin_right = 24.0
+content_margin_bottom = 12.0
+texture = ExtResource("3_card_pressed")
+texture_margin_left = 12.0
+texture_margin_top = 12.0
+texture_margin_right = 12.0
+texture_margin_bottom = 12.0
+
+[sub_resource type="StyleBoxTexture" id="PixelButton_disabled"]
+content_margin_left = 24.0
+content_margin_top = 12.0
+content_margin_right = 24.0
+content_margin_bottom = 12.0
+texture = ExtResource("2_card")
+texture_margin_left = 12.0
+texture_margin_top = 12.0
+texture_margin_right = 12.0
+texture_margin_bottom = 12.0
+modulate_color = Color(1, 1, 1, 0.45)
+
 [sub_resource type="StyleBoxFlat" id="HudDimmer_panel"]
 bg_color = Color(0, 0, 0, 0.35)
 
@@ -170,5 +233,13 @@ PixelFrame/base_type = &"PanelContainer"
 PixelFrame/styles/panel = SubResource("PixelFrame_panel")
 FullScreenPanel/base_type = &"PanelContainer"
 FullScreenPanel/styles/panel = SubResource("FullScreenPanel_panel")
+PixelPanel/base_type = &"PanelContainer"
+PixelPanel/styles/panel = SubResource("PixelPanel_panel")
+PixelButton/base_type = &"Button"
+PixelButton/styles/normal = SubResource("PixelButton_normal")
+PixelButton/styles/hover = SubResource("PixelButton_hover")
+PixelButton/styles/pressed = SubResource("PixelButton_pressed")
+PixelButton/styles/disabled = SubResource("PixelButton_disabled")
+PixelButton/styles/focus = SubResource("Button_focus")
 HudDimmer/base_type = &"Panel"
 HudDimmer/styles/panel = SubResource("HudDimmer_panel")
