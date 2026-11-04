@@ -133,8 +133,9 @@ func _on_card_index_released(offset: Vector2, index: int) -> void:
 
 
 ## Lançamento meu confirmado pelo servidor ("cast_start"): ataque simples → relógio do Atacar durante o
-## golpe; carta → começa a recarga dela. "cast_cancel" (andei durante o lançamento, [JOGO-06]): a carta
-## volta pronta (o servidor zerou a recarga e devolveu a mana).
+## golpe; carta → começa a recarga dela. "cast_cancel" (andei durante o lançamento, [JOGO-05]/[JOGO-06]): a carta
+## volta pronta (o servidor zerou a recarga e devolveu a mana); o golpe do Atacar some do relógio (recomeça quando
+## eu parar no alcance).
 func _on_combat_event(event: Dictionary) -> void:
 	if Protocol.read_string(event, "source") != Network.instance.player_id:
 		return
@@ -142,6 +143,9 @@ func _on_combat_event(event: Dictionary) -> void:
 	var ability_id: String = Protocol.read_string(event, "ability")
 	if type == "cast_cancel":
 		_ready_at_ms.erase(ability_id)
+		if ability_id == _attack.id:
+			_hud.attack_button.set_cooldown(0.0, 0.0)
+			return
 		_refresh_cooldowns()
 		for ability: AbilityView in _abilities:
 			if ability != null and ability.id == ability_id:
