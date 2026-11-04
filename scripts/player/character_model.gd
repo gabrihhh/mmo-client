@@ -79,7 +79,7 @@ func set_move_speed(ratio: float) -> void:
 	_animator.set_move_speed(ratio)
 
 
-## Ação de tronco/braços sincronizada com o lançamento ([method CharacterAnimator.play_action]).
+## Ação sincronizada com o lançamento: corpo todo se parado, só tronco/braços andando ([method CharacterAnimator.play_action]).
 func play_action(animation_name: String, duration: float) -> void:
 	_animator.play_action(animation_name, duration)
 

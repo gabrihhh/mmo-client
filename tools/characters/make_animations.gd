@@ -59,7 +59,10 @@ const CHARACTERS: Array[Dictionary] = [
 const LOOPED: Array[String] = ["run", "idle"]
 ## Animações de corpo todo (camada de movimento). As outras são ações da camada de cima, que no jogo não mexe no
 ## quadril ([CharacterAnimator]): nelas a rotação do quadril passa para a base da coluna ([method _hips_to_spine]).
+## Cada ação também sai como "<nome>_full" (corpo todo, com quadril e pernas), que o jogo toca com o personagem parado.
 const FULL_BODY: Array[String] = ["run", "idle"]
+## Ações que só existem na versão de cima (sem "<nome>_full" para tocar parado no corpo todo).
+const UPPER_ONLY: Array[String] = ["flinch"]
 ## Osso raiz (o único com trilha de posição que importa).
 const HIPS: StringName = &"Hips"
 ## Quadros por segundo da reconversão entre rigs ([method _bake]).
@@ -159,6 +162,11 @@ func _own_animations(glb_path: String, clips: Dictionary, target: Skeleton3D, ta
 				_keep_in_place(anim, track, hips_offset)
 		var game_name: String = String(spec[0])
 		if game_name not in FULL_BODY:
+			# Versão de corpo todo (parado) antes de dobrar o quadril na coluna (versão só de cima, andando).
+			if game_name not in UPPER_ONLY:
+				var full: Animation = anim.duplicate(true) as Animation
+				full.loop_mode = Animation.LOOP_NONE
+				result[game_name + CharacterAnimator.FULL_SUFFIX] = full
 			_hips_to_spine(anim, target)
 		anim.loop_mode = Animation.LOOP_LINEAR if game_name in LOOPED else Animation.LOOP_NONE
 		result[game_name] = anim
