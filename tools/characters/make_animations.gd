@@ -65,6 +65,10 @@ const FULL_BODY: Array[String] = ["run", "idle"]
 const UPPER_ONLY: Array[String] = ["flinch"]
 ## Osso raiz (o único com trilha de posição que importa).
 const HIPS: StringName = &"Hips"
+## Ossos que, vindos do rig da API, não copiam a rotação: ficam retos em relação ao pai (no repouso). No rig da API a
+## junta "mão" fica na base dos dedos (o antebraço vai até a palma) e a rotação dela só dobra os dedos; aplicada à
+## mão deste rig (que começa no pulso) dobrava a mão inteira para trás.
+const KEEP_REST: Array[String] = ["LeftHand", "RightHand"]
 ## Quadros por segundo da reconversão entre rigs ([method _bake]).
 const BAKE_FPS: float = 30.0
 ## Osso → filho que dá a direção dele (o "para onde aponta"). Osso fora da lista só recebe a rotação de corpo todo.
@@ -290,7 +294,7 @@ func _bake(anim: Animation, source: Skeleton3D, target: Skeleton3D) -> Animation
 			var rest_global: Quaternion = target.get_bone_global_rest(bone).basis.get_rotation_quaternion()
 			var source_bone: int = source.find_bone(target.get_bone_name(bone))
 			var global: Quaternion = parent_global * target.get_bone_rest(bone).basis.get_rotation_quaternion()
-			if source_bone >= 0:
+			if source_bone >= 0 and target.get_bone_name(bone) not in KEEP_REST:
 				var delta: Quaternion = source_global[source_bone] * source.get_bone_global_rest(source_bone).basis.get_rotation_quaternion().inverse()
 				global = delta * rest_fix[bone] * rest_global
 			target_global[bone] = global.normalized()
