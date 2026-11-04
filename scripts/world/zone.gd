@@ -208,7 +208,8 @@ func _on_cast_start(event: Dictionary) -> void:
 	var reach: float = AbilityVisuals.slash_reach(ability)
 	if reach != 0.0 and caster != null:
 		get_tree().create_timer(maxf(duration, 0.0)).timeout.connect(_slash.bind(source_id, serial, caster, reach, color))
-	var flight: float = AbilityVisuals.homing_flight(ability)
+	# Quando o tiro sai da mão: o servidor manda ("release", s antes do fim); depois disso andar não cancela mais.
+	var flight: float = Protocol.read_float(event, "release") if event.has("release") else AbilityVisuals.homing_flight(ability)
 	var target: Node3D = get_entity_node(Protocol.read_string(event, "target"))
 	if flight > 0.0 and target != null and model != null:
 		# Sai antes do fim do lançamento para chegar junto com o dano.

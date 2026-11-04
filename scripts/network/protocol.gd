@@ -62,7 +62,7 @@ const MSG_PLAYER_LEFT: String = "player_left"
 ## me: { mana, maxMana, respawnIn, target } }. PlayerSnapshot = { id, x, y, z, rotY, hp, maxHp, dead }.
 ## CombatEvent = { type: "damage", source, target, amount, absorbed, ability } | { type: "heal", source, target,
 ## amount, ability } | { type: "impact", source, ability, x, z, radius } | { type: "cast_start", source, ability,
-## target, duration, x?, z?, radius?, aim? } | { type: "cast_cancel", source, ability } (andou durante o lançamento:
+## target, duration, x?, z?, radius?, aim?, release? } (release = s antes do fim em que o tiro sai da mão; [JOGO-08]) | { type: "cast_cancel", source, ability } (andou durante o lançamento:
 ## sem efeito; habilidade: mana devolvida, recarga zerada; golpe do ataque simples: recomeça quando parar; [JOGO-05]/[JOGO-06]) | { type: "miss", source, target, ability } | { type: "death", id, killer } | { type: "respawn", id }
 ## | { type: "look", id, look } (trocou o que veste) | { type: "projectile", id, source, ability, x, z, dirX, dirZ,
 ## speed, range, radius } | { type: "projectile_end", id, x, z } ([JOGO-08]).

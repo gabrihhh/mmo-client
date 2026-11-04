@@ -41,6 +41,8 @@ const SLASH_REACH: Dictionary[String, float] = {
 ## Magias que acendem um brilho na mão durante o lançamento (mostra aos outros que vem coisa aí).
 const CAST_GLOW: Array[String] = ["fireball", "meteor", "bolt", "heal", "shield"]
 ## Habilidades de alvo com projétil só visual: tempo de voo (s). Ele sai de modo a chegar junto com o dano.
+## Reserva: o tempo de verdade vem do servidor no `cast_start.release` (AbilityDef.releaseTime em
+## mmo-server/src/items/catalog.ts); manter igual.
 const HOMING_FLIGHT: Dictionary[String, float] = {
 	"staff_attack": 0.3,
 	"bolt": 0.15,
