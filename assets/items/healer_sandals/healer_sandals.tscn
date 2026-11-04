@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3]
+
+; Sapatilha da luz (healer_sandals), UM pé, Meshy image→3D. Item de pés: só a direção importa (bico em +Z;
+; o .glb tem o bico em −X); tamanho e posição saem do encaixe automático no pé ([EquipmentView], [ART-02]).
+
+[ext_resource type="PackedScene" path="res://assets/items/healer_sandals/healer_sandals.glb" id="1_glb"]
+
+[node name="HealerSandals" type="Node3D"]
+
+[node name="Model" parent="." instance=ExtResource("1_glb")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0, 0, 0)

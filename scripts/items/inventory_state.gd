@@ -18,6 +18,12 @@ class Item:
 	## Frase curta e conjunto ("Treino", "Mago", "Cavaleiro") para a ficha e a cor da moldura ([ItemIcons]).
 	var description: String = ""
 	var set_name: String = ""
+	## Vida máxima extra enquanto vestido ([JOGO-09]).
+	var bonus_hp: float = 0.0
+	## Perfil do conjunto em baixo/médio/alto: "damage", "health", "healing", "cooldown" → "zero" | "low" |
+	## "medium" | "high" ([JOGO-09]). Vazio = sem perfil.
+	## ATENÇÃO: espelha SetProfileView em mmo-server/src/net/protocol.ts.
+	var profile: Dictionary[String, String] = {}
 	## "hand", "head", "chest" ou "feet".
 	var slot: String = ""
 	## Ataque simples (só armas); null nos outros.
@@ -32,6 +38,12 @@ class Item:
 		item.description = Protocol.read_string(data, "description")
 		item.set_name = Protocol.read_string(data, "set")
 		item.slot = Protocol.read_string(data, "slot")
+		item.bonus_hp = Protocol.read_float(data, "bonusHp")
+		var profile: Dictionary = Protocol.read_dict(data, "profile")
+		for key: String in ["damage", "health", "healing", "cooldown"]:
+			var tier: String = Protocol.read_string(profile, key)
+			if not tier.is_empty():
+				item.profile[key] = tier
 		var attack: Dictionary = Protocol.read_dict(data, "basicAttack")
 		if not attack.is_empty():
 			item.basic_attack = AbilityView.from_dict(attack, item.slot)

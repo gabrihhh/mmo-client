@@ -3,7 +3,8 @@ extends Node
 ## Ferramenta de desenvolvimento (`-- --bot-fight`): o jogador local veste o kit de treino com o cajado e luta sozinho
 ## contra o boneco de treino mais perto — ataque simples + uma carta por vez (Bola de fogo, Meteoro, Raio, Cura, Escudo).
 ## `-- --bot-fight=espada`: kit de treino com a espada, anda até o boneco e usa Golpe forte e Giro.
-## `-- --bot-fight=mago` / `=cavaleiro`: veste o conjunto inteiro ([JOGO-03]) e usa as cartas dele.
+## `-- --bot-fight=mago` / `=cavaleiro` / `=atirador` / `=assassino` / `=curandeiro`: veste o conjunto inteiro
+## ([JOGO-03], [JOGO-09]) e usa as cartas dele.
 ## A conta nasce pelada ([JOGO-04]): o bot veste da mochila o que faltar antes de lutar.
 ## Serve para ver animações, projéteis e avisos no chão sem tocar na tela ([JOGO-08]).
 ##
@@ -19,7 +20,11 @@ const MODES: Dictionary[String, Array] = {
 	"": [["training_staff", "training_hood", "training_vest", "training_boots"], ["fireball", "meteor", "bolt", "heal", "shield"], false],
 	"espada": [["training_sword", "training_hood", "training_vest", "training_boots"], ["heavy_strike", "spin"], true],
 	"mago": [["arcane_staff", "mage_hat", "mage_tunic", "mage_shoes"], ["ice_lance", "arcane_nova", "starfall", "meditation", "arcane_barrier"], false],
-	"cavaleiro": [["knight_sword", "knight_helm", "knight_plate", "knight_greaves"], ["line_cleave", "ground_slam", "second_wind", "steel_wall"], true],
+	"cavaleiro": [["knight_sword", "knight_helm", "knight_plate", "knight_greaves"], ["line_cleave", "ground_slam", "rallying_cry", "steel_wall", "iron_stance"], true],
+	"atirador": [["ranger_crossbow", "ranger_hood", "ranger_jerkin", "ranger_boots"], ["piercing_bolt", "bolt_rain", "quick_shot", "bandage", "leather_guard"], false],
+	"assassino": [["assassin_daggers", "assassin_hood", "assassin_vest", "assassin_boots"], ["backstab", "blade_flurry", "evasion", "smoke_veil"], true],
+	# Curandeiro não dá dano ([JOGO-09]): o ataque simples não pega o boneco; as cartas curam/protegem o próprio bot.
+	"curandeiro": [["healer_tome", "healer_circlet", "healer_robe", "healer_sandals"], ["greater_heal", "healing_circle", "holy_shield", "grace", "aegis"], false],
 }
 ## Corpo a corpo: chega até esta distância (m) do boneco antes de bater.
 const MELEE_DISTANCE: float = 1.8
@@ -74,7 +79,9 @@ func _process(delta: float) -> void:
 	var dummy: PlayerState = _nearest_dummy(network)
 	if dummy == null:
 		return
-	if network.attack_target != dummy.id:
+	# Arma de cura (Livro): o ataque simples só pega aliados, então o bot não fixa o boneco ([JOGO-09]).
+	var heals: bool = not _wear.is_empty() and _wear[0] == "healer_tome"
+	if not heals and network.attack_target != dummy.id:
 		network.send_attack(dummy.id)
 	var to_target: Vector3 = dummy.position - _player.global_position
 	to_target.y = 0.0

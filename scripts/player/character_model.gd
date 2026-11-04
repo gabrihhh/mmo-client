@@ -32,15 +32,15 @@ const SHIRT_SURFACE: int = 0
 @export var head_item_scale: float = 1.1
 ## false: não desenha itens de peito e pés neste corpo (ex.: placeholder sem medidas). O item continua vestido.
 @export var show_body_items: bool = true
-## Item de peito (túnica, peitoral): onde fica a GOLA (m, a partir do início do osso "Chest", eixos do personagem)
-## e escala por eixo (largura, altura, profundidade do tronco deste corpo; 1 = corpo masculino, onde as cenas dos
-## itens foram medidas).
-@export var chest_item_offset: Vector3 = Vector3(0.0, 0.22, 0.043)
-@export var chest_item_scale: Vector3 = Vector3.ONE
-## Item de pés (um por pé): onde fica o TORNOZELO do calçado (m, a partir do início do osso "LeftFoot"; o pé direito
-## espelha) e escala (tamanho do pé deste corpo).
-@export var feet_item_offset: Vector3 = Vector3(0.0, 0.0, 0.0)
-@export var feet_item_scale: float = 1.0
+## Item de peito (túnica, peitoral): caixa (m) do TRONCO deste corpo que o item deve cobrir, a partir do início do
+## osso "Chest" e com os eixos do personagem (+Y cima, +Z frente): largura dos ombros, da cintura ao topo dos
+## ombros, das costas ao peito, com folga. Medida com tools/placeholders/measure_body.gd. O item é encaixado nela
+## sozinho ([EquipmentView], [ART-02]): largura e profundidade esticadas para cobrir o tronco, topo na gola.
+@export var chest_fit_box: AABB = AABB(Vector3(-0.27, -0.28, -0.165), Vector3(0.54, 0.58, 0.41))
+## Item de pés: caixa (m) do PÉ ESQUERDO deste corpo, a partir do início do osso "LeftFoot" (tornozelo): sola
+## embaixo, calcanhar atrás, bico à frente (+Z), com folga. O calçado é escalado pelo comprimento do pé (proporção
+## mantida: bota alta sobe pela canela) e assentado na sola. O pé direito usa o mesmo, espelhado.
+@export var foot_fit_box: AABB = AABB(Vector3(-0.06, -0.135, -0.07), Vector3(0.15, 0.2, 0.32))
 
 @onready var skeleton: Skeleton3D = get_node(skeleton_path) as Skeleton3D
 @onready var _body: MeshInstance3D = get_node(body_path) as MeshInstance3D
@@ -71,8 +71,9 @@ func _ready() -> void:
 	if show_head_item:
 		placements["head"] = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * head_item_scale), head_item_offset)
 	if show_body_items:
-		placements["chest"] = Transform3D(Basis.IDENTITY.scaled(chest_item_scale), chest_item_offset)
-		placements["foot_left"] = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * feet_item_scale), feet_item_offset)
+		placements["chest"] = Transform3D.IDENTITY
+		placements["foot_left"] = Transform3D.IDENTITY
+		_equipment.fit_boxes = {"chest": chest_fit_box, "foot_left": foot_fit_box, "foot_right": foot_fit_box}
 	_equipment.setup(skeleton, placements)
 	_equipment.animator = _animator
 

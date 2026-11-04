@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cgreiqx5u8seu"
-path="res://.godot/imported/steady_march.png-b545dde0e344cd90ae7e6f5b223b4531.ctex"
+uid="uid://lukwsko7j3or"
+path="res://.godot/imported/rallying_cry.png-8cd03c399fa984a25ec27dfabe035d2d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/icons/abilities/steady_march.png"
-dest_files=["res://.godot/imported/steady_march.png-b545dde0e344cd90ae7e6f5b223b4531.ctex"]
+source_file="res://assets/icons/abilities/rallying_cry.png"
+dest_files=["res://.godot/imported/rallying_cry.png-8cd03c399fa984a25ec27dfabe035d2d.ctex"]
 
 [params]
 

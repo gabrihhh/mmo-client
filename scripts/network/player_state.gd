@@ -32,6 +32,9 @@ var mana: float = 0.0
 var max_mana: float = 0.0
 ## Escudo ativo (dano que ainda absorve; 0 = sem escudo). Ver mmo-docs [JOGO-06].
 var shield: float = 0.0
+## Redução de dano ativa (0..1; 0 = nenhuma). Ver mmo-docs [JOGO-09].
+## ATENÇÃO: espelha PlayerSnapshot.guard em mmo-server/src/net/protocol.ts.
+var guard: float = 0.0
 ## O que veste: slot ("hand", "head", "chest", "feet") → itemId. Slot vazio não aparece. Ver [ART-02].
 var look: Dictionary[String, String] = {}
 ## Corpo do personagem (qual modelo desenhar): [constant Protocol.BODY_MALE] ou [constant Protocol.BODY_FEMALE].
@@ -90,6 +93,7 @@ func apply_snapshot(data: Dictionary, at_tick: int) -> void:
 	hp = Protocol.read_float(data, "hp", hp)
 	max_hp = Protocol.read_float(data, "maxHp", max_hp)
 	shield = Protocol.read_float(data, "shield")
+	guard = Protocol.read_float(data, "guard")
 	mana = Protocol.read_float(data, "mana", mana)
 	max_mana = Protocol.read_float(data, "maxMana", max_mana)
 	var dead_value: Variant = data.get("dead")

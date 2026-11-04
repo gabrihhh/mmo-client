@@ -185,10 +185,12 @@ func _process(_delta: float) -> void:
 # --- Ataque simples ---
 
 ## Toque: fixa o alvo mais perto e o servidor passa a atacar (não bloqueia na recarga: só troca o alvo).
+## Ataque de cura (Livro, [JOGO-09]): o alvo é o aliado mais perto.
 func _on_attack_tapped() -> void:
-	var nearest: RemotePlayer = _nearest_remote(_player.global_position, TAP_TARGET_RANGE)
+	var heals: bool = _attack.aim_type == AbilityView.AimType.ALLY
+	var nearest: RemotePlayer = _nearest_remote(_player.global_position, TAP_TARGET_RANGE, heals)
 	if nearest == null:
-		_hud.show_toast("Ninguém por perto")
+		_hud.show_toast("Nenhum aliado por perto" if heals else "Ninguém por perto")
 		return
 	_set_attack_target(nearest)
 
@@ -236,6 +238,12 @@ func _on_card_tapped(ability: AbilityView) -> void:
 				_hud.show_toast("%s: sem alvo (arraste para mirar)" % ability.title)
 			else:
 				_cast(ability, target.session_id, target.global_position)
+		AbilityView.AimType.ALLY:
+			# Alvo fixo que é aliado (jogador) recebe; senão é em você ([JOGO-09]).
+			if target != null and target in _zone.get_allies():
+				_cast(ability, target.session_id, target.global_position)
+			else:
+				_cast(ability)
 		AbilityView.AimType.DIRECTION, AbilityView.AimType.AREA:
 			var point: Vector3 = target.global_position if target != null else _player.global_position + _player.get_facing() * maxf(ability.range_m, 3.0)
 			_cast(ability, "", point)
@@ -255,6 +263,13 @@ func _on_card_released(offset: Vector2, ability: AbilityView) -> void:
 				_hud.show_toast("%s: ninguém na mira" % ability.title)
 			else:
 				_cast(ability, target.session_id, target.global_position)
+		AbilityView.AimType.ALLY:
+			# Ninguém na mira: em você.
+			var ally: RemotePlayer = _zone.get_target_node(picked)
+			if ally == null:
+				_cast(ability)
+			else:
+				_cast(ability, ally.session_id, ally.global_position)
 		AbilityView.AimType.DIRECTION, AbilityView.AimType.AREA:
 			_cast(ability, "", aim)
 
@@ -268,9 +283,9 @@ func _on_aim_moved(offset: Vector2, ability: AbilityView) -> void:
 	var direction: Vector3 = flat.normalized() if flat.length() > 0.01 else _player.get_facing()
 	_hovered_id = ""
 	match ability.aim_type:
-		AbilityView.AimType.TARGET:
+		AbilityView.AimType.TARGET, AbilityView.AimType.ALLY:
 			_preview.show_circle(aim, TARGET_PICK_RADIUS, origin)
-			var hovered: RemotePlayer = _nearest_remote(aim, TARGET_PICK_RADIUS)
+			var hovered: RemotePlayer = _nearest_remote(aim, TARGET_PICK_RADIUS, ability.aim_type == AbilityView.AimType.ALLY)
 			if hovered != null:
 				_hovered_id = hovered.session_id
 				_preview.show_target(hovered.global_position)
@@ -294,7 +309,8 @@ func _end_aim() -> void:
 ## Ponto no chão para onde o dedo aponta: direção do arrasto (relativa à câmera) e distância
 ## proporcional ao arrasto, até o alcance da habilidade (ou [constant TARGET_PICK_RANGE] para alvo).
 func _aim_point(offset: Vector2, ability: AbilityView) -> Vector3:
-	var reach: float = TARGET_PICK_RANGE if ability.aim_type == AbilityView.AimType.TARGET else ability.range_m
+	var picks_unit: bool = ability.aim_type == AbilityView.AimType.TARGET or ability.aim_type == AbilityView.AimType.ALLY
+	var reach: float = TARGET_PICK_RANGE if picks_unit else ability.range_m
 	var screen_direction: Vector3 = Vector3(offset.x, 0.0, offset.y).rotated(Vector3.UP, _player.get_camera_yaw())
 	var amount: float = clampf(offset.length() / MAX_AIM_DRAG_PX, 0.0, 1.0)
 	var world_direction: Vector3 = screen_direction.normalized() if screen_direction.length() > 0.01 else _player.get_facing()
@@ -302,11 +318,12 @@ func _aim_point(offset: Vector2, ability: AbilityView) -> Vector3:
 
 
 ## Alvo (boneco/monstro, ou jogador se a zona tem PvP) mais perto de [param point] até
-## [param max_distance] metros (no plano), ou null.
-func _nearest_remote(point: Vector3, max_distance: float) -> RemotePlayer:
+## [param max_distance] metros (no plano), ou null. [param allies] true: entre os aliados (outros jogadores,
+## para cura/escudo, [JOGO-09]).
+func _nearest_remote(point: Vector3, max_distance: float, allies: bool = false) -> RemotePlayer:
 	var best: RemotePlayer = null
 	var best_distance: float = max_distance
-	for remote: RemotePlayer in _zone.get_targetables():
+	for remote: RemotePlayer in (_zone.get_allies() if allies else _zone.get_targetables()):
 		var offset: Vector3 = remote.global_position - point
 		var distance: float = Vector2(offset.x, offset.z).length()
 		if distance <= best_distance:

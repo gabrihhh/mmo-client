@@ -15,9 +15,7 @@ show_head_item = true
 head_item_offset = Vector3(0, -0.045, 0.04)
 head_item_scale = 0.84
 show_body_items = true
-chest_item_offset = Vector3(0, 0.209, 0.066)
-chest_item_scale = Vector3(0.86, 0.95, 1.1)
-feet_item_offset = Vector3(0.009, -0.008, 0.023)
-feet_item_scale = 0.95
+chest_fit_box = AABB(-0.2, -0.24, -0.13, 0.4, 0.51, 0.4)
+foot_fit_box = AABB(-0.05, -0.127, -0.04, 0.115, 0.2, 0.285)
 
 [node name="Model" parent="." instance=ExtResource("2_glb")]

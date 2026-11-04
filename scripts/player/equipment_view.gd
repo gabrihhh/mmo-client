@@ -17,9 +17,11 @@ extends Node
 ##   posição de carregar.
 ## A arma também escolhe a postura parada do personagem ([method CharacterAnimator.set_idle_animation]).
 
-## Encaixe → [slot do item, osso]. O slot "feet" tem dois encaixes (um por pé).
+## Encaixe → [slot do item, osso]. O slot "feet" tem dois encaixes (um por pé); o "hand" tem a mão esquerda só
+## para armas em par ([method ItemModels.is_paired], ex.: adagas gêmeas).
 const MOUNTS: Dictionary[String, Array] = {
 	"hand": ["hand", "RightHand"],
+	"off_hand": ["hand", "LeftHand"],
 	"head": ["head", "Head"],
 	"chest": ["chest", "Chest"],
 	"foot_left": ["feet", "LeftFoot"],
@@ -36,6 +38,11 @@ const PULL_BLEND_RATE: float = 20.0
 ## Rapidez da entrada/saída da posição de carregar (fração por segundo): sai rápido ao atacar, volta mais devagar.
 const CARRY_OUT_RATE: float = 10.0
 const CARRY_IN_RATE: float = 4.0
+
+## Encaixe automático ([ART-02]): encaixe ("chest", "foot_left", "foot_right") → caixa (m, espaço do encaixe) que o
+## item deve preencher. Vem de [member CharacterModel.chest_fit_box] / [member CharacterModel.foot_fit_box].
+## Encaixe sem caixa usa o item como a cena dele está (ex.: mão e cabeça).
+var fit_boxes: Dictionary[String, AABB] = {}
 
 ## Animador do personagem (ação tocando? postura parada da arma); null = sem isso.
 var animator: CharacterAnimator = null
@@ -119,6 +126,9 @@ func _process(delta: float) -> void:
 func setup(skeleton: Skeleton3D, placements: Dictionary[String, Transform3D]) -> void:
 	_skeleton = skeleton
 	var all: Dictionary[String, Transform3D] = placements.duplicate()
+	if all.has("hand"):
+		# Mão esquerda = a direita espelhada em X (arma em par).
+		all["off_hand"] = Transform3D(Basis.FLIP_X, Vector3.ZERO) * all["hand"]
 	if all.has("foot_left"):
 		# Espelho em X (lado direito do corpo): posição com X trocado e o modelo espelhado (pé esquerdo → direito).
 		all["foot_right"] = Transform3D(Basis.FLIP_X, Vector3.ZERO) * all["foot_left"]
@@ -216,10 +226,15 @@ func _refresh() -> void:
 		var item_id: String = _state.look.get(slot, "") if _state != null else ""
 		if item_id.is_empty():
 			continue
+		if key == "off_hand" and not ItemModels.is_paired(item_id):
+			continue
 		var model: Node3D = ItemModels.instantiate(item_id)
 		if model == null:
 			continue
-		if slot == "hand":
+		if key == "off_hand":
+			# Cópia da arma em par: segue a mão esquerda animada, sem posição de carregar.
+			model.basis = ItemModels.grip(item_id)
+		elif slot == "hand":
 			model.basis = ItemModels.grip(item_id)
 			if ItemModels.hold_direction(item_id) != Vector3.ZERO:
 				_held_model = model
@@ -228,7 +243,35 @@ func _refresh() -> void:
 				_held_pull = ItemModels.hold_pull(item_id, false)
 				_held_direction = Vector3.ZERO
 				_carry_weight = 1.0
+		elif fit_boxes.has(key):
+			_fit(model, fit_boxes[key], slot)
 		mount.add_child(model)
+
+
+## Encaixa [param model] na caixa [param box] do corpo (espaço do encaixe), a partir do tamanho real dele (a escala e a
+## posição da cena do item não importam, só a direção: frente/bico em +Z).
+## - peito: largura e profundidade esticadas para cobrir o tronco; altura proporcional à largura (túnica comprida
+##   continua comprida); topo na gola, centrado no tronco;
+## - pés: escala única pelo comprimento do pé (bota alta sobe pela canela); sola, calcanhar e meio do pé alinhados.
+func _fit(model: Node3D, box: AABB, slot: String) -> void:
+	var bounds: AABB = ItemModels.local_bounds(model)
+	if bounds.size.x <= 0.0 or bounds.size.y <= 0.0 or bounds.size.z <= 0.0:
+		return
+	var center: Vector3 = box.get_center()
+	var scale: Vector3
+	var anchor: Vector3
+	if slot == "chest":
+		var width: float = box.size.x / bounds.size.x
+		scale = Vector3(width, width, box.size.z / bounds.size.z)
+		anchor = Vector3(center.x, box.end.y, center.z)
+		var top: Vector3 = Vector3(bounds.get_center().x, bounds.end.y, bounds.get_center().z)
+		model.transform = Transform3D(Basis.from_scale(scale), anchor - top * scale)
+	else:
+		var length: float = box.size.z / bounds.size.z
+		scale = Vector3.ONE * length
+		anchor = Vector3(center.x, box.position.y, box.position.z)
+		var heel: Vector3 = Vector3(bounds.get_center().x, bounds.position.y, bounds.position.z)
+		model.transform = Transform3D(Basis.from_scale(scale), anchor - heel * scale)
 
 
 ## Base com o eixo Y em [param length_axis] e o Z o mais perto possível de [param side_hint].

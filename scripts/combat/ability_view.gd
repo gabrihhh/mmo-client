@@ -18,6 +18,9 @@ enum AimType {
 	AREA_SELF,
 	## Em si mesmo (bônus/cura): sai na hora, sem mira.
 	SELF,
+	## Num aliado (outro jogador; [JOGO-09]): toque usa o alvo fixo se ele for jogador, senão em você; arrastar
+	## escolhe o jogador sob a mira.
+	ALLY,
 }
 
 ## Id da habilidade (o servidor reconhece por ele).
@@ -51,6 +54,9 @@ var heal: float = 0.0
 var shield: float = 0.0
 var shield_seconds: float = 0.0
 var projectile_speed: float = 0.0
+## Redução de dano (0..1) e duração (s) ([JOGO-09]); só exibição.
+var damage_reduction: float = 0.0
+var reduction_seconds: float = 0.0
 
 
 func _init(ability_id: String, ability_title: String, slot: String, aim: AimType, range_meters: float = 0.0, radius_meters: float = 0.0, cooldown_seconds: float = 0.0) -> void:
@@ -104,6 +110,8 @@ func with_display(data: Dictionary) -> AbilityView:
 	shield = Protocol.read_float(data, "shield")
 	shield_seconds = Protocol.read_float(data, "shieldSeconds")
 	projectile_speed = Protocol.read_float(data, "projectileSpeed")
+	damage_reduction = Protocol.read_float(data, "damageReduction")
+	reduction_seconds = Protocol.read_float(data, "reductionSeconds")
 	return self
 
 
@@ -114,6 +122,7 @@ const AIM_LABELS: Dictionary[AimType, String] = {
 	AimType.AREA: "Área no chão",
 	AimType.AREA_SELF: "Ao seu redor",
 	AimType.SELF: "Em você",
+	AimType.ALLY: "Em um aliado",
 }
 ## Tipo de cada número da ficha (cor da etiqueta, [ItemDetailPanel]).
 enum StatKind { DAMAGE, HEAL, SHIELD, MANA, TIME, OTHER }
@@ -130,6 +139,8 @@ func stats() -> Array[Array]:
 		out.append(["Cura +%s" % number(heal), StatKind.HEAL])
 	if shield > 0.0:
 		out.append(["Escudo %s · dura %s s" % [number(shield), number(shield_seconds)], StatKind.SHIELD])
+	if damage_reduction > 0.0:
+		out.append(["Recebe −%s%% de dano · dura %s s" % [number(damage_reduction * 100.0), number(reduction_seconds)], StatKind.SHIELD])
 	if speed_multiplier > 0.0:
 		out.append(["Velocidade +%s%% · dura %s s" % [number((speed_multiplier - 1.0) * 100.0), number(speed_seconds)], StatKind.OTHER])
 	if dash_distance > 0.0:
@@ -184,5 +195,7 @@ static func _aim_from_string(aim: String) -> AimType:
 			return AimType.AREA
 		"area_self":
 			return AimType.AREA_SELF
+		"ally":
+			return AimType.ALLY
 		_:
 			return AimType.SELF

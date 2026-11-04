@@ -20,6 +20,18 @@ const _PATHS: Dictionary[String, String] = {
 	"knight_helm": "res://assets/items/knight_helm/knight_helm.tscn",
 	"knight_plate": "res://assets/items/knight_plate/knight_plate.tscn",
 	"knight_greaves": "res://assets/items/knight_greaves/knight_greaves.tscn",
+	"ranger_crossbow": "res://assets/items/ranger_crossbow/ranger_crossbow.tscn",
+	"ranger_hood": "res://assets/items/ranger_hood/ranger_hood.tscn",
+	"ranger_jerkin": "res://assets/items/ranger_jerkin/ranger_jerkin.tscn",
+	"ranger_boots": "res://assets/items/ranger_boots/ranger_boots.tscn",
+	"assassin_daggers": "res://assets/items/assassin_daggers/assassin_daggers.tscn",
+	"assassin_hood": "res://assets/items/assassin_hood/assassin_hood.tscn",
+	"assassin_vest": "res://assets/items/assassin_vest/assassin_vest.tscn",
+	"assassin_boots": "res://assets/items/assassin_boots/assassin_boots.tscn",
+	"healer_tome": "res://assets/items/healer_tome/healer_tome.tscn",
+	"healer_circlet": "res://assets/items/healer_circlet/healer_circlet.tscn",
+	"healer_robe": "res://assets/items/healer_robe/healer_robe.tscn",
+	"healer_sandals": "res://assets/items/healer_sandals/healer_sandals.tscn",
 }
 
 ## Como a mão segura (giro em X, graus, a partir do osso da mão). Os modelos de segurar têm o comprimento em +Y:
@@ -27,6 +39,7 @@ const _PATHS: Dictionary[String, String] = {
 const _GRIP_PITCH: Dictionary[String, float] = {
 	"training_staff": 0.0,
 	"arcane_staff": 0.0,
+	"healer_tome": 0.0,
 }
 ## Pegada padrão (armas de lâmina).
 const DEFAULT_GRIP_PITCH: float = 90.0
@@ -41,6 +54,8 @@ const _HOLD: Dictionary[String, Array] = {
 	"training_staff": [Vector3(0.0, 1.0, 0.3), 4.0, 4.0, false],
 	"knight_sword": [Vector3(0.0, 0.55, 1.0), 2.0, 2.0, true],
 	"arcane_staff": [Vector3(0.0, 1.0, 0.3), 4.0, 4.0, false],
+	"ranger_crossbow": [Vector3(0.0, 0.15, 1.0), 3.0, 3.0, false],
+	"healer_tome": [Vector3(0.0, 1.0, 0.2), 4.0, 4.0, false],
 }
 ## Posição de carregar (parado/correndo), no espaço do personagem (m; +Z frente, +Y cima, lado direito = −X):
 ## [onde fica a pegada da mão direita, direção do comprimento]. As mãos vão até a arma por IK ([EquipmentView]).
@@ -50,6 +65,8 @@ const _CARRY: Dictionary[String, Array] = {
 	"training_staff": [Vector3(-0.24, 1.12, 0.26), Vector3(0.0, 1.0, 0.18)],
 	"knight_sword": [Vector3(-0.10, 1.10, 0.30), Vector3(0.0, 0.6, 1.0)],
 	"arcane_staff": [Vector3(-0.24, 1.12, 0.26), Vector3(0.0, 1.0, 0.18)],
+	"ranger_crossbow": [Vector3(-0.12, 1.12, 0.32), Vector3(0.0, 0.1, 1.0)],
+	"healer_tome": [Vector3(-0.2, 1.0, 0.24), Vector3(0.0, 1.0, 0.1)],
 }
 ## Postura parada por arma na mão ([CharacterAnimator.set_idle_animation]); sem linha = "idle".
 const _IDLE: Dictionary[String, String] = {
@@ -64,6 +81,9 @@ const _OFF_HAND_GRIP: Dictionary[String, Vector3] = {
 	"training_sword": Vector3(0.0, -0.11, 0.0),
 	"knight_sword": Vector3(0.0, -0.09, 0.0),
 }
+## Armas que vêm em PAR (duas adagas): o mesmo modelo também aparece na mão esquerda, espelhado, seguindo a mão
+## animada ([EquipmentView]).
+const _PAIRED: Array[String] = ["assassin_daggers"]
 
 
 ## Cria o modelo do item [param item_id], ou null se ele não tiver modelo.
@@ -75,6 +95,27 @@ static func instantiate(item_id: String) -> Node3D:
 		push_warning("Modelo do item %s não carregou: %s" % [item_id, _PATHS[item_id]])
 		return null
 	return scene.instantiate() as Node3D
+
+
+## Caixa (m) de todas as malhas de [param root], no espaço de [param root] (inclui as transformações dos filhos).
+static func local_bounds(root: Node3D) -> AABB:
+	return _bounds(root, Transform3D.IDENTITY)
+
+
+static func _bounds(node: Node, xform: Transform3D) -> AABB:
+	var result: AABB = AABB()
+	var found: bool = false
+	if node is MeshInstance3D:
+		result = xform * (node as MeshInstance3D).get_aabb()
+		found = true
+	for child: Node in node.get_children():
+		var child_xform: Transform3D = xform * (child as Node3D).transform if child is Node3D else xform
+		var box: AABB = _bounds(child, child_xform)
+		if box.size == Vector3.ZERO:
+			continue
+		result = box if not found else result.merge(box)
+		found = true
+	return result
 
 
 ## Rotação do item na mão (no espaço do osso da mão).
@@ -100,6 +141,11 @@ static func hold_pull(item_id: String, acting: bool) -> float:
 ## Animação parada do personagem com [param item_id] na mão ("idle" se a arma não tiver postura própria).
 static func idle_animation(item_id: String) -> String:
 	return _IDLE.get(item_id, "idle")
+
+
+## true se [param item_id] é um par (uma cópia espelhada vai na mão esquerda).
+static func is_paired(item_id: String) -> bool:
+	return item_id in _PAIRED
 
 
 ## true se [param item_id] é segurado com as duas mãos ([method off_hand_grip]).

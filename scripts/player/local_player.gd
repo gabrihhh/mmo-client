@@ -166,7 +166,7 @@ func _process(delta: float) -> void:
 		_health_bar.visible = not own.dead
 		_mana_bar.set_ratio(own.mana_ratio())
 		_mana_bar.visible = own.has_mana() and not own.dead
-		_shield_bubble.set_active(own.shield > 0.0 and not own.dead)
+		_shield_bubble.set_active(own.shield > 0.0 and not own.dead, own.guard > 0.0 and not own.dead)
 
 	# Desenho: entre o tick anterior e o atual, mais a correção visual que está sumindo.
 	var alpha: float = _accumulator / step_seconds

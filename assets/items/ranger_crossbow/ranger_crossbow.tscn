@@ -1,0 +1,12 @@
+[gd_scene load_steps=2 format=3]
+
+; Besta de caça (ranger_crossbow), Meshy image→3D. Item de segurar: o .glb vem de lado (coronha em −X,
+; arco em +X, braços do arco em Z). Aqui o cano vai para +Y (comprimento, [ART-02]) com 0,65 m e a origem na
+; PEGADA (perto da coronha); os braços do arco ficam deitados (X) e o topo para −Z (vira cima com a pegada de 90°).
+
+[ext_resource type="PackedScene" path="res://assets/items/ranger_crossbow/ranger_crossbow.glb" id="1_glb"]
+
+[node name="RangerCrossbow" type="Node3D"]
+
+[node name="Model" parent="." instance=ExtResource("1_glb")]
+transform = Transform3D(0, 0.68, 0, 0, 0, -0.68, -0.68, 0, 0, 0, 0.1, 0)

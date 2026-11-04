@@ -33,9 +33,33 @@ const ANIMATIONS: Dictionary[String, String] = {
 	"line_cleave": "heavy_strike",
 	"heroic_charge": "dash",
 	"ground_slam": "heavy_strike",
-	"second_wind": "buff",
+	"rallying_cry": "buff",
 	"steel_wall": "buff",
-	"steady_march": "buff",
+	"iron_stance": "buff",
+	# Conjunto do Atirador (besta: tiros como o cajado, para a frente)
+	"crossbow_attack": "attack_staff",
+	"piercing_bolt": "cast_forward",
+	"bolt_rain": "cast_up",
+	"quick_shot": "cast_forward",
+	"bandage": "buff",
+	"leather_guard": "buff",
+	"roll": "dash",
+	# Conjunto do Assassino
+	"dagger_attack": "attack_sword",
+	"shadow_leap": "dash",
+	"backstab": "heavy_strike",
+	"blade_flurry": "spin",
+	"evasion": "buff",
+	"smoke_veil": "buff",
+	"shadow_step": "buff",
+	# Conjunto do Curandeiro (cura em aliado = magia para a frente, [JOGO-09])
+	"tome_attack": "cast_forward",
+	"greater_heal": "cast_forward",
+	"healing_circle": "cast_up",
+	"holy_shield": "cast_forward",
+	"grace": "buff",
+	"aegis": "cast_up",
+	"light_steps": "buff",
 }
 ## Cor dos efeitos (projétil, aviso no chão).
 const COLORS: Dictionary[String, Color] = {
@@ -53,8 +77,25 @@ const COLORS: Dictionary[String, Color] = {
 	"arcane_barrier": Color(0.75, 0.5, 1.0),
 	"line_cleave": Color(0.9, 0.95, 1.0),
 	"ground_slam": Color(1.0, 0.6, 0.3),
-	"second_wind": Color(1.0, 0.45, 0.45),
+	"rallying_cry": Color(0.5, 0.75, 1.0),
 	"steel_wall": Color(0.8, 0.85, 0.95),
+	"iron_stance": Color(1.0, 0.85, 0.4),
+	"crossbow_attack": Color(0.75, 0.95, 0.5),
+	"piercing_bolt": Color(0.6, 1.0, 0.4),
+	"bolt_rain": Color(0.85, 0.95, 0.6),
+	"quick_shot": Color(1.0, 0.95, 0.5),
+	"bandage": Color(0.4, 1.0, 0.45),
+	"leather_guard": Color(0.6, 0.85, 0.5),
+	"backstab": Color(0.8, 0.3, 1.0),
+	"blade_flurry": Color(0.7, 0.35, 0.9),
+	"evasion": Color(1.0, 0.85, 0.4),
+	"smoke_veil": Color(0.55, 0.5, 0.65),
+	"tome_attack": Color(1.0, 0.95, 0.6),
+	"greater_heal": Color(0.4, 1.0, 0.45),
+	"healing_circle": Color(0.5, 1.0, 0.55),
+	"holy_shield": Color(1.0, 0.9, 0.5),
+	"grace": Color(1.0, 0.85, 0.4),
+	"aegis": Color(1.0, 0.9, 0.55),
 }
 const DEFAULT_COLOR: Color = Color(1.0, 0.85, 0.5)
 ## Golpes corpo a corpo com clarão no momento do golpe: alcance do clarão (m). Negativo = anel inteiro (ao redor).
@@ -66,11 +107,15 @@ const SLASH_REACH: Dictionary[String, float] = {
 	"knight_attack": 1.9,
 	"line_cleave": 3.0,
 	"ground_slam": -3.5,
+	"dagger_attack": 1.5,
+	"backstab": 1.8,
+	"blade_flurry": -2.5,
 }
 ## Magias que acendem um brilho na mão durante o lançamento (mostra aos outros que vem coisa aí).
 const CAST_GLOW: Array[String] = [
 	"fireball", "meteor", "bolt", "heal", "shield",
 	"ice_lance", "arcane_nova", "starfall", "meditation", "arcane_barrier",
+	"bandage", "tome_attack", "greater_heal", "healing_circle", "holy_shield", "aegis",
 ]
 ## Habilidades de alvo com projétil só visual: tempo de voo (s). Ele sai de modo a chegar junto com o dano.
 ## Reserva: o tempo de verdade vem do servidor no `cast_start.release` (AbilityDef.releaseTime em
@@ -79,6 +124,8 @@ const HOMING_FLIGHT: Dictionary[String, float] = {
 	"staff_attack": 0.3,
 	"bolt": 0.15,
 	"arcane_attack": 0.3,
+	"crossbow_attack": 0.25,
+	"quick_shot": 0.1,
 }
 
 

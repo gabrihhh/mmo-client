@@ -2,16 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dhs3ns48vvatr"
-path="res://.godot/imported/second_wind.png-92f6d015da12cb641b597011c6be5ffa.ctex"
+uid="uid://b50xbhbt7oc7s"
+path="res://.godot/imported/healer_sandals_0.jpg-8a7a13287e9faca09898d302492ca2e0.ctex"
 metadata={
 "vram_texture": false
+}
+generator_parameters={
+"md5": "3f3cbae40f0d0cbe39fcc4aa3c644248"
 }
 
 [deps]
 
-source_file="res://assets/icons/abilities/second_wind.png"
-dest_files=["res://.godot/imported/second_wind.png-92f6d015da12cb641b597011c6be5ffa.ctex"]
+source_file="res://assets/items/healer_sandals/healer_sandals_0.jpg"
+dest_files=["res://.godot/imported/healer_sandals_0.jpg-8a7a13287e9faca09898d302492ca2e0.ctex"]
 
 [params]
 
@@ -23,7 +26,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

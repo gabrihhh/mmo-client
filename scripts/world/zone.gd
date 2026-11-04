@@ -76,6 +76,16 @@ func get_targetables() -> Array[RemotePlayer]:
 	return result
 
 
+## Aliados que dá para curar/proteger ([JOGO-09]): outros jogadores vivos (sem grupos ainda, todo jogador é
+## aliado, mesmo com PvP). ATENÇÃO: mesma regra de Zone.isAlly em mmo-server/src/zones/Zone.ts.
+func get_allies() -> Array[RemotePlayer]:
+	var result: Array[RemotePlayer] = []
+	for remote: RemotePlayer in _remote_players.values():
+		if remote.is_alive():
+			result.append(remote)
+	return result
+
+
 ## Jogador remoto ou boneco pelo id (para o marcador do alvo), ou null.
 func get_target_node(entity_id: String) -> RemotePlayer:
 	if _remote_players.has(entity_id):

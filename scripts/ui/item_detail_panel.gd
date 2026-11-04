@@ -21,6 +21,18 @@ const STAT_COLORS: Dictionary[AbilityView.StatKind, Color] = {
 	AbilityView.StatKind.TIME: Color(0.32, 0.3, 0.28),
 	AbilityView.StatKind.OTHER: Color(0.38, 0.27, 0.16),
 }
+## Perfil do conjunto na ficha ([JOGO-09]): chave → rótulo.
+## ATENÇÃO: chaves de SetProfile em mmo-server/src/items/catalog.ts.
+const PROFILE_LABELS: Dictionary[String, String] = {"damage": "Dano", "health": "Vida", "healing": "Cura", "cooldown": "Recarga"}
+## Nível → texto ("zero" aparece como traço).
+const TIER_LABELS: Dictionary[String, String] = {"zero": "—", "low": "baixo", "medium": "médio", "high": "alto"}
+## Nível → cor da etiqueta (mais forte = mais quente).
+const TIER_COLORS: Dictionary[String, Color] = {
+	"zero": Color(0.3, 0.3, 0.3),
+	"low": Color(0.35, 0.42, 0.3),
+	"medium": Color(0.55, 0.45, 0.15),
+	"high": Color(0.6, 0.22, 0.14),
+}
 ## Tamanho (px) da imagem da habilidade na ficha.
 const ABILITY_ICON_PX: float = 84.0
 
@@ -86,6 +98,18 @@ func _header(item: InventoryState.Item) -> Control:
 	texts.add_child(_label(item.name, 34, Color.WHITE))
 	texts.add_child(_label("%s · %s" % [item.set_name, AbilityView.SLOT_LABELS.get(item.slot, item.slot)], 22, ItemIcons.set_color(item.set_name).lightened(0.25)))
 	texts.add_child(_label(item.description, 19, Color(1, 1, 1, 0.75)))
+	# Perfil do conjunto (baixo/médio/alto) e vida extra da peça ([JOGO-09]).
+	var chips: HFlowContainer = HFlowContainer.new()
+	chips.add_theme_constant_override("h_separation", 6)
+	chips.add_theme_constant_override("v_separation", 6)
+	for key: String in PROFILE_LABELS:
+		if item.profile.has(key):
+			var tier: String = item.profile[key]
+			chips.add_child(_chip("%s: %s" % [PROFILE_LABELS[key], TIER_LABELS.get(tier, tier)], TIER_COLORS.get(tier, STAT_COLORS[AbilityView.StatKind.OTHER])))
+	if item.bonus_hp > 0.0:
+		chips.add_child(_chip("+%s de vida" % AbilityView.number(item.bonus_hp), STAT_COLORS[AbilityView.StatKind.HEAL]))
+	if chips.get_child_count() > 0:
+		texts.add_child(chips)
 	row.add_child(texts)
 	return row
 

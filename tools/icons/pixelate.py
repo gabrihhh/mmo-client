@@ -62,9 +62,11 @@ def item_icon(im):
 
 for f in sorted(glob.glob(src + "/item_*.png")):
     item_icon(Image.open(f)).save(out + "/items/" + os.path.basename(f)[len("item_"):])
-DIAGONAL = ("arcane_staff", "knight_sword")  # armas em pé ficam finas: na diagonal ocupam o ícone
+DIAGONAL = ("arcane_staff", "knight_sword", "assassin_daggers")  # armas em pé ficam finas: na diagonal ocupam o ícone
+LYING = ("ranger_crossbow",)  # armas deitadas (de lado): giram para a mesma diagonal
 for f in sorted(glob.glob(src + "/concept_*.png")):
     im = Image.open(f).convert("RGBA")
     if any(n in f for n in DIAGONAL): im = im.rotate(-45, resample=Image.Resampling.BICUBIC, expand=True)
+    if any(n in f for n in LYING): im = im.rotate(45, resample=Image.Resampling.BICUBIC, expand=True)
     item_icon(im).save(out + "/items/" + os.path.basename(f)[len("concept_"):])
 print("ok")

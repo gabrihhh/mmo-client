@@ -79,7 +79,7 @@ func _process(delta: float) -> void:
 	_health_bar.visible = not _state.dead
 	_mana_bar.set_ratio(_state.mana_ratio())
 	_mana_bar.visible = _state.has_mana() and not _state.dead
-	_shield_bubble.set_active(_state.shield > 0.0 and not _state.dead)
+	_shield_bubble.set_active(_state.shield > 0.0 and not _state.dead, _state.guard > 0.0 and not _state.dead)
 	if model != null and delta > 0.0:
 		var moved: Vector3 = position - _last_position
 		moved.y = 0.0
