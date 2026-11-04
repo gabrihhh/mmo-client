@@ -6,38 +6,49 @@ extends Node
 ## ("RightHand"), chapéu/capuz na cabeça ("Head"). Os encaixes acompanham as animações.
 ## Modelos e o jeito de segurar cada item: [ItemModels]. Pegada e offsets são medidos no osso do placeholder;
 ## [method SkeletonRetarget.mount_fix] converte para o osso de outro modelo (eixos diferentes).
-## Item de segurar com direção de descanso ([method ItemModels.hold_direction]): a cada quadro, depois da animação, o
-## comprimento é puxado para ela (espada para a frente, cajado em pé), menos durante uma ação ([member animator]).
-## Arma de duas mãos ([method ItemModels.is_two_handed]): a mão esquerda vai ao cabo por IK ([TwoBoneIK3D]).
+##
+## Arma na mão (as animações do Meshy são de mão vazia, então a arma é posta "à moda dos jogos"):
+## - **parado/correndo**: a arma fica numa posição de carregar à frente do corpo ([method ItemModels.carry]) e as
+##   mãos vão até ela por IK ([TwoBoneIK3D]): a direita no cabo; a esquerda também, se for de duas mãos;
+## - **durante uma ação** (ataque, magia): a arma volta a seguir a mão animada, com o comprimento puxado para a
+##   direção de descanso ou para o antebraço ([method ItemModels.hold_direction]); ao terminar, volta suave para a
+##   posição de carregar.
 ## A arma também escolhe a postura parada do personagem ([method CharacterAnimator.set_idle_animation]).
 
 ## Slot → osso do encaixe. Slot fora daqui (peito, pés) ainda não tem modelo.
 const MOUNT_BONES: Dictionary[String, String] = {"hand": "RightHand", "head": "Head"}
-var _mounts: Dictionary[String, Node3D] = {}
-var _state: PlayerState = null
+## Para onde cada cotovelo aponta no IK (espaço do personagem, m): para fora e para baixo. Lado direito = −X.
+const POLES: Dictionary[String, Vector3] = {"Left": Vector3(0.8, 0.6, -0.2), "Right": Vector3(-0.8, 0.6, -0.2)}
+## Pulso em relação ao ponto de pegada (espaço do personagem, m): a pegada fica na palma, o pulso um pouco atrás.
+const WRIST_FROM_GRIP: Vector3 = Vector3(0.0, 0.0, -0.06)
+## Rapidez com que a direção de puxão alcança a nova (1/s).
+const DIRECTION_BLEND_RATE: float = 18.0
+## Rapidez da troca de puxão (unidades de puxão por segundo).
+const PULL_BLEND_RATE: float = 20.0
+## Rapidez da entrada/saída da posição de carregar (fração por segundo): sai rápido ao atacar, volta mais devagar.
+const CARRY_OUT_RATE: float = 10.0
+const CARRY_IN_RATE: float = 4.0
+
 ## Animador do personagem (ação tocando? postura parada da arma); null = sem isso.
 var animator: CharacterAnimator = null
-## IK do braço esquerdo (mão no cabo da arma de duas mãos) e o alvo dele.
-var _off_hand_ik: TwoBoneIK3D = null
-var _off_hand_target: Node3D = null
-## A arma atual pede a mão esquerda no cabo (o IK liga assim que o alvo estiver na cena).
-var _want_off_hand: bool = false
-## Para onde o cotovelo esquerdo aponta no IK (espaço do personagem, m): para fora e para baixo.
-const OFF_HAND_POLE: Vector3 = Vector3(0.8, 0.6, -0.2)
-## Item de segurar com direção de descanso (null = nenhum), o id dele e a pegada (rotação na mão).
-var _held_model: Node3D = null
+
+var _mounts: Dictionary[String, Node3D] = {}
+var _state: PlayerState = null
 ## Esqueleto do personagem (direção do antebraço durante a ação).
 var _skeleton: Skeleton3D = null
+## IK de cada braço ("Left"/"Right") e o alvo do pulso.
+var _arm_ik: Dictionary[String, TwoBoneIK3D] = {}
+var _arm_target: Dictionary[String, Node3D] = {}
+## Item de segurar com direção de descanso (null = nenhum), o id dele e a pegada (rotação na mão).
+var _held_model: Node3D = null
 var _held_id: String = ""
 var _held_grip: Basis = Basis.IDENTITY
 ## Puxão atual (suavizado entre fora de ação e durante a ação).
 var _held_pull: float = 0.0
 ## Direção de puxão atual (global, suavizada: não pula ao começar/terminar a ação). Zero = ainda não definida.
 var _held_direction: Vector3 = Vector3.ZERO
-## Rapidez com que a direção de puxão alcança a nova (1/s).
-const DIRECTION_BLEND_RATE: float = 18.0
-## Rapidez da troca de puxão (unidades de puxão por segundo).
-const PULL_BLEND_RATE: float = 20.0
+## Quanto a arma está na posição de carregar (0 = segue a mão animada, 1 = carregada à frente com IK).
+var _carry_weight: float = 0.0
 
 
 func _ready() -> void:
@@ -45,33 +56,51 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if _off_hand_ik != null and _want_off_hand != _off_hand_ik.active:
-		_set_off_hand(_want_off_hand)
 	if _held_model == null or not is_instance_valid(_held_model):
+		_set_arm_weight("Right", 0.0)
+		_set_arm_weight("Left", 0.0)
 		return
-	var acting: bool = animator != null and animator.is_acting()
-	_held_pull = move_toward(_held_pull, ItemModels.hold_pull(_held_id, acting), PULL_BLEND_RATE * delta)
 	var body: Node3D = get_parent() as Node3D
-	var rest_direction: Vector3 = body.global_basis.orthonormalized() * ItemModels.hold_direction(_held_id)
+	var body_basis: Basis = body.global_basis.orthonormalized()
+	var acting: bool = animator != null and animator.is_acting()
+
+	# 1) Arma seguindo a mão animada (comprimento puxado para a direção de descanso ou para o antebraço).
+	_held_pull = move_toward(_held_pull, ItemModels.hold_pull(_held_id, acting), PULL_BLEND_RATE * delta)
+	var want_direction: Vector3 = body_basis * ItemModels.hold_direction(_held_id)
 	if acting and ItemModels.follows_forearm_in_action(_held_id):
 		var forearm: Vector3 = _bone_position("RightHand") - _bone_position("RightLowerArm")
 		if forearm.length() > 0.001:
-			rest_direction = forearm.normalized()
-	_held_direction = rest_direction if _held_direction == Vector3.ZERO \
-		else _held_direction.slerp(rest_direction, minf(1.0, DIRECTION_BLEND_RATE * delta)).normalized()
+			want_direction = forearm.normalized()
+	_held_direction = want_direction if _held_direction == Vector3.ZERO \
+		else _held_direction.slerp(want_direction, minf(1.0, DIRECTION_BLEND_RATE * delta)).normalized()
 	var mount: Node3D = _held_model.get_parent() as Node3D
-	# Como ficaria preso ao osso (pegada normal) → comprimento puxado para a direção de descanso.
 	var rigid: Basis = mount.global_basis * _held_grip
 	var size: float = rigid.get_scale().y
-	var length_axis: Vector3 = (rigid.y.normalized() + _held_direction * _held_pull).normalized()
-	var side: Vector3 = rigid.z.normalized()
-	side = side - length_axis * side.dot(length_axis)
-	if side.length() < 0.001:
-		return
-	side = side.normalized()
-	_held_model.global_basis = Basis(length_axis.cross(side), length_axis, side).scaled_local(Vector3.ONE * size)
-	if _off_hand_ik != null and _off_hand_ik.active:
-		_off_hand_target.global_transform = _held_model.global_transform * Transform3D(Basis.IDENTITY, ItemModels.off_hand_grip(_held_id))
+	var follow_basis: Basis = _basis_along((rigid.y.normalized() + _held_direction * _held_pull).normalized(), rigid.z)
+	var follow_origin: Vector3 = mount.global_position
+
+	# 2) Posição de carregar à frente do corpo (parado/correndo), misturada pelo peso.
+	var carry: Transform3D = ItemModels.carry(_held_id)
+	var has_carry: bool = carry != Transform3D()
+	var target_weight: float = 1.0 if has_carry and not acting else 0.0
+	_carry_weight = move_toward(_carry_weight, target_weight, (CARRY_IN_RATE if target_weight > _carry_weight else CARRY_OUT_RATE) * delta)
+	var final_basis: Basis = follow_basis
+	var final_origin: Vector3 = follow_origin
+	if has_carry and _carry_weight > 0.0:
+		var carry_origin: Vector3 = body.global_transform * carry.origin
+		var carry_basis: Basis = _basis_along((body_basis * carry.basis.y).normalized(), body_basis.x)
+		final_basis = Basis(follow_basis.get_rotation_quaternion().slerp(carry_basis.get_rotation_quaternion(), _carry_weight))
+		final_origin = follow_origin.lerp(carry_origin, _carry_weight)
+	_held_model.global_transform = Transform3D(final_basis.scaled_local(Vector3.ONE * size), final_origin)
+
+	# 3) Mãos: a direita vai ao cabo só carregando (na ação quem manda é a animação); a esquerda, sempre que a arma
+	#    for de duas mãos.
+	_place_arm("Right", final_origin + body_basis * WRIST_FROM_GRIP, _carry_weight)
+	if ItemModels.is_two_handed(_held_id):
+		var off_grip: Vector3 = _held_model.global_transform * ItemModels.off_hand_grip(_held_id)
+		_place_arm("Left", off_grip + body_basis * WRIST_FROM_GRIP, 1.0)
+	else:
+		_set_arm_weight("Left", 0.0)
 
 
 ## Cria os encaixes nos ossos de [param skeleton]. Item de segurar: pegada em [param hand_offset] (m, a partir do
@@ -98,32 +127,60 @@ func setup(skeleton: Skeleton3D, hand_offset: Vector3, head_offset: Vector3, hea
 			mount.transform = fix * Transform3D(Basis.IDENTITY, hand_offset)
 		attachment.add_child(mount)
 		_mounts[slot] = mount
-	_setup_off_hand_ik(skeleton)
+	for side: String in POLES:
+		_setup_arm_ik(skeleton, side)
 	_refresh()
 
 
-## Cria o IK do braço esquerdo (desligado até haver arma de duas mãos).
-func _setup_off_hand_ik(skeleton: Skeleton3D) -> void:
-	if skeleton.find_bone("LeftUpperArm") < 0 or skeleton.find_bone("LeftLowerArm") < 0 or skeleton.find_bone("LeftHand") < 0:
-		return
+## Cria o IK de um braço ([param side] = "Left"/"Right"), desligado. O alvo e o polo entram na cena depois
+## (call_deferred); os caminhos são ligados em [method _place_arm].
+func _setup_arm_ik(skeleton: Skeleton3D, side: String) -> void:
+	for bone: String in ["UpperArm", "LowerArm", "Hand"]:
+		if skeleton.find_bone(side + bone) < 0:
+			return
 	var body: Node3D = get_parent() as Node3D
 	var pole: Node3D = Node3D.new()
-	pole.name = "OffHandPole"
-	pole.position = OFF_HAND_POLE
+	pole.name = side + "ArmPole"
+	pole.position = POLES[side]
 	body.add_child.call_deferred(pole)
-	_off_hand_target = Node3D.new()
-	_off_hand_target.name = "OffHandTarget"
-	body.add_child.call_deferred(_off_hand_target)
-	_off_hand_ik = TwoBoneIK3D.new()
-	_off_hand_ik.name = "OffHandIK"
-	_off_hand_ik.set_setting_count(1)
-	_off_hand_ik.set_root_bone_name(0, "LeftUpperArm")
-	_off_hand_ik.set_middle_bone_name(0, "LeftLowerArm")
-	_off_hand_ik.set_end_bone_name(0, "LeftHand")
-	_off_hand_ik.active = false
-	skeleton.add_child(_off_hand_ik)
-	_off_hand_ik.set_target_node(0, _off_hand_ik.get_path_to(_off_hand_target) if _off_hand_target.is_inside_tree() else NodePath())
-	_off_hand_ik.set_meta(&"pole", pole)
+	var target: Node3D = Node3D.new()
+	target.name = side + "WristTarget"
+	body.add_child.call_deferred(target)
+	var ik: TwoBoneIK3D = TwoBoneIK3D.new()
+	ik.name = side + "ArmIK"
+	ik.set_setting_count(1)
+	ik.set_root_bone_name(0, side + "UpperArm")
+	ik.set_middle_bone_name(0, side + "LowerArm")
+	ik.set_end_bone_name(0, side + "Hand")
+	ik.active = false
+	ik.set_meta(&"pole", pole)
+	skeleton.add_child(ik)
+	_arm_ik[side] = ik
+	_arm_target[side] = target
+
+
+## Leva o pulso do braço [param side] até [param wrist] (global) com peso [param weight] (0 = só a animação).
+func _place_arm(side: String, wrist: Vector3, weight: float) -> void:
+	if not _arm_ik.has(side):
+		return
+	var target: Node3D = _arm_target[side]
+	if not target.is_inside_tree():
+		return
+	var ik: TwoBoneIK3D = _arm_ik[side]
+	if ik.get_target_node(0).is_empty():
+		ik.set_target_node(0, ik.get_path_to(target))
+		ik.set_pole_node(0, ik.get_path_to(ik.get_meta(&"pole") as Node3D))
+	target.global_position = wrist
+	_set_arm_weight(side, weight)
+
+
+## Peso do IK do braço [param side] (0 desliga).
+func _set_arm_weight(side: String, weight: float) -> void:
+	if not _arm_ik.has(side):
+		return
+	var ik: TwoBoneIK3D = _arm_ik[side]
+	ik.influence = clampf(weight, 0.0, 1.0)
+	ik.active = weight > 0.001
 
 
 ## Passa a seguir a aparência de [param state] (troca na hora e a cada [signal PlayerState.look_changed]).
@@ -142,7 +199,6 @@ func _refresh() -> void:
 	var hand_item: String = _state.look.get("hand", "") if _state != null else ""
 	if animator != null:
 		animator.set_idle_animation(ItemModels.idle_animation(hand_item))
-	_set_off_hand(ItemModels.is_two_handed(hand_item))
 	for slot: String in _mounts:
 		var mount: Node3D = _mounts[slot]
 		for child: Node in mount.get_children():
@@ -161,20 +217,17 @@ func _refresh() -> void:
 				_held_grip = model.basis
 				_held_pull = ItemModels.hold_pull(item_id, false)
 				_held_direction = Vector3.ZERO
+				_carry_weight = 1.0
 		mount.add_child(model)
 
 
-## Liga/desliga a mão esquerda no cabo (IK). Os caminhos do alvo e do polo são ligados aqui porque os nós entram na
-## cena depois do [method setup].
-func _set_off_hand(enabled: bool) -> void:
-	_want_off_hand = enabled
-	if _off_hand_ik == null:
-		return
-	if enabled and _off_hand_target.is_inside_tree():
-		_off_hand_ik.set_target_node(0, _off_hand_ik.get_path_to(_off_hand_target))
-		var pole: Node3D = _off_hand_ik.get_meta(&"pole") as Node3D
-		_off_hand_ik.set_pole_node(0, _off_hand_ik.get_path_to(pole))
-	_off_hand_ik.active = enabled and _off_hand_target.is_inside_tree()
+## Base com o eixo Y em [param length_axis] e o Z o mais perto possível de [param side_hint].
+func _basis_along(length_axis: Vector3, side_hint: Vector3) -> Basis:
+	var side: Vector3 = side_hint.normalized() - length_axis * side_hint.normalized().dot(length_axis)
+	if side.length() < 0.001:
+		side = length_axis.cross(Vector3.RIGHT if absf(length_axis.x) < 0.9 else Vector3.FORWARD)
+	side = side.normalized()
+	return Basis(length_axis.cross(side), length_axis, side)
 
 
 ## Posição global do osso [param bone_name] na pose atual.

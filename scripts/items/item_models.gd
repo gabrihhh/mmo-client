@@ -30,6 +30,13 @@ const _HOLD: Dictionary[String, Array] = {
 	"training_sword": [Vector3(0.0, 0.55, 1.0), 2.0, 2.0, true],
 	"training_staff": [Vector3(0.0, 1.0, 0.3), 4.0, 4.0, false],
 }
+## Posição de carregar (parado/correndo), no espaço do personagem (m; +Z frente, +Y cima, lado direito = −X):
+## [onde fica a pegada da mão direita, direção do comprimento]. As mãos vão até a arma por IK ([EquipmentView]).
+## Perto o bastante do ombro para o braço alcançar (~0,45 m do ombro).
+const _CARRY: Dictionary[String, Array] = {
+	"training_sword": [Vector3(-0.10, 1.10, 0.30), Vector3(0.0, 0.6, 1.0)],
+	"training_staff": [Vector3(-0.24, 1.12, 0.26), Vector3(0.0, 1.0, 0.18)],
+}
 ## Postura parada por arma na mão ([CharacterAnimator.set_idle_animation]); sem linha = "idle".
 const _IDLE: Dictionary[String, String] = {
 	"training_sword": "idle_sword",
@@ -91,3 +98,15 @@ static func follows_forearm_in_action(item_id: String) -> bool:
 ## Ponto do item [param item_id] onde a mão esquerda segura (espaço do modelo do item, m).
 static func off_hand_grip(item_id: String) -> Vector3:
 	return _OFF_HAND_GRIP.get(item_id, Vector3.ZERO)
+
+
+## Posição de carregar de [param item_id] (espaço do personagem): origem = pegada da mão direita, eixo Y = comprimento.
+## Transform3D() = o item não tem (segue a mão animada).
+static func carry(item_id: String) -> Transform3D:
+	if not _CARRY.has(item_id):
+		return Transform3D()
+	var grip_point: Vector3 = _CARRY[item_id][0]
+	var direction: Vector3 = _CARRY[item_id][1]
+	var length_axis: Vector3 = direction.normalized()
+	var side: Vector3 = Vector3.RIGHT - length_axis * length_axis.x
+	return Transform3D(Basis(side.normalized(), length_axis, side.normalized().cross(length_axis)), grip_point)
