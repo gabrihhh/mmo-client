@@ -78,7 +78,7 @@ func _draw() -> void:
 	var held: bool = _held
 	var box: StyleBoxFlat = StyleBoxFlat.new()
 	box.bg_color = BACKGROUND.lightened(0.12) if held else BACKGROUND
-	box.set_corner_radius_all(12)
+	# Cantos retos: combina com as molduras pixel art.
 	box.set_border_width_all(BORDER_PX)
 	box.border_color = ItemIcons.set_color(item.set_name) if item != null else EMPTY_BORDER
 	if held:

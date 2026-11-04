@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=23 format=3]
+[gd_resource type="Theme" load_steps=24 format=3]
 
 [ext_resource type="Texture2D" path="res://assets/ui/pixel/frame.png" id="1_frame"]
 [ext_resource type="Texture2D" path="res://assets/ui/pixel/card.png" id="2_card"]
@@ -144,14 +144,30 @@ texture_margin_top = 24.0
 texture_margin_right = 24.0
 texture_margin_bottom = 24.0
 
-; Painel de tela inteira (Inventário e ficha do item): fundo opaco sem cantos; mais espaço em cima (barra do
-; celular). Ver [CLI-10].
-[sub_resource type="StyleBoxFlat" id="FullScreenPanel_panel"]
-content_margin_left = 24.0
+; Painel de tela inteira (Inventário e ficha do item): moldura pixel art opaca (panel.png); mais espaço em cima
+; (barra do celular). Ver [CLI-10].
+[sub_resource type="StyleBoxTexture" id="FullScreenPanel_panel"]
+content_margin_left = 32.0
 content_margin_top = 56.0
-content_margin_right = 24.0
+content_margin_right = 32.0
 content_margin_bottom = 40.0
-bg_color = Color(0.1, 0.13, 0.18, 1)
+texture = ExtResource("4_panel")
+texture_margin_left = 24.0
+texture_margin_top = 24.0
+texture_margin_right = 24.0
+texture_margin_bottom = 24.0
+
+; Bloco dentro de um painel (habilidade na ficha do item): fundo pixel art das cartas (card.png). Ver [CLI-10].
+[sub_resource type="StyleBoxTexture" id="PixelCard_panel"]
+content_margin_left = 18.0
+content_margin_top = 16.0
+content_margin_right = 18.0
+content_margin_bottom = 16.0
+texture = ExtResource("2_card")
+texture_margin_left = 12.0
+texture_margin_top = 12.0
+texture_margin_right = 12.0
+texture_margin_bottom = 12.0
 
 ; Painéis do Menu (Menu, Configuração): a moldura pixel art com fundo opaco (panel.png) e mais espaço interno. Ver [CLI-08].
 [sub_resource type="StyleBoxTexture" id="PixelPanel_panel"]
@@ -233,6 +249,8 @@ PixelFrame/base_type = &"PanelContainer"
 PixelFrame/styles/panel = SubResource("PixelFrame_panel")
 FullScreenPanel/base_type = &"PanelContainer"
 FullScreenPanel/styles/panel = SubResource("FullScreenPanel_panel")
+PixelCard/base_type = &"PanelContainer"
+PixelCard/styles/panel = SubResource("PixelCard_panel")
 PixelPanel/base_type = &"PanelContainer"
 PixelPanel/styles/panel = SubResource("PixelPanel_panel")
 PixelButton/base_type = &"Button"

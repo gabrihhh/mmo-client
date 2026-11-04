@@ -34,9 +34,12 @@ const SILHOUETTE: Array[String] = [
 const SLOT_ROWS: Dictionary[String, float] = {"head": 2.0, "chest": 9.0, "hand": 11.5, "feet": 17.5}
 ## Tamanho dos quadros, em px.
 const SLOT_SIZE: float = 104.0
-## Cor da silhueta e do fundo da vitrine.
+## Cor da silhueta.
 const SILHOUETTE_COLOR: Color = Color(0.0, 0.0, 0.0, 0.32)
-const BACKGROUND: Color = Color(0.2, 0.13, 0.08, 0.85)
+## Espaço (px) entre a borda da vitrine e a silhueta/quadros: o tamanho da moldura pixel art (contorno + dourado).
+const FRAME_INSET_PX: float = 34.0
+## Moldura pixel art da vitrine (a mesma das molduras da HUD).
+const FRAME_TEXTURE: Texture2D = preload("res://assets/ui/pixel/frame.png")
 
 var _slots: Dictionary[String, ItemSlot] = {}
 
@@ -60,15 +63,15 @@ func show_inventory(inventory: InventoryState) -> void:
 		_slots[slot].show_item(inventory.item_in(slot), AbilityView.SLOT_LABELS[slot])
 
 
-## Tamanho (px) de uma célula da silhueta para caber na altura atual.
+## Tamanho (px) de uma célula da silhueta para caber na altura atual (sem invadir a moldura).
 func _cell() -> float:
-	return size.y / (float(SILHOUETTE.size()) + 1.0)
+	return (size.y - 2.0 * FRAME_INSET_PX) / (float(SILHOUETTE.size()) + 1.0)
 
 
 ## Canto de cima/esquerda da silhueta (centrada na horizontal, meia célula de margem em cima).
 func _origin() -> Vector2:
 	var cell: float = _cell()
-	return Vector2((size.x - float(SILHOUETTE[0].length()) * cell) / 2.0, cell * 0.5)
+	return Vector2((size.x - float(SILHOUETTE[0].length()) * cell) / 2.0, FRAME_INSET_PX + cell * 0.5)
 
 
 func _place_slots() -> void:
@@ -85,11 +88,10 @@ func _place_slots() -> void:
 
 
 func _draw() -> void:
-	var box: StyleBoxFlat = StyleBoxFlat.new()
-	box.bg_color = BACKGROUND
-	box.set_corner_radius_all(14)
-	box.set_border_width_all(3)
-	box.border_color = Color(0.12, 0.07, 0.03, 0.9)
+	# Vitrine na moldura pixel art da HUD (frame.png em 9-slice, margem 24 px), [CLI-08].
+	var box: StyleBoxTexture = StyleBoxTexture.new()
+	box.texture = FRAME_TEXTURE
+	box.set_texture_margin_all(24.0)
 	draw_style_box(box, Rect2(Vector2.ZERO, size))
 	var cell: float = _cell()
 	var origin: Vector2 = _origin()

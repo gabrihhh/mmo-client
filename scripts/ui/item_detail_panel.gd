@@ -119,11 +119,8 @@ func _ability_block(ability: AbilityView, tag: String) -> Control:
 	var panel: PanelContainer = PanelContainer.new()
 	# Não segura o arrasto: rolar a ficha começando em cima de um bloco também funciona.
 	panel.mouse_filter = Control.MOUSE_FILTER_PASS
-	var box: StyleBoxFlat = StyleBoxFlat.new()
-	box.bg_color = Color(0.1, 0.07, 0.05, 0.75)
-	box.set_corner_radius_all(12)
-	box.set_content_margin_all(12)
-	panel.add_theme_stylebox_override("panel", box)
+	# Fundo pixel art das cartas (variação de tema `PixelCard`, [CLI-07]).
+	panel.theme_type_variation = &"PixelCard"
 	var row: HBoxContainer = HBoxContainer.new()
 	row.add_theme_constant_override("separation", 14)
 	panel.add_child(row)
@@ -154,13 +151,12 @@ func _ability_block(ability: AbilityView, tag: String) -> Control:
 	return panel
 
 
-## Etiqueta arredondada com [param text] em fundo [param color].
+## Etiqueta de cantos retos (combina com o pixel art) com [param text] em fundo [param color].
 func _chip(text: String, color: Color) -> Control:
 	var label: Label = _label(text, 18, Color.WHITE)
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	var box: StyleBoxFlat = StyleBoxFlat.new()
 	box.bg_color = color
-	box.set_corner_radius_all(8)
 	box.content_margin_left = 8
 	box.content_margin_right = 8
 	box.content_margin_top = 3
@@ -181,6 +177,7 @@ func _label(text: String, font_size: int, color: Color) -> Label:
 func _button(text: String) -> Button:
 	var button: Button = Button.new()
 	button.text = text
+	button.theme_type_variation = &"PixelButton"
 	button.custom_minimum_size = Vector2(0, 92)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.add_theme_font_size_override("font_size", 32)

@@ -399,6 +399,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_type_variation = &"FullScreenPanel"
+texture_filter = 1
 
 [node name="VBox" type="VBoxContainer" parent="Root/InventoryPanel"]
 layout_mode = 2
@@ -431,6 +432,7 @@ offset_bottom = 72.0
 grow_horizontal = 0
 theme_override_font_sizes/font_size = 34
 text = "✕"
+theme_type_variation = &"PixelButton"
 
 [node name="EquippedTitle" type="Label" parent="Root/InventoryPanel/VBox"]
 layout_mode = 2
@@ -471,6 +473,7 @@ custom_minimum_size = Vector2(0, 92)
 layout_mode = 2
 theme_override_font_sizes/font_size = 34
 text = "Voltar"
+theme_type_variation = &"PixelButton"
 
 [node name="ItemDetailPanel" type="PanelContainer" parent="Root"]
 unique_name_in_owner = true
