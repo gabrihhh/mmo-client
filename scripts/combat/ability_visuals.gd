@@ -29,7 +29,7 @@ const ANIMATIONS: Dictionary[String, String] = {
 	"arcane_barrier": "buff",
 	"blink": "dash",
 	# Conjunto do Cavaleiro
-	"knight_attack": "attack_sword",
+	"knight_attack": "attack_greatsword",
 	"line_cleave": "heavy_strike",
 	"heroic_charge": "dash",
 	"ground_slam": "heavy_strike",

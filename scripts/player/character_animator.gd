@@ -22,11 +22,13 @@ const LOWER_BONES: Array[String] = [
 	"Hips", "RightUpperLeg", "RightLowerLeg", "RightFoot", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
 ]
 ## Momento do golpe (s, na velocidade normal) de cada ação: é ele que encaixa no fim do lançamento.
-## 0 = sem momento certo (toca na velocidade normal). ATENÇÃO: medido nas animações do Meshy já cortadas
-## (tools/characters/make_animations.gd, MESHY_ACTIONS); mudou o clipe ou o corte → medir de novo. O placeholder
+## 0 = sem momento certo (toca na velocidade normal). ATENÇÃO: medido nas animações já cortadas (Meshy e Mixamo,
+## tools/characters/make_animations.gd: MESHY_ACTIONS, MIXAMO_GREAT_SWORD...) pela mão direita (mais à frente
+## descendo, logo depois do pico de velocidade); mudou o clipe ou o corte → medir de novo. O placeholder
 ## (tools/placeholders/make_character.gd) tem outros tempos e fica fora de sincronia (não é usado no jogo).
 const HIT_TIMES: Dictionary[String, float] = {
 	"attack_sword": 0.87,
+	"attack_greatsword": 0.6,
 	"attack_staff": 0.47,
 	"attack_punch": 0.3,
 	"heavy_strike": 1.23,

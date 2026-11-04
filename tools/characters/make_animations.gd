@@ -34,6 +34,9 @@ const MESHY_ACTIONS: Dictionary[String, Array] = {
 const MESHY_IDLE_SWORD: Dictionary[String, Array] = {"IdleSword": ["idle_sword", 0.0, -1.0]}
 const MESHY_IDLE_STAFF: Dictionary[String, Array] = {"IdleStaff": ["idle_staff", 0.0, -1.0]}
 const MESHY_TWO_HANDED: Dictionary[String, Array] = {"Attack2H": ["attack_sword", 0.2, 1.7]}
+## Golpe de espadão do Mixamo ("Great Sword Slash", FBX sem pele, 30 fps, sem redução de quadros): ataque simples
+## da espada do Cavaleiro ([JOGO-08]). Mesmo arquivo para os dois corpos (o rig do Mixamo é reconvertido em cada um).
+const MIXAMO_GREAT_SWORD: Dictionary[String, Array] = {"mixamo_com": ["attack_greatsword", 0.0, -1.0]}
 ## Clipe inteiro (sem corte): fim negativo.
 const WHOLE: float = -1.0
 ## Personagens: cena, biblioteca gerada e fontes ("glb" → {nome do clipe no .glb → [nome no jogo, início, fim]}).
@@ -49,6 +52,7 @@ const CHARACTERS: Array[Dictionary] = [
 			"res://tools/characters/animations/male_idle_staff.glb": MESHY_IDLE_STAFF,
 			"res://tools/characters/animations/male_attack2h.glb": MESHY_TWO_HANDED,
 			"res://tools/characters/animations/male_combat.glb": MESHY_ACTIONS,
+			"res://tools/characters/animations/mixamo_great_sword_slash.fbx": MIXAMO_GREAT_SWORD,
 		},
 	},
 	{
@@ -61,6 +65,7 @@ const CHARACTERS: Array[Dictionary] = [
 			"res://tools/characters/animations/female_idle_staff.glb": MESHY_IDLE_STAFF,
 			"res://tools/characters/animations/female_attack2h.glb": MESHY_TWO_HANDED,
 			"res://tools/characters/animations/female_combat.glb": MESHY_ACTIONS,
+			"res://tools/characters/animations/mixamo_great_sword_slash.fbx": MIXAMO_GREAT_SWORD,
 		},
 	},
 ]
