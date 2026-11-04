@@ -1,10 +1,11 @@
 class_name Hud
 extends CanvasLayer
-## HUD do jogo em retrato ([CLI-08]): vida/mana numa moldura de madeira ([WoodPanel]) no topo; embaixo, outra
-## moldura de madeira junta as 6 cartas e a linha joystick | ataque simples (+ "Desfocar" embaixo) | menu,
-## com espaços iguais entre eles e nas bordas. O Menu (Inventário, Configuração, "Sair da conta") fecha
-## pelo X no canto ou tocando fora dele (no fundo escurecido). Inventário ([CLI-10]): boneco com o que está
-## vestido ([PaperDoll]) + mochila em grade de ícones; tocar num item abre a ficha dele ([ItemDetailPanel]).
+## HUD do jogo em retrato ([CLI-08]): vida/mana numa moldura pixel art (variação de tema `PixelFrame`) no topo;
+## embaixo, outra moldura igual junta as 6 cartas e a linha joystick | ataque simples (+ "Desfocar" embaixo) | menu,
+## com espaços iguais entre eles e nas bordas. O Menu (Inventário, Configuração, "Sair da conta", cada um com ícone
+## à esquerda) fecha pelo X no canto ou tocando fora dele (no fundo escurecido). Inventário ([CLI-10]), em tela
+## inteira: boneco com o que está vestido ([PaperDoll]) + mochila em grade de ícones que rola; tocar num item abre
+## a ficha dele ([ItemDetailPanel], também em tela inteira).
 ##
 ## Só mostra e repassa toques: quem decide o que fazer com ataque/cartas é o [CombatController].
 
@@ -19,6 +20,8 @@ signal unequip_requested(slot: String)
 
 ## Quantas cartas de habilidade a HUD mostra ([JOGO-01]: 3 da arma + cabeça + peito + pés).
 const CARD_COUNT: int = 6
+## Lado (px) de cada quadro da mochila (5 colunas cabem na largura de 720 com o painel em tela inteira).
+const BAG_SLOT_PX: float = 120.0
 ## Tempo (s) que um aviso fica na tela.
 const _TOAST_SECONDS: float = 1.8
 
@@ -72,6 +75,7 @@ func _ready() -> void:
 	(%SettingsButton as Button).pressed.connect(_open_panel.bind(_settings_panel))
 	(%CloseMenuButton as Button).pressed.connect(_open_panel.bind(null))
 	(%InventoryBackButton as Button).pressed.connect(_open_panel.bind(_menu_panel))
+	(%CloseInventoryButton as Button).pressed.connect(_open_panel.bind(null))
 	(%SettingsBackButton as Button).pressed.connect(_open_panel.bind(_menu_panel))
 	_logout_button.pressed.connect(_on_logout_pressed)
 	_paper_doll.slot_pressed.connect(_on_equipped_slot_pressed)
@@ -124,9 +128,10 @@ func set_inventory(inventory: InventoryState) -> void:
 	_paper_doll.show_inventory(inventory)
 	for child: Node in _bag_grid.get_children():
 		child.queue_free()
-	_bag_title.text = "Mochila %d/%d (toque para ver)" % [inventory.bag.size(), inventory.bag_capacity]
+	_bag_title.text = "Mochila %d/%d" % [inventory.bag.size(), inventory.bag_capacity]
 	for i: int in range(maxi(inventory.bag_capacity, inventory.bag.size())):
 		var view: ItemSlot = ItemSlot.new()
+		view.custom_minimum_size = Vector2(BAG_SLOT_PX, BAG_SLOT_PX)
 		if i < inventory.bag.size():
 			var item: InventoryState.Item = inventory.bag[i]
 			view.show_item(item)
@@ -251,5 +256,5 @@ func _set_bar(bar: ProgressBar, label: Label, current: float, maximum: float) ->
 func _set_bar_color(bar: ProgressBar, color: Color) -> void:
 	var fill: StyleBoxFlat = StyleBoxFlat.new()
 	fill.bg_color = color
-	fill.set_corner_radius_all(10)
+	# Cantos retos: combina com a moldura pixel art.
 	bar.add_theme_stylebox_override("fill", fill)

@@ -27,16 +27,22 @@ const DRAG_THRESHOLD_PX: float = 24.0
 
 ## Formato: carta (retângulo arredondado) ou círculo (ataque, "Desfocar").
 enum Shape { CARD, CIRCLE }
-## Símbolo desenhado no centro do botão (por código, sem textura). NONE = só o texto.
-enum Icon { NONE, SWORD }
+
+## Fração do raio do círculo que é o "miolo" do botão redondo pixel art (`round_button.png`): o relógio de
+## recarga cobre só ele, não o aro dourado.
+const CIRCLE_CORE_RATIO: float = 0.72
 
 @export var shape: Shape = Shape.CARD
-## Símbolo no centro (ataque = espada).
-@export var icon: Icon = Icon.NONE
-## Risca o símbolo com um traço na diagonal ("Desfocar" = espada riscada: parar de atacar).
-@export var icon_crossed: bool = false
-## Aro metálico em volta do círculo ([constant Shape.CIRCLE]).
-@export var rim_color: Color = Color(0.85, 0.66, 0.32, 1.0)
+## Fundo do botão redondo (pixel art, [code]assets/ui/pixel/round_button.png[/code]), esticado no tamanho do botão.
+## null = círculo liso na [member fill_color].
+@export var button_texture: Texture2D = null
+## Fundo do botão redondo enquanto apertado. null = usa [member button_texture].
+@export var button_pressed_texture: Texture2D = null
+## Símbolo pixel art: no centro do círculo (ataque = espada, "Desfocar" = espada riscada) ou, na carta com texto,
+## à direita do texto (Menu = ☰). Desenhado sem filtro.
+@export var icon_texture: Texture2D = null
+## Lado do símbolo como fração do lado menor do botão (0,5 = metade).
+@export_range(0.1, 1.0) var icon_size: float = 0.5
 ## Texto principal (nome curto da habilidade/ação).
 @export var text: String = "":
 	set(value):
@@ -102,6 +108,8 @@ func _ready() -> void:
 ## diz de onde vem a carta; não cabe tudo em 104 px).
 func _layout_labels() -> void:
 	_caption_label.visible = picture == null or shape != Shape.CARD
+	# Carta com símbolo (Menu ☰): o texto fica na parte esquerda, o símbolo à direita ([method _icon_rect]).
+	_label.anchor_right = 0.6 if icon_texture != null and shape == Shape.CARD else 1.0
 	if picture != null and shape == Shape.CARD:
 		_label.anchor_top = 0.62
 		_label.anchor_bottom = 0.98
@@ -120,6 +128,15 @@ func _layout_labels() -> void:
 func _picture_rect() -> Rect2:
 	var side: float = minf(size.x - 2.0 * (frame_width + 6.0), size.y * 0.58)
 	return Rect2(Vector2((size.x - side) / 2.0, frame_width + 5.0), Vector2(side, side))
+
+
+## Retângulo (px) do símbolo: centrado no círculo; na carta, centrado na faixa da direita (de 58% a 100% da largura).
+func _icon_rect() -> Rect2:
+	var side: float = minf(size.x, size.y) * icon_size
+	var center: Vector2 = size / 2.0
+	if shape == Shape.CARD:
+		center.x = size.x * 0.79
+	return Rect2(center - Vector2(side, side) / 2.0, Vector2(side, side))
 
 
 ## Começa a recarga: [param remaining] segundos de [param total]. O botão fica apagado com o relógio
@@ -218,19 +235,10 @@ func _draw() -> void:
 			var rect: Rect2 = _picture_rect()
 			draw_rect(rect.grow(2.0), _dim(Color(0.05, 0.04, 0.08, 0.9)))
 			draw_texture_rect(picture, rect, false, _dim(Color.WHITE))
-	if icon == Icon.SWORD:
-		_draw_sword(held)
+	if icon_texture != null:
+		draw_texture_rect(icon_texture, _icon_rect(), false, _dim(Color.WHITE))
 	if cooling:
 		_draw_cooldown_clock(cooldown_remaining() / _cooldown_total_s)
-
-
-## Leva [param points] (em unidades de raio, espada em pé) para a tela: escala por [param r], gira
-## [param turn] rad e centraliza em [param center].
-func _place(points: PackedVector2Array, center: Vector2, r: float, turn: float) -> PackedVector2Array:
-	var out: PackedVector2Array = []
-	for point: Vector2 in points:
-		out.append(center + (point * r).rotated(turn))
-	return out
 
 
 ## Multiplica a opacidade de [param color] quando desligado/recarregando (tudo "apagado" junto).
@@ -241,59 +249,15 @@ func _dim(color: Color) -> Color:
 	return faded
 
 
-## Botão redondo: sombra embaixo, aro metálico, anel escuro, miolo na cor [param color] e um brilho
-## na metade de cima (parece abaulado). Apertado: aro mais claro.
+## Botão redondo: a textura pixel art ([member button_texture], ou a de apertado) esticada no botão; sem textura,
+## um círculo liso na cor [param color].
 func _draw_round_button(color: Color, held: bool) -> void:
-	var center: Vector2 = size / 2.0
-	var radius: float = minf(size.x, size.y) / 2.0
-	draw_circle(center + Vector2(0.0, radius * 0.05), radius * 0.98, _dim(Color(0, 0, 0, 0.35)))
-	draw_circle(center, radius * 0.96, _dim(rim_color.lightened(0.25) if held else rim_color))
-	# Filete claro no alto do aro (luz de cima).
-	draw_arc(center, radius * 0.92, PI * 1.15, PI * 1.85, 24, _dim(Color(1, 0.95, 0.8, 0.6)), maxf(1.5, radius * 0.04), true)
-	draw_circle(center, radius * 0.86, _dim(Color(0.14, 0.08, 0.05, 1.0)))
-	draw_circle(center, radius * 0.8, _dim(color))
-	var shine: Color = color.lightened(0.35)
-	shine.a = 0.35
-	draw_circle(center + Vector2(0.0, -radius * 0.24), radius * 0.52, _dim(shine))
-
-
-## Espada na diagonal (ponta para cima/direita): lâmina prateada com fio mais escuro, guarda e pomo
-## dourados, cabo de couro. Com [member icon_crossed], um traço por cima na outra diagonal.
-func _draw_sword(held: bool) -> void:
-	var center: Vector2 = size / 2.0
-	var r: float = minf(size.x, size.y) / 2.0 * (0.95 if shape == Shape.CIRCLE else 0.6)
-	var turn: float = PI / 4.0
-	var outline: Color = _dim(Color(0.1, 0.06, 0.04, 0.95))
-	var line_width: float = maxf(1.5, r * 0.05)
-	# Pontos em "unidades de raio", espada em pé (y negativo = ponta); [method _place] gira 45° e escala.
-	var blade: PackedVector2Array = _place(PackedVector2Array([Vector2(0, -0.72), Vector2(0.11, -0.55), Vector2(0.11, 0.18), Vector2(-0.11, 0.18), Vector2(-0.11, -0.55)]), center, r, turn)
-	var blade_shadow: PackedVector2Array = _place(PackedVector2Array([Vector2(0, -0.72), Vector2(0.11, -0.55), Vector2(0.11, 0.18), Vector2(0, 0.18)]), center, r, turn)
-	var guard: PackedVector2Array = _place(PackedVector2Array([Vector2(-0.34, 0.16), Vector2(0.34, 0.16), Vector2(0.3, 0.27), Vector2(-0.3, 0.27)]), center, r, turn)
-	var grip: PackedVector2Array = _place(PackedVector2Array([Vector2(-0.06, 0.27), Vector2(0.06, 0.27), Vector2(0.06, 0.54), Vector2(-0.06, 0.54)]), center, r, turn)
-	var steel: Color = Color(0.93, 0.94, 0.97) if not held else Color(1, 1, 1)
-	var gold: Color = Color(0.95, 0.76, 0.32)
-	for part: Array in [[blade, steel], [blade_shadow, Color(0.68, 0.71, 0.78)], [guard, gold], [grip, Color(0.42, 0.25, 0.12)]]:
-		var polygon: PackedVector2Array = part[0]
-		var fill: Color = part[1]
-		draw_colored_polygon(polygon, _dim(fill))
-		var closed: PackedVector2Array = polygon.duplicate()
-		closed.append(polygon[0])
-		draw_polyline(closed, outline, line_width, true)
-	# Fio central da lâmina e faixas do cabo.
-	var ridge: PackedVector2Array = _place(PackedVector2Array([Vector2(0, -0.6), Vector2(0, 0.14)]), center, r, turn)
-	draw_line(ridge[0], ridge[1], _dim(Color(0.55, 0.58, 0.66, 0.9)), maxf(1.0, r * 0.025), true)
-	for y: float in [0.35, 0.45]:
-		var wrap: PackedVector2Array = _place(PackedVector2Array([Vector2(-0.06, y), Vector2(0.06, y)]), center, r, turn)
-		draw_line(wrap[0], wrap[1], outline, maxf(1.0, r * 0.03), true)
-	var pommel: Vector2 = _place(PackedVector2Array([Vector2(0, 0.61)]), center, r, turn)[0]
-	draw_circle(pommel, r * 0.09, outline)
-	draw_circle(pommel, r * 0.065, _dim(gold))
-	if icon_crossed:
-		# Traço na outra diagonal (de cima/esquerda para baixo/direita), com contorno escuro.
-		var from: Vector2 = center + Vector2(-0.62, -0.62) * r
-		var to: Vector2 = center + Vector2(0.62, 0.62) * r
-		draw_line(from, to, outline, r * 0.2, true)
-		draw_line(from, to, _dim(Color(0.98, 0.93, 0.86)), r * 0.11, true)
+	var texture: Texture2D = button_pressed_texture if held and button_pressed_texture != null else button_texture
+	if texture != null:
+		var side: float = minf(size.x, size.y)
+		draw_texture_rect(texture, Rect2((size - Vector2(side, side)) / 2.0, Vector2(side, side)), false, _dim(Color.WHITE))
+	else:
+		draw_circle(size / 2.0, minf(size.x, size.y) / 2.0, _dim(color))
 
 
 ## Relógio de recarga: setor escuro que começa no "meio-dia" e cobre a fração [param fraction] que falta,
@@ -317,7 +281,7 @@ func _draw_cooldown_clock(fraction: float) -> void:
 func _shape_polygon() -> PackedVector2Array:
 	if shape == Shape.CIRCLE:
 		var points: PackedVector2Array = []
-		var radius: float = minf(size.x, size.y) / 2.0 * 0.86
+		var radius: float = minf(size.x, size.y) / 2.0 * (CIRCLE_CORE_RATIO if button_texture != null else 1.0)
 		for i: int in range(48):
 			var angle: float = TAU * float(i) / 48.0
 			points.append(size / 2.0 + Vector2(cos(angle), sin(angle)) * radius)

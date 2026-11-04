@@ -1,4 +1,6 @@
-[gd_resource type="Theme" load_steps=13 format=3]
+[gd_resource type="Theme" load_steps=15 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/ui/pixel/frame.png" id="1_frame"]
 
 ; Tema da interface do jogo (telas de login, HUD...). Ver mmo-docs [CLI-07].
 ; Campos de texto e botões: cantos arredondados e espaço interno para o texto não encostar na borda.
@@ -124,17 +126,29 @@ border_width_left = 2
 border_width_top = 2
 border_width_right = 2
 border_width_bottom = 2
-border_color = Color(0.16, 0.09, 0.04, 1)
-corner_radius_top_left = 10
-corner_radius_top_right = 10
-corner_radius_bottom_right = 10
-corner_radius_bottom_left = 10
+border_color = Color(0.09, 0.06, 0.05, 1)
 
-[sub_resource type="StyleBoxEmpty" id="WoodFrame_panel"]
-content_margin_left = 18.0
-content_margin_top = 16.0
-content_margin_right = 18.0
-content_margin_bottom = 16.0
+; Moldura pixel art da HUD (vida/mana e controles), 9-slice de assets/ui/pixel/frame.png (gerado por
+; tools/ui/make_pixel_ui.gd). Margem 24 px = 6 pixels do desenho x 4 de ampliação. Ver [CLI-08].
+[sub_resource type="StyleBoxTexture" id="PixelFrame_panel"]
+content_margin_left = 24.0
+content_margin_top = 22.0
+content_margin_right = 24.0
+content_margin_bottom = 22.0
+texture = ExtResource("1_frame")
+texture_margin_left = 24.0
+texture_margin_top = 24.0
+texture_margin_right = 24.0
+texture_margin_bottom = 24.0
+
+; Painel de tela inteira (Inventário e ficha do item): fundo opaco sem cantos; mais espaço em cima (barra do
+; celular). Ver [CLI-10].
+[sub_resource type="StyleBoxFlat" id="FullScreenPanel_panel"]
+content_margin_left = 24.0
+content_margin_top = 56.0
+content_margin_right = 24.0
+content_margin_bottom = 40.0
+bg_color = Color(0.1, 0.13, 0.18, 1)
 
 [sub_resource type="StyleBoxFlat" id="HudDimmer_panel"]
 bg_color = Color(0, 0, 0, 0.35)
@@ -152,7 +166,9 @@ Button/styles/disabled = SubResource("Button_disabled")
 Button/styles/focus = SubResource("Button_focus")
 PanelContainer/styles/panel = SubResource("Panel_panel")
 ProgressBar/styles/background = SubResource("ProgressBar_background")
-WoodFrame/base_type = &"PanelContainer"
-WoodFrame/styles/panel = SubResource("WoodFrame_panel")
+PixelFrame/base_type = &"PanelContainer"
+PixelFrame/styles/panel = SubResource("PixelFrame_panel")
+FullScreenPanel/base_type = &"PanelContainer"
+FullScreenPanel/styles/panel = SubResource("FullScreenPanel_panel")
 HudDimmer/base_type = &"Panel"
 HudDimmer/styles/panel = SubResource("HudDimmer_panel")

@@ -117,6 +117,8 @@ func _header(item: InventoryState.Item) -> Control:
 ## Bloco de uma habilidade: imagem, nome (com [param tag], ex. "Ataque simples"), descrição e as etiquetas.
 func _ability_block(ability: AbilityView, tag: String) -> Control:
 	var panel: PanelContainer = PanelContainer.new()
+	# Não segura o arrasto: rolar a ficha começando em cima de um bloco também funciona.
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	var box: StyleBoxFlat = StyleBoxFlat.new()
 	box.bg_color = Color(0.1, 0.07, 0.05, 0.75)
 	box.set_corner_radius_all(12)

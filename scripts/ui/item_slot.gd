@@ -1,15 +1,21 @@
 class_name ItemSlot
-extends Button
+extends Control
 ## Um quadro de item do inventário ([CLI-10]): fundo escuro, moldura na cor do conjunto do item e o ícone pixel art
-## no meio. Vazio: moldura apagada com o nome do slot ("Cabeça"). Toque = [signal BaseButton.pressed].
+## no meio. Vazio: moldura apagada com o nome do slot ("Cabeça"). Toque = [signal pressed].
 ##
-## É um [Button] (sem estilo próprio, desenho em [method _draw]) para funcionar com toque dentro do
-## [ScrollContainer] da mochila (arrastar rola, tocar aperta).
+## Funciona dentro do [ScrollContainer] da mochila: o quadro **não segura** o toque (`MOUSE_FILTER_PASS`), então o
+## arrasto chega ao ScrollContainer e rola a grade; e se o dedo andar mais que [constant DRAG_CANCEL_PX] o toque
+## vira rolagem e **não** abre o item ao soltar. (Como [Button] ele parava o arrasto: a grade não rolava.)
+
+## Tocou e soltou em cima do quadro, sem arrastar.
+signal pressed
 
 ## Espessura da moldura, em px.
 const BORDER_PX: int = 4
 ## Margem entre a moldura e o ícone, em px.
 const ICON_MARGIN_PX: float = 10.0
+## Quanto (px) o dedo pode andar e ainda contar como toque; mais que isso = rolando.
+const DRAG_CANCEL_PX: float = 14.0
 ## Cor do fundo do quadro.
 const BACKGROUND: Color = Color(0.11, 0.08, 0.06, 0.95)
 ## Moldura do slot vazio.
@@ -19,10 +25,17 @@ const EMPTY_BORDER: Color = Color(0.45, 0.36, 0.26, 0.55)
 var item: InventoryState.Item = null
 ## Texto do slot vazio (ex.: "Cabeça").
 var empty_text: String = ""
+## Desligado: ignora toques (vaga livre da mochila, ícone grande da ficha).
+var disabled: bool = false
+
+## Dedo apertado em cima do quadro (e ainda não virou rolagem).
+var _held: bool = false
+## Onde o toque começou (px, local).
+var _press_position: Vector2 = Vector2.ZERO
 
 
 func _init() -> void:
-	flat = true
+	mouse_filter = Control.MOUSE_FILTER_PASS
 	focus_mode = Control.FOCUS_NONE
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	custom_minimum_size = Vector2(104, 104)
@@ -32,13 +45,37 @@ func _init() -> void:
 func show_item(shown: InventoryState.Item, empty_label: String = "") -> void:
 	item = shown
 	empty_text = empty_label
-	tooltip_text = shown.name if shown != null else empty_label
 	queue_redraw()
+
+
+## Toque (o toque chega aqui como clique emulado). Não chama accept_event: o ScrollContainer pai também recebe e rola.
+func _gui_input(event: InputEvent) -> void:
+	if disabled:
+		return
+	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		var button: InputEventMouseButton = event as InputEventMouseButton
+		if button.pressed:
+			_held = true
+			_press_position = button.position
+		elif _held:
+			_held = false
+			if Rect2(Vector2.ZERO, size).has_point(button.position):
+				pressed.emit()
+		queue_redraw()
+	elif event is InputEventMouseMotion and _held:
+		if (event as InputEventMouseMotion).position.distance_to(_press_position) > DRAG_CANCEL_PX:
+			_held = false
+			queue_redraw()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_MOUSE_EXIT or what == NOTIFICATION_VISIBILITY_CHANGED:
+		_held = false
 
 
 func _draw() -> void:
 	var rect: Rect2 = Rect2(Vector2.ZERO, size)
-	var held: bool = is_pressed() or (button_pressed and toggle_mode)
+	var held: bool = _held
 	var box: StyleBoxFlat = StyleBoxFlat.new()
 	box.bg_color = BACKGROUND.lightened(0.12) if held else BACKGROUND
 	box.set_corner_radius_all(12)
