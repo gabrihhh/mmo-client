@@ -12,6 +12,9 @@ extends SceneTree
 ##
 ## Fontes de animação de fora do modelo (pasta tools/characters/animations, não vai no jogo) precisam importar com o
 ## mesmo mapa de ossos (mixamo_bone_map.tres) para os nomes dos ossos baterem; ver tools/characters/meshy_anim_source.py.
+## Elas vêm de OUTRO rig (o da API do Meshy), com os ossos em outros lugares dentro do corpo (ombro para trás, braço
+## inclinado...): copiar só a rotação deixava braços e pernas tortos. Por isso são reconvertidas quadro a quadro
+## ([method _bake]): cada osso aponta para a mesma direção que tem na animação original.
 
 ## Clipes de ação do Meshy (mesmos nomes nos dois corpos): nome no .glb → [nome no jogo, início (s), fim (s)].
 ## Cada clipe é cortado no trecho útil (sem preparação parada nem recuperação longa); o momento do golpe dentro do
@@ -56,6 +59,16 @@ const CHARACTERS: Array[Dictionary] = [
 const LOOPED: Array[String] = ["run", "idle"]
 ## Osso raiz (o único com trilha de posição que importa).
 const HIPS: StringName = &"Hips"
+## Quadros por segundo da reconversão entre rigs ([method _bake]).
+const BAKE_FPS: float = 30.0
+## Osso → filho que dá a direção dele (o "para onde aponta"). Osso fora da lista só recebe a rotação de corpo todo.
+const AIM_CHILD: Dictionary[String, String] = {
+	"Spine": "Chest", "Chest": "UpperChest", "UpperChest": "Neck", "Neck": "Head",
+	"LeftShoulder": "LeftUpperArm", "LeftUpperArm": "LeftLowerArm", "LeftLowerArm": "LeftHand",
+	"RightShoulder": "RightUpperArm", "RightUpperArm": "RightLowerArm", "RightLowerArm": "RightHand",
+	"LeftUpperLeg": "LeftLowerLeg", "LeftLowerLeg": "LeftFoot", "LeftFoot": "LeftToes",
+	"RightUpperLeg": "RightLowerLeg", "RightLowerLeg": "RightFoot", "RightFoot": "RightToes",
+}
 ## Placeholder (referência das poses convertidas).
 const REFERENCE_SCENE: String = "res://assets/placeholders/character.tscn"
 const REFERENCE_ANIMATIONS: String = "res://assets/placeholders/character_animations.tres"
@@ -81,7 +94,9 @@ func _make(scene_path: String, sources: Dictionary, output: String) -> Error:
 	var library: AnimationLibrary = AnimationLibrary.new()
 	for glb_path: String in sources:
 		var clips: Dictionary = sources[glb_path]
-		var own: Dictionary[String, Animation] = _own_animations(glb_path, clips, target, target_path)
+		# Fonte que não é o próprio modelo do personagem = outro rig: reconverter.
+		var other_rig: bool = glb_path != (character.get_node("Model") as Node).scene_file_path
+		var own: Dictionary[String, Animation] = _own_animations(glb_path, clips, target, target_path, other_rig)
 		for anim_name: String in own:
 			if library.has_animation(anim_name):
 				continue
@@ -104,8 +119,8 @@ func _make(scene_path: String, sources: Dictionary, output: String) -> Error:
 ## com as trilhas apontando
 ## para [param target_path]. Só ficam trilhas de ossos que existem em [param target]. O quadril fica no lugar (sem
 ## andar sozinho em X/Z: quem move o personagem é a simulação) e na altura do esqueleto alvo (o rig de outra fonte
-## pode ter a origem e o quadril em outra altura).
-func _own_animations(glb_path: String, clips: Dictionary, target: Skeleton3D, target_path: String) -> Dictionary[String, Animation]:
+## pode ter a origem e o quadril em outra altura). [param other_rig]: a fonte é outro rig ([method _bake]).
+func _own_animations(glb_path: String, clips: Dictionary, target: Skeleton3D, target_path: String, other_rig: bool) -> Dictionary[String, Animation]:
 	var result: Dictionary[String, Animation] = {}
 	var model: Node = (load(glb_path) as PackedScene).instantiate()
 	var players: Array[Node] = model.find_children("*", "AnimationPlayer", true, false)
@@ -128,6 +143,8 @@ func _own_animations(glb_path: String, clips: Dictionary, target: Skeleton3D, ta
 			continue
 		var spec: Array = clips[source_name]
 		var anim: Animation = _trim(player.get_animation(source_name), float(spec[1]), float(spec[2]))
+		if other_rig:
+			anim = _bake(anim, source_skeleton, target)
 		for track: int in range(anim.get_track_count() - 1, -1, -1):
 			var bone: String = String(anim.track_get_path(track)).get_slice(":", 1)
 			# Ossos-ponta (sem peso na malha) e o que não existe no alvo não precisam de trilha.
@@ -192,3 +209,90 @@ func _sample(anim: Animation, track: int, type: Animation.TrackType, time: float
 			return anim.scale_track_interpolate(track, time)
 		_:
 			return anim.value_track_interpolate(track, time)
+
+
+## Reconverte [param anim] (do esqueleto [param source]) para [param target], quadro a quadro ([constant BAKE_FPS]).
+## Para cada osso: a rotação de corpo todo da fonte (pose global × inverso do repouso global) é aplicada ao repouso
+## do alvo já corrigido para apontar como o osso da fonte no repouso ([constant AIM_CHILD]); assim a direção de cada
+## osso na pose bate com a original mesmo que os dois rigs ponham as juntas em lugares diferentes. Devolve trilhas de
+## rotação (caminho "<skeleton>:<osso>", trocado depois pelo do personagem) e a de posição do quadril original.
+func _bake(anim: Animation, source: Skeleton3D, target: Skeleton3D) -> Animation:
+	var rotation_tracks: Dictionary[String, int] = {}
+	var hips_track: int = -1
+	for track: int in range(anim.get_track_count()):
+		var bone: String = String(anim.track_get_path(track)).get_slice(":", 1)
+		match anim.track_get_type(track):
+			Animation.TYPE_ROTATION_3D:
+				rotation_tracks[bone] = track
+			Animation.TYPE_POSITION_3D:
+				if bone == String(HIPS):
+					hips_track = track
+	var source_order: PackedInt32Array = _bone_order(source)
+	var target_order: PackedInt32Array = _bone_order(target)
+	# Correção de repouso por osso do alvo (global): gira a direção do osso do alvo até a do osso da fonte.
+	var rest_fix: Dictionary[int, Quaternion] = {}
+	for bone: int in target_order:
+		var name: String = target.get_bone_name(bone)
+		var child_name: String = AIM_CHILD.get(name, "")
+		var source_bone: int = source.find_bone(name)
+		if child_name.is_empty() or source_bone < 0 or target.find_bone(child_name) < 0 or source.find_bone(child_name) < 0:
+			rest_fix[bone] = Quaternion.IDENTITY
+			continue
+		var target_dir: Vector3 = target.get_bone_global_rest(target.find_bone(child_name)).origin - target.get_bone_global_rest(bone).origin
+		var source_dir: Vector3 = source.get_bone_global_rest(source.find_bone(child_name)).origin - source.get_bone_global_rest(source_bone).origin
+		rest_fix[bone] = Quaternion(target_dir.normalized(), source_dir.normalized())
+
+	var result: Animation = Animation.new()
+	result.length = anim.length
+	var out_tracks: Dictionary[int, int] = {}
+	for bone: int in target_order:
+		if source.find_bone(target.get_bone_name(bone)) < 0:
+			continue
+		var track: int = result.add_track(Animation.TYPE_ROTATION_3D)
+		result.track_set_path(track, NodePath("Skeleton:%s" % target.get_bone_name(bone)))
+		out_tracks[bone] = track
+	if hips_track >= 0:
+		var track: int = result.add_track(Animation.TYPE_POSITION_3D)
+		result.track_set_path(track, NodePath("Skeleton:%s" % HIPS))
+		for key: int in range(anim.track_get_key_count(hips_track)):
+			result.position_track_insert_key(track, anim.track_get_key_time(hips_track, key), anim.track_get_key_value(hips_track, key))
+
+	var frames: int = ceili(anim.length * BAKE_FPS)
+	for frame: int in range(frames + 1):
+		var time: float = minf(float(frame) / BAKE_FPS, anim.length)
+		# Pose global (rotação) da fonte neste instante.
+		var source_global: Dictionary[int, Quaternion] = {}
+		for bone: int in source_order:
+			var local: Quaternion = source.get_bone_rest(bone).basis.get_rotation_quaternion()
+			var name: String = source.get_bone_name(bone)
+			if rotation_tracks.has(name):
+				local = anim.rotation_track_interpolate(rotation_tracks[name], time)
+			var parent: int = source.get_bone_parent(bone)
+			source_global[bone] = (source_global[parent] if parent >= 0 else Quaternion.IDENTITY) * local
+		# Pose global do alvo, do pai para os filhos.
+		var target_global: Dictionary[int, Quaternion] = {}
+		for bone: int in target_order:
+			var parent: int = target.get_bone_parent(bone)
+			var parent_global: Quaternion = target_global[parent] if parent >= 0 else Quaternion.IDENTITY
+			var rest_global: Quaternion = target.get_bone_global_rest(bone).basis.get_rotation_quaternion()
+			var source_bone: int = source.find_bone(target.get_bone_name(bone))
+			var global: Quaternion = parent_global * target.get_bone_rest(bone).basis.get_rotation_quaternion()
+			if source_bone >= 0:
+				var delta: Quaternion = source_global[source_bone] * source.get_bone_global_rest(source_bone).basis.get_rotation_quaternion().inverse()
+				global = delta * rest_fix[bone] * rest_global
+			target_global[bone] = global.normalized()
+			if out_tracks.has(bone):
+				result.rotation_track_insert_key(out_tracks[bone], time, (parent_global.inverse() * global).normalized())
+	return result
+
+
+## Índices dos ossos de [param skeleton] com cada pai antes dos filhos.
+func _bone_order(skeleton: Skeleton3D) -> PackedInt32Array:
+	var order: PackedInt32Array = PackedInt32Array()
+	var pending: Array[int] = []
+	pending.assign(skeleton.get_parentless_bones())
+	while not pending.is_empty():
+		var bone: int = pending.pop_front()
+		order.append(bone)
+		pending.append_array(skeleton.get_bone_children(bone))
+	return order
