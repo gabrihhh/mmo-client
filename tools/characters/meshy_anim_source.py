@@ -4,9 +4,10 @@
   (mixamorig:Hips, mixamorig:Spine...), para valer o mesmo assets/characters/mixamo_bone_map.tres.
   Atenção: na API a coluna é Hips → Spine02 → Spine01 → Spine (o "Spine" é o de cima).
 - Tira texturas e materiais (o arquivo só serve para ler a animação; não vai no jogo).
-- Renomeia o clipe (ex.: "Armature|Idle|baselayer" → "Idle").
+- Com um clipe só, renomeia (ex.: "Armature|Idle|baselayer" → "Idle"); arquivo com vários clipes (meshy_animate com
+  action_ids) mantém os nomes do Meshy (ex.: "Right_Hand_Sword_Slash").
 
-Uso: python3 meshy_anim_source.py entrada.glb saida.glb NomeDoClipe
+Uso: python3 meshy_anim_source.py entrada.glb saida.glb [NomeDoClipe]
 """
 import json
 import struct
@@ -18,7 +19,7 @@ BONES: list[str] = ["Hips", "Head", "LeftShoulder", "LeftArm", "LeftForeArm", "L
                     "RightUpLeg", "RightLeg", "RightFoot", "RightToeBase"]
 
 
-def main(src: str, dst: str, clip: str) -> None:
+def main(src: str, dst: str, clip: str | None) -> None:
     data = open(src, "rb").read()
     json_len = struct.unpack("<I", data[12:16])[0]
     doc = json.loads(data[20:20 + json_len])
@@ -30,8 +31,10 @@ def main(src: str, dst: str, clip: str) -> None:
         name = node.get("name", "")
         if name in joints and (name in RENAME or name in BONES):
             node["name"] = "mixamorig:" + RENAME.get(name, name)
-    assert len(doc["animations"]) == 1, "esperado um clipe só"
-    doc["animations"][0]["name"] = clip
+    if clip is not None:
+        assert len(doc["animations"]) == 1, "nome de clipe só vale para arquivo com um clipe"
+        doc["animations"][0]["name"] = clip
+    print("clipes:", [a.get("name") for a in doc["animations"]])
 
     for key in ("images", "textures", "samplers", "materials"):
         doc.pop(key, None)
@@ -70,4 +73,4 @@ def main(src: str, dst: str, clip: str) -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2], sys.argv[3])
+    main(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None)
