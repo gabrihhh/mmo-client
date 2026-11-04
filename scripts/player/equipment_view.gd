@@ -68,6 +68,8 @@ var _held_grip: Basis = Basis.IDENTITY
 var _held_pull: float = 0.0
 ## Direção de puxão atual (global, suavizada: não pula ao começar/terminar a ação). Zero = ainda não definida.
 var _held_direction: Vector3 = Vector3.ZERO
+## Malha original do corpo (antes de esconder os pés).
+var _body_mesh: Mesh = null
 ## Malhas com pesos criadas para o item de peito ([BodySkinning]); liberadas a cada troca de roupa.
 var _skinned: Array[MeshInstance3D] = []
 ## Fecha os dedos de quem segura algo (null = corpo sem ossos de dedo).
@@ -84,6 +86,10 @@ func _process(delta: float) -> void:
 	if _held_model == null or not is_instance_valid(_held_model):
 		_set_arm_weight("Right", 0.0)
 		_set_arm_weight("Left", 0.0)
+		if _hand_grip != null:
+			_hand_grip.set_held(null)
+			_hand_grip.set_hand_rotation("Right", Basis.IDENTITY, 0.0)
+			_hand_grip.set_hand_rotation("Left", Basis.IDENTITY, 0.0)
 		return
 	var body: Node3D = get_parent() as Node3D
 	var body_basis: Basis = body.global_basis.orthonormalized()
@@ -103,6 +109,13 @@ func _process(delta: float) -> void:
 	var size: float = rigid.get_scale().y
 	var follow_basis: Basis = _basis_along((rigid.y.normalized() + _held_direction * _held_pull).normalized(), rigid.z)
 	var follow_origin: Vector3 = mount.global_position
+	# Mão fechada ([HandGrip]): o cabo passa pelo punho. A mão gira para o eixo da arma e a arma fica no punho.
+	var fisted: bool = _hand_grip != null
+	var follow_hand: Basis = Basis.IDENTITY
+	if fisted:
+		var wrist: Vector3 = _bone_position("RightHand")
+		follow_hand = _hand_basis("Right", follow_basis.y, wrist - _bone_position("RightLowerArm"))
+		follow_origin = wrist + follow_hand * _fist_offset("Right")
 
 	# 2) Posição de carregar à frente do corpo (parado/correndo), misturada pelo peso.
 	var carry: Transform3D = ItemModels.carry(_held_id)
@@ -118,6 +131,10 @@ func _process(delta: float) -> void:
 		final_origin = follow_origin.lerp(carry_origin, _carry_weight)
 	_held_model.global_transform = Transform3D(final_basis.scaled_local(Vector3.ONE * size), final_origin)
 
+	if fisted:
+		_grip_hands(final_basis.y.normalized(), final_origin, follow_hand)
+		return
+
 	# 3) Mãos: a direita vai ao cabo só carregando (na ação quem manda é a animação); a esquerda, sempre que a arma
 	#    for de duas mãos.
 	_place_arm("Right", final_origin + body_basis * WRIST_FROM_GRIP, _carry_weight)
@@ -126,6 +143,43 @@ func _process(delta: float) -> void:
 		_place_arm("Left", off_grip + body_basis * WRIST_FROM_GRIP, 1.0)
 	else:
 		_set_arm_weight("Left", 0.0)
+
+
+## Mãos fechadas em volta do cabo ([HandGrip]). [param axis] = eixo da arma (global, do cabo para a ponta),
+## [param grip] = ponto do cabo da mão direita (global), [param follow_hand] = rotação da mão direita seguindo a
+## animação. Carregando, o pulso vai por IK até onde o punho envolve o cabo; na ação, o pulso é o da animação (a arma
+## já foi posta no punho). Arma de duas mãos: a esquerda fecha no segundo ponto do cabo.
+func _grip_hands(axis: Vector3, grip: Vector3, follow_hand: Basis) -> void:
+	var carry_hand: Basis = _hand_basis("Right", axis, grip - _bone_position("RightUpperArm"))
+	var hand: Basis = Basis(follow_hand.get_rotation_quaternion().slerp(carry_hand.get_rotation_quaternion(), _carry_weight))
+	_place_arm("Right", grip - hand * _fist_offset("Right"), _carry_weight)
+	_hand_grip.set_hand_rotation("Right", hand, 1.0)
+	_hand_grip.set_held(_held_model)
+	if ItemModels.is_two_handed(_held_id):
+		var off_grip: Vector3 = _held_model.global_transform * ItemModels.off_hand_grip(_held_id)
+		var left: Basis = _hand_basis("Left", axis, off_grip - _bone_position("LeftUpperArm"))
+		_place_arm("Left", off_grip - left * _fist_offset("Left"), 1.0)
+		_hand_grip.set_hand_rotation("Left", left, 1.0)
+	else:
+		_set_arm_weight("Left", 0.0)
+		_hand_grip.set_hand_rotation("Left", Basis.IDENTITY, 0.0)
+
+
+## Rotação global da mão [param side] com o buraco do punho no eixo [param axis] (polegar para o lado da ponta) e os
+## dedos o mais perto possível de [param along_hint] (direção do braço até a mão).
+func _hand_basis(side: String, axis: Vector3, along_hint: Vector3) -> Basis:
+	var fist: Transform3D = _hand_grip.fist_frame(side)
+	var x: Vector3 = axis.normalized()
+	var y: Vector3 = along_hint - x * along_hint.dot(x)
+	if y.length() < 0.001:
+		y = x.cross(Vector3.UP if absf(x.y) < 0.9 else Vector3.FORWARD)
+	y = y.normalized()
+	return Basis(x, y, x.cross(y)) * fist.basis.inverse()
+
+
+## Do pulso ao centro do punho da mão [param side], no espaço da mão já girada (multiplicar pela rotação global da mão).
+func _fist_offset(side: String) -> Vector3:
+	return _hand_grip.fist_frame(side).origin * _skeleton.global_basis.get_scale().x
 
 
 ## Cria os encaixes nos ossos de [param skeleton]. [param placements]: encaixe ("hand", "head", "chest", "foot_left")
@@ -232,6 +286,7 @@ func _refresh() -> void:
 	for instance: MeshInstance3D in _skinned:
 		instance.queue_free()
 	_skinned.clear()
+	_hide_body_feet(_state != null and _mounts.has("foot_left") and ItemModels.has_model(String(_state.look.get("feet", ""))))
 	var hand_item: String = _state.look.get("hand", "") if _state != null else ""
 	if animator != null:
 		animator.set_idle_animation(ItemModels.idle_animation(hand_item))
@@ -270,10 +325,27 @@ func _refresh() -> void:
 			_dress(model, mount, key)
 
 
+## Com calçado ([param hidden] true), o corpo usa a malha com os pés escondidos ([method BodySkinning.feet_hidden_mesh]):
+## o pé não aparece por fora do calçado. Sem calçado, a malha original.
+func _hide_body_feet(hidden: bool) -> void:
+	if body == null:
+		return
+	if _body_mesh == null:
+		_body_mesh = body.mesh
+	var wanted: Mesh = _body_mesh
+	if hidden:
+		BodySkinning.sample(body, _skeleton, _body_mesh)
+		var variant: ArrayMesh = BodySkinning.feet_hidden_mesh(body, _skeleton, _body_mesh)
+		if variant != null:
+			wanted = variant
+	if body.mesh != wanted:
+		body.mesh = wanted
+
+
 ## Troca o item rígido [param model] (no encaixe [param mount], chave [param key]) por malhas com os pesos do corpo
 ## ([BodySkinning]). Peito: fica onde o encaixe pela caixa o pôs. Calçado: encaixado pelo pé do corpo.
 func _dress(model: Node3D, mount: Node3D, key: String) -> void:
-	var data: BodySkinning.BodyData = BodySkinning.sample(body, _skeleton)
+	var data: BodySkinning.BodyData = BodySkinning.sample(body, _skeleton, _body_mesh)
 	var rest: Transform3D
 	if key == "chest":
 		# Onde o item fica com o corpo em repouso: repouso do osso × encaixe × item (espaço do esqueleto).
@@ -282,7 +354,7 @@ func _dress(model: Node3D, mount: Node3D, key: String) -> void:
 		rest = BodySkinning.foot_rest(model, data, _skeleton, "Left" if key == "foot_left" else "Right")
 		if rest == Transform3D.IDENTITY:
 			return
-	var created: Array[MeshInstance3D] = BodySkinning.skin(model, _skeleton, rest, data)
+	var created: Array[MeshInstance3D] = BodySkinning.skin(model, _skeleton, rest, data, key == "chest")
 	if created.is_empty():
 		return
 	_skinned.append_array(created)

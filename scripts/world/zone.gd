@@ -235,9 +235,10 @@ func _on_cast_cancel(source_id: String) -> void:
 	if model != null:
 		model.stop_action()
 		model.hide_cast_glow()
-	var warning: GroundWarning = _cast_warnings.get(source_id, null)
-	if warning != null and is_instance_valid(warning):
-		warning.queue_free()
+	# O aviso pode já ter sumido sozinho (liberado): checar antes de pôr numa variável tipada.
+	var entry: Variant = _cast_warnings.get(source_id, null)
+	if is_instance_valid(entry):
+		(entry as GroundWarning).queue_free()
 	_cast_warnings.erase(source_id)
 
 

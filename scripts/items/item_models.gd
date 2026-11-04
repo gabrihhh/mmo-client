@@ -86,6 +86,11 @@ const _OFF_HAND_GRIP: Dictionary[String, Vector3] = {
 const _PAIRED: Array[String] = ["assassin_daggers"]
 
 
+## true se [param item_id] tem modelo 3D (ex.: as botas de treino ainda não têm).
+static func has_model(item_id: String) -> bool:
+	return _PATHS.has(item_id)
+
+
 ## Cria o modelo do item [param item_id], ou null se ele não tiver modelo.
 static func instantiate(item_id: String) -> Node3D:
 	if not _PATHS.has(item_id):

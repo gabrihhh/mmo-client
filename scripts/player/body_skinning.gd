@@ -22,6 +22,12 @@ const CELL_M: float = 0.05
 const FOOT_MARGIN: float = 1.12
 ## Quanto (m) a sola da bota fica abaixo da sola do pé (a pele não aparece por baixo; o chão esconde a diferença).
 const SOLE_DROP_M: float = 0.006
+## Item de peito: parte do peso do braço que fica no braço (o resto vai para a clavícula, `<Lado>Shoulder`). A peça
+## fica por cima do ombro, longe da junta: seguindo o braço inteiro ela gira demais e amassa quando o braço desce da
+## pose T (a ombreira desabava e o braço atravessava).
+const CHEST_ARM_SHARE: float = 0.35
+## Ossos do braço (prefixo do lado na frente), todos levados ao UpperArm/Shoulder no item de peito.
+const ARM_BONES: Array[String] = ["UpperArm", "LowerArm", "Hand", "Fingers", "Thumb"]
 ## Ossos que contam como "pé" (prefixo do lado na frente).
 const FOOT_BONES: Array[String] = ["Foot", "Toes"]
 
@@ -40,12 +46,18 @@ class BodyData:
 	var grid: Dictionary[Vector3i, PackedInt32Array] = {}
 	## Skin com um bind por osso do esqueleto (bind i = osso i), para as roupas.
 	var skin: Skin = null
+	## Item de peito: osso do braço → [[osso, fração], ...] (braço amortecido, [constant CHEST_ARM_SHARE]).
+	var chest_remap: Dictionary[int, Array] = {}
+	## Malha do corpo com os pés escondidos (para quem está de calçado), criada na primeira vez.
+	var feet_hidden: ArrayMesh = null
 
 
 ## Dados do corpo [param body] (malha com pesos) no esqueleto [param skeleton]; calculados na primeira vez.
-static func sample(body: MeshInstance3D, skeleton: Skeleton3D) -> BodyData:
-	if _cache.has(body.mesh):
-		return _cache[body.mesh]
+## [param original] = a malha original do corpo (o [param body] pode estar com a versão de pés escondidos).
+static func sample(body: MeshInstance3D, skeleton: Skeleton3D, original: Mesh = null) -> BodyData:
+	var mesh: Mesh = original if original != null else body.mesh
+	if _cache.has(mesh):
+		return _cache[mesh]
 	var data: BodyData = BodyData.new()
 	var body_skin: Skin = body.skin
 	var bind_bone: PackedInt32Array = PackedInt32Array()
@@ -58,8 +70,8 @@ static func sample(body: MeshInstance3D, skeleton: Skeleton3D) -> BodyData:
 		if bind_bone[b] >= 0:
 			to_skeleton = skeleton.get_bone_global_rest(bind_bone[b]) * body_skin.get_bind_pose(b)
 			break
-	for surface: int in range(body.mesh.get_surface_count()):
-		var arrays: Array = body.mesh.surface_get_arrays(surface)
+	for surface: int in range(mesh.get_surface_count()):
+		var arrays: Array = mesh.surface_get_arrays(surface)
 		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 		var bones: PackedInt32Array = arrays[Mesh.ARRAY_BONES]
 		var weights: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS]
@@ -79,8 +91,86 @@ static func sample(body: MeshInstance3D, skeleton: Skeleton3D) -> BodyData:
 	data.skin = Skin.new()
 	for bone: int in range(skeleton.get_bone_count()):
 		data.skin.add_bind(bone, skeleton.get_bone_global_rest(bone).affine_inverse())
-	_cache[body.mesh] = data
+	for side: String in ["Left", "Right"]:
+		var upper: int = skeleton.find_bone(side + "UpperArm")
+		var shoulder: int = skeleton.find_bone(side + "Shoulder")
+		if upper < 0:
+			continue
+		for name: String in ARM_BONES:
+			var bone: int = skeleton.find_bone(side + name)
+			if bone >= 0:
+				data.chest_remap[bone] = [[upper, CHEST_ARM_SHARE], [shoulder if shoulder >= 0 else skeleton.get_bone_parent(upper), 1.0 - CHEST_ARM_SHARE]]
+	_cache[mesh] = data
 	return data
+
+
+## Malha do corpo [param body] com os vértices do pé (ossos `<Lado>Foot`/`<Lado>Toes`) encolhidos até o tornozelo:
+## com calçado, o pé não aparece por fora (o bico de alguns calçados é mais baixo que os dedos do corpo). Uma por
+## malha de corpo, compartilhada.
+static func feet_hidden_mesh(body: MeshInstance3D, skeleton: Skeleton3D, original: Mesh) -> ArrayMesh:
+	var data: BodyData = _cache.get(original)
+	if data == null:
+		return null
+	if data.feet_hidden != null:
+		return data.feet_hidden
+	var body_skin: Skin = body.skin
+	var foot_binds: Dictionary[int, bool] = {}
+	for b: int in range(body_skin.get_bind_count()):
+		var bone_name: String = String(body_skin.get_bind_name(b))
+		for side: String in ["Left", "Right"]:
+			for name: String in FOOT_BONES:
+				if bone_name == side + name:
+					foot_binds[b] = true
+	var mesh: ArrayMesh = ArrayMesh.new()
+	for surface: int in range(original.get_surface_count()):
+		var arrays: Array = original.surface_get_arrays(surface)
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var bones: PackedInt32Array = arrays[Mesh.ARRAY_BONES]
+		var weights: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS]
+		var per: int = bones.size() / maxi(1, vertices.size())
+		var ankles: Dictionary[int, Vector3] = _ankles(vertices, bones, weights, per, foot_binds)
+		for v: int in range(vertices.size()):
+			if _is_foot(bones, weights, per, foot_binds, v):
+				# Encolhe para perto do tornozelo: fica escondido dentro do calçado.
+				vertices[v] = vertices[v].lerp(ankles[1 if vertices[v].x > 0.0 else -1], 0.85)
+		arrays[Mesh.ARRAY_VERTEX] = vertices
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		mesh.surface_set_material(surface, original.surface_get_material(surface))
+	data.feet_hidden = mesh
+	return mesh
+
+
+## Centro aproximado de cada tornozelo (chave −1 = lado −X, 1 = lado +X): média dos vértices do pé (osso dominante
+## em [param foot_binds]) mais altos que o meio daquele pé.
+static func _ankles(vertices: PackedVector3Array, bones: PackedInt32Array, weights: PackedFloat32Array, per: int,
+		foot_binds: Dictionary[int, bool]) -> Dictionary[int, Vector3]:
+	var result: Dictionary[int, Vector3] = {}
+	for side_key: int in [-1, 1]:
+		var low: float = INF
+		var high: float = -INF
+		var members: PackedInt32Array = PackedInt32Array()
+		for i: int in range(vertices.size()):
+			if _is_foot(bones, weights, per, foot_binds, i) and (1 if vertices[i].x > 0.0 else -1) == side_key:
+				members.append(i)
+				low = minf(low, vertices[i].y)
+				high = maxf(high, vertices[i].y)
+		var center: Vector3 = Vector3.ZERO
+		var count: int = 0
+		for i: int in members:
+			if vertices[i].y > (low + high) / 2.0:
+				center += vertices[i]
+				count += 1
+		result[side_key] = center / float(maxi(1, count))
+	return result
+
+
+## true se o osso dominante do vértice [param v] é um osso de pé.
+static func _is_foot(bones: PackedInt32Array, weights: PackedFloat32Array, per: int, foot_binds: Dictionary[int, bool], v: int) -> bool:
+	var best: int = 0
+	for k: int in range(1, per):
+		if weights[v * per + k] > weights[v * per + best]:
+			best = k
+	return foot_binds.has(bones[v * per + best])
 
 
 ## Onde fica o calçado [param model] (feito para o pé esquerdo, bico em +Z) no pé [param side] ("Left"/"Right"), no
@@ -154,26 +244,27 @@ static func _gather_points(node: Node, parent_xform: Transform3D, points: Packed
 
 ## Cria, como filhos de [param skeleton], as malhas com pesos equivalentes às de [param model], com o [param model]
 ## posto em [param rest] (espaço do esqueleto, corpo em repouso). Quem chamou libera/esconde o [param model].
-static func skin(model: Node3D, skeleton: Skeleton3D, rest: Transform3D, data: BodyData) -> Array[MeshInstance3D]:
+## [param chest] = item de peito (influência do braço amortecida, [constant CHEST_ARM_SHARE]).
+static func skin(model: Node3D, skeleton: Skeleton3D, rest: Transform3D, data: BodyData, chest: bool = false) -> Array[MeshInstance3D]:
 	var created: Array[MeshInstance3D] = []
-	_collect(model, rest * model.transform.affine_inverse(), skeleton, data, created)
+	_collect(model, rest * model.transform.affine_inverse(), skeleton, data, created, chest)
 	return created
 
 
 static func _collect(node: Node, parent_xform: Transform3D, skeleton: Skeleton3D, data: BodyData,
-		created: Array[MeshInstance3D]) -> void:
+		created: Array[MeshInstance3D], chest: bool) -> void:
 	var xform: Transform3D = parent_xform * (node as Node3D).transform if node is Node3D else parent_xform
 	if node is MeshInstance3D and (node as MeshInstance3D).mesh != null:
-		var instance: MeshInstance3D = _skinned_copy(node as MeshInstance3D, xform, data)
+		var instance: MeshInstance3D = _skinned_copy(node as MeshInstance3D, xform, data, chest)
 		skeleton.add_child(instance)
 		instance.skeleton = instance.get_path_to(skeleton)
 		created.append(instance)
 	for child: Node in node.get_children():
-		_collect(child, xform, skeleton, data, created)
+		_collect(child, xform, skeleton, data, created, chest)
 
 
 ## Cópia de [param source] com vértices no espaço do esqueleto ([param xform]) e os pesos transferidos do corpo.
-static func _skinned_copy(source: MeshInstance3D, xform: Transform3D, data: BodyData) -> MeshInstance3D:
+static func _skinned_copy(source: MeshInstance3D, xform: Transform3D, data: BodyData, chest: bool) -> MeshInstance3D:
 	var mesh: ArrayMesh = ArrayMesh.new()
 	var normal_basis: Basis = xform.basis.inverse().transposed()
 	var mirrored: bool = xform.basis.determinant() < 0.0
@@ -189,7 +280,7 @@ static func _skinned_copy(source: MeshInstance3D, xform: Transform3D, data: Body
 			vertices[v] = xform * vertices[v]
 			if v < normals.size():
 				normals[v] = (normal_basis * normals[v]).normalized()
-			_transfer(vertices[v], data, bones, weights, v)
+			_transfer(vertices[v], data, bones, weights, v, chest)
 		arrays[Mesh.ARRAY_VERTEX] = vertices
 		if not normals.is_empty():
 			arrays[Mesh.ARRAY_NORMAL] = normals
@@ -218,7 +309,8 @@ static func _skinned_copy(source: MeshInstance3D, xform: Transform3D, data: Body
 
 ## Pesos do vértice [param v] (em [param point]) = média, pela distância, dos [constant NEIGHBORS] vértices do corpo
 ## mais próximos; ficam os 4 ossos de maior peso, normalizados.
-static func _transfer(point: Vector3, data: BodyData, bones: PackedInt32Array, weights: PackedFloat32Array, v: int) -> void:
+static func _transfer(point: Vector3, data: BodyData, bones: PackedInt32Array, weights: PackedFloat32Array, v: int,
+		chest: bool) -> void:
 	var nearest: Array[Vector2] = _nearest(point, data)  # (distância, índice)
 	var total: Dictionary[int, float] = {}
 	for pair: Vector2 in nearest:
@@ -228,7 +320,12 @@ static func _transfer(point: Vector3, data: BodyData, bones: PackedInt32Array, w
 			var w: float = data.weights[body_vertex * 4 + k]
 			if w > 0.0:
 				var bone: int = data.bones[body_vertex * 4 + k]
-				total[bone] = total.get(bone, 0.0) + w * factor
+				if chest and data.chest_remap.has(bone):
+					for remap: Array in data.chest_remap[bone]:
+						var target: int = remap[0]
+						total[target] = total.get(target, 0.0) + w * factor * float(remap[1])
+				else:
+					total[bone] = total.get(bone, 0.0) + w * factor
 	var ranked: Array = total.keys()
 	ranked.sort_custom(func(a: int, b: int) -> bool: return total[a] > total[b])
 	var sum: float = 0.0
