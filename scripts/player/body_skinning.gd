@@ -33,6 +33,10 @@ const FOOT_BONES: Array[String] = ["Foot", "Toes"]
 
 ## Malha de corpo → dados dela ([BodyData]).
 static var _cache: Dictionary[Mesh, BodyData] = {}
+## Roupa já vestida: chave (corpo|item|encaixe) → [[ArrayMesh, nome, sombra], ...]. Calcular os pesos custa de 0,1 a
+## 0,6 s no PC (bem mais no celular); com o cache, trocar de roupa de novo é instantâneo (o atirador de teste troca a
+## cada ~3 s e congelava o jogo).
+static var _mesh_cache: Dictionary[String, Array] = {}
 
 
 ## Dados de um corpo, no espaço do esqueleto, com o corpo em repouso.
@@ -245,9 +249,28 @@ static func _gather_points(node: Node, parent_xform: Transform3D, points: Packed
 ## Cria, como filhos de [param skeleton], as malhas com pesos equivalentes às de [param model], com o [param model]
 ## posto em [param rest] (espaço do esqueleto, corpo em repouso). Quem chamou libera/esconde o [param model].
 ## [param chest] = item de peito (influência do braço amortecida, [constant CHEST_ARM_SHARE]).
-static func skin(model: Node3D, skeleton: Skeleton3D, rest: Transform3D, data: BodyData, chest: bool = false) -> Array[MeshInstance3D]:
+## [param cache_key] (ex.: "<id da malha do corpo>|<itemId>|<encaixe>"): mesma chave = mesmo resultado; a partir da
+## segunda vez só cria os nós com as malhas já calculadas ([member _mesh_cache]). Vazio = sem cache.
+static func skin(model: Node3D, skeleton: Skeleton3D, rest: Transform3D, data: BodyData, chest: bool = false,
+		cache_key: String = "") -> Array[MeshInstance3D]:
 	var created: Array[MeshInstance3D] = []
+	if not cache_key.is_empty() and _mesh_cache.has(cache_key):
+		for entry: Array in _mesh_cache[cache_key]:
+			var instance: MeshInstance3D = MeshInstance3D.new()
+			instance.mesh = entry[0]
+			instance.name = entry[1]
+			instance.cast_shadow = entry[2]
+			instance.skin = data.skin
+			skeleton.add_child(instance)
+			instance.skeleton = instance.get_path_to(skeleton)
+			created.append(instance)
+		return created
 	_collect(model, rest * model.transform.affine_inverse(), skeleton, data, created, chest)
+	if not cache_key.is_empty():
+		var entries: Array = []
+		for instance: MeshInstance3D in created:
+			entries.append([instance.mesh, instance.name, instance.cast_shadow])
+		_mesh_cache[cache_key] = entries
 	return created
 
 
@@ -276,10 +299,20 @@ static func _skinned_copy(source: MeshInstance3D, xform: Transform3D, data: Body
 		var weights: PackedFloat32Array = PackedFloat32Array()
 		bones.resize(vertices.size() * 4)
 		weights.resize(vertices.size() * 4)
+		# Vértices na mesma posição (costuras de UV/normal) recebem os mesmos pesos: calcula uma vez só.
+		var done: Dictionary[Vector3i, int] = {}
 		for v: int in range(vertices.size()):
 			vertices[v] = xform * vertices[v]
 			if v < normals.size():
 				normals[v] = (normal_basis * normals[v]).normalized()
+			var key: Vector3i = Vector3i((vertices[v] * 10000.0).round())
+			if done.has(key):
+				var first: int = done[key]
+				for k: int in range(4):
+					bones[v * 4 + k] = bones[first * 4 + k]
+					weights[v * 4 + k] = weights[first * 4 + k]
+				continue
+			done[key] = v
 			_transfer(vertices[v], data, bones, weights, v, chest)
 		arrays[Mesh.ARRAY_VERTEX] = vertices
 		if not normals.is_empty():
@@ -326,21 +359,32 @@ static func _transfer(point: Vector3, data: BodyData, bones: PackedInt32Array, w
 						total[target] = total.get(target, 0.0) + w * factor * float(remap[1])
 				else:
 					total[bone] = total.get(bone, 0.0) + w * factor
-	var ranked: Array = total.keys()
-	ranked.sort_custom(func(a: int, b: int) -> bool: return total[a] > total[b])
-	var sum: float = 0.0
-	for k: int in range(mini(4, ranked.size())):
-		sum += total[ranked[k]]
+	# Os 4 ossos de maior peso (seleção simples: são poucos ossos, sem ordenar a lista toda).
+	var top_bones: PackedInt32Array = [-1, -1, -1, -1]
+	var top_weights: PackedFloat32Array = [0.0, 0.0, 0.0, 0.0]
+	for bone: int in total:
+		var w: float = total[bone]
+		for k: int in range(4):
+			if w > top_weights[k]:
+				for m: int in range(3, k, -1):
+					top_weights[m] = top_weights[m - 1]
+					top_bones[m] = top_bones[m - 1]
+				top_weights[k] = w
+				top_bones[k] = bone
+				break
+	var sum: float = top_weights[0] + top_weights[1] + top_weights[2] + top_weights[3]
 	for k: int in range(4):
-		var has: bool = k < ranked.size() and sum > 0.0
-		bones[v * 4 + k] = int(ranked[k]) if has else 0
-		weights[v * 4 + k] = total[ranked[k]] / sum if has else 0.0
+		var has: bool = top_bones[k] >= 0 and sum > 0.0
+		bones[v * 4 + k] = top_bones[k] if has else 0
+		weights[v * 4 + k] = top_weights[k] / sum if has else 0.0
 
 
 ## Os [constant NEIGHBORS] vértices do corpo mais perto de [param point]: procura em anéis de células até achar.
 static func _nearest(point: Vector3, data: BodyData) -> Array[Vector2]:
 	var center: Vector3i = _cell(point)
-	var found: Array[Vector2] = []
+	# Os NEIGHBORS melhores até agora, do mais perto ao mais longe (inserção: sem ordenar listas grandes).
+	var best: Array[Vector2] = []
+	var count: int = 0
 	for ring: int in range(0, 12):
 		for x: int in range(-ring, ring + 1):
 			for y: int in range(-ring, ring + 1):
@@ -351,12 +395,22 @@ static func _nearest(point: Vector3, data: BodyData) -> Array[Vector2]:
 					if not data.grid.has(cell):
 						continue
 					for index: int in data.grid[cell]:
-						found.append(Vector2(point.distance_to(data.positions[index]), index))
+						count += 1
+						var d: float = point.distance_squared_to(data.positions[index])
+						if best.size() == NEIGHBORS and d >= best[NEIGHBORS - 1].x:
+							continue
+						var at: int = best.size()
+						while at > 0 and best[at - 1].x > d:
+							at -= 1
+						best.insert(at, Vector2(d, index))
+						if best.size() > NEIGHBORS:
+							best.pop_back()
 		# Depois de achar o bastante, mais um anel garante que nenhum vizinho mais perto ficou de fora.
-		if found.size() >= NEIGHBORS and ring > 0:
+		if count >= NEIGHBORS and ring > 0:
 			break
-	found.sort_custom(func(a: Vector2, b: Vector2) -> bool: return a.x < b.x)
-	return found.slice(0, NEIGHBORS)
+	for i: int in range(best.size()):
+		best[i].x = sqrt(best[i].x)
+	return best
 
 
 static func _cell(point: Vector3) -> Vector3i:

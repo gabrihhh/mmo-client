@@ -41,6 +41,8 @@ func _ready() -> void:
 		# Aberta sem passar pelo login (ex.: F6 no editor): volta para lá.
 		_back_to_login.call_deferred()
 		return
+	# Modelos dos itens em segundo plano: sem engasgo quando alguém (ou o atirador de teste) veste um item novo.
+	ItemModels.preload_all()
 	Network.instance.player_added.connect(_on_player_added)
 	Network.instance.player_removed.connect(_on_player_removed)
 	Network.instance.left_zone.connect(_on_left_zone)

@@ -86,6 +86,16 @@ const _OFF_HAND_GRIP: Dictionary[String, Vector3] = {
 const _PAIRED: Array[String] = ["assassin_daggers"]
 
 
+## Começa a carregar, em segundo plano, os modelos de todos os itens (chamar ao abrir a zona). Sem isso, a primeira
+## vez que um item aparece (alguém veste, o atirador de teste troca de conjunto) o jogo para para ler o modelo e as
+## texturas do disco — no celular, um engasgo visível. [method instantiate] usa o que já carregou (ou espera terminar).
+static func preload_all() -> void:
+	for item_id: String in _PATHS:
+		var path: String = _PATHS[item_id]
+		if not ResourceLoader.has_cached(path):
+			ResourceLoader.load_threaded_request(path)
+
+
 ## true se [param item_id] tem modelo 3D (ex.: as botas de treino ainda não têm).
 static func has_model(item_id: String) -> bool:
 	return _PATHS.has(item_id)

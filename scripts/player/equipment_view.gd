@@ -354,7 +354,9 @@ func _dress(model: Node3D, mount: Node3D, key: String) -> void:
 		rest = BodySkinning.foot_rest(model, data, _skeleton, "Left" if key == "foot_left" else "Right")
 		if rest == Transform3D.IDENTITY:
 			return
-	var created: Array[MeshInstance3D] = BodySkinning.skin(model, _skeleton, rest, data, key == "chest")
+	var item_id: String = String(_state.look.get(MOUNTS[key][0], "")) if _state != null else ""
+	var cache_key: String = "%d|%s|%s" % [_body_mesh.get_instance_id(), item_id, key]
+	var created: Array[MeshInstance3D] = BodySkinning.skin(model, _skeleton, rest, data, key == "chest", cache_key)
 	if created.is_empty():
 		return
 	_skinned.append_array(created)
