@@ -40,6 +40,13 @@ var look: Dictionary[String, String] = {}
 ## Corpo do personagem (qual modelo desenhar): [constant Protocol.BODY_MALE] ou [constant Protocol.BODY_FEMALE].
 ## Vem no PlayerInfo; bonecos/NPCs ficam com o padrão.
 var body: String = Protocol.BODY_MALE
+## NPC humano ([JOGO-11]): o servidor mandou um corpo, então ele é desenhado como personagem (não como boneco de palha).
+## ATENÇÃO: NpcSnapshot.body em mmo-server/src/net/protocol.ts.
+var has_body: bool = false
+## NPC aliado (saco de pancadas, [JOGO-11]): os jogadores curam/protegem. ATENÇÃO: NpcSnapshot.ally.
+var ally: bool = false
+## NPC que serve de alvo de ataque (false: atirador invulnerável, aliado). ATENÇÃO: NpcSnapshot.targetable.
+var targetable: bool = true
 
 ## A aparência mudou ([member look]): o boneco troca os modelos dos itens.
 signal look_changed
@@ -66,6 +73,11 @@ static func from_snapshot(data: Dictionary, at_tick: int) -> PlayerState:
 	var info_body: String = Protocol.read_string(data, "body")
 	if not info_body.is_empty():
 		state.body = info_body
+		state.has_body = true
+	var ally_value: Variant = data.get("ally")
+	state.ally = ally_value is bool and ally_value == true
+	var targetable_value: Variant = data.get("targetable")
+	state.targetable = not (targetable_value is bool and targetable_value == false)
 	state.apply_snapshot(data, at_tick)
 	return state
 

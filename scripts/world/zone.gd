@@ -63,11 +63,14 @@ func _ready() -> void:
 	_update_online_status()
 
 
-## Quem pode ser alvo agora: bonecos/monstros vivos e, se a zona tem PvP ([JOGO-02]), jogadores vivos.
+## Quem pode ser alvo agora: bonecos/monstros vivos (menos os que o servidor marca como não-alvo: atirador de teste
+## invulnerável e o saco de pancadas, que é aliado, [JOGO-11]) e, se a zona tem PvP ([JOGO-02]), jogadores vivos.
 func get_targetables() -> Array[RemotePlayer]:
 	var result: Array[RemotePlayer] = []
-	for npc: RemotePlayer in _npcs.values():
-		if npc.is_alive():
+	for npc_id: String in _npcs:
+		var npc: RemotePlayer = _npcs[npc_id]
+		var state: PlayerState = Network.instance.get_entity(npc_id)
+		if npc.is_alive() and (state == null or state.targetable):
 			result.append(npc)
 	if Network.instance.pvp:
 		for remote: RemotePlayer in _remote_players.values():
@@ -77,12 +80,18 @@ func get_targetables() -> Array[RemotePlayer]:
 
 
 ## Aliados que dá para curar/proteger ([JOGO-09]): outros jogadores vivos (sem grupos ainda, todo jogador é
-## aliado, mesmo com PvP). ATENÇÃO: mesma regra de Zone.isAlly em mmo-server/src/zones/Zone.ts.
+## aliado, mesmo com PvP) e NPCs aliados (saco de pancadas, [JOGO-11]). ATENÇÃO: mesma regra de Zone.isAlly em
+## mmo-server/src/zones/Zone.ts.
 func get_allies() -> Array[RemotePlayer]:
 	var result: Array[RemotePlayer] = []
 	for remote: RemotePlayer in _remote_players.values():
 		if remote.is_alive():
 			result.append(remote)
+	for npc_id: String in _npcs:
+		var npc: RemotePlayer = _npcs[npc_id]
+		var state: PlayerState = Network.instance.get_entity(npc_id)
+		if npc.is_alive() and state != null and state.ally:
+			result.append(npc)
 	return result
 
 
@@ -126,7 +135,9 @@ func _on_player_removed(player_id: String) -> void:
 func _spawn_npc(state: PlayerState) -> void:
 	if _npcs.has(state.id):
 		return
-	var npc: RemotePlayer = DUMMY_SCENE.instantiate() as RemotePlayer
+	# NPC humano ([JOGO-11]): personagem vestido, como um jogador; os outros: boneco de palha.
+	var scene: PackedScene = REMOTE_PLAYER_SCENE if state.has_body else DUMMY_SCENE
+	var npc: RemotePlayer = scene.instantiate() as RemotePlayer
 	npc.setup(state.id, state)
 	npc.name = "Npc_%s" % state.id
 	_players_root.add_child(npc)
