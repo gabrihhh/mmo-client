@@ -7,19 +7,20 @@ extends Node
 ## - "Desfocar" (embaixo do ataque), toque: solta o alvo fixo (o servidor para de atacar).
 ## - Carta, toque: habilidade em si mesmo sai na hora; com mira, vai no alvo fixo (ou para a frente).
 ##   Arrastar: prévia translúcida saindo do personagem; soltar executa; voltar o dedo à carta cancela.
-## - A mira segue o **ponto da tela embaixo do dedo** ([method _finger_ground]): arrastar até o personagem que você vê
-##   e soltar em cima dele escolhe ele ([method _unit_under_finger], até [constant PICK_SCREEN_PX] na tela); linha e
-##   área vão para o ponto do chão embaixo do dedo, limitado ao alcance.
+## - O desenho da mira **sai de baixo do personagem** e anda como um joystick: a direção do arrasto (relativa à câmera)
+##   e a distância proporcional ao arrasto ([constant MAX_AIM_DRAG_PX] = alcance máximo). **O efeito cai exatamente onde
+##   o desenho está** ([method _aim_point] é a mesma conta na prévia e no soltar): alvo/aliado = quem está dentro do
+##   círculo desenhado; linha = direção desenhada; área = círculo desenhado.
 ##
 ## Ataque e cartas vêm do que está vestido ([InventoryState], mensagem "inventory" do servidor).
 ## Ataque simples ([JOGO-05]): manda "attack" com o alvo; o servidor bate sozinho quando em alcance.
 ## Cartas ([JOGO-06]): mandam "cast" ([method _cast]); o servidor valida e aplica o efeito.
 ## Alvo fixo e relógios seguem o que o servidor confirma.
 
-## Distância máxima (px, na tela) entre o dedo e o personagem para ele contar como "debaixo da mira".
-const PICK_SCREEN_PX: float = 70.0
-## Altura (m) do ponto do personagem usado para medir a distância na tela (meio do corpo).
-const PICK_BODY_HEIGHT: float = 1.0
+## Arrastar o dedo esta distância (px) a partir do botão = mira no alcance máximo.
+const MAX_AIM_DRAG_PX: float = 220.0
+## Ao arrastar para escolher alguém (ataque, alvo, aliado), até onde (m) o círculo de mira vai.
+const TARGET_PICK_RANGE: float = 15.0
 ## Raio (m) em volta do ponto mirado em que um jogador conta como "debaixo da mira".
 const TARGET_PICK_RADIUS: float = 1.5
 ## Toque no ataque: procura o alvo mais perto até esta distância (m).
@@ -43,8 +44,7 @@ var _card_total_s: Dictionary[int, float] = {}
 var _attack_ready_ms: int = 0
 ## Quem está debaixo da mira durante um arrasto de alvo ("" = ninguém).
 var _hovered_id: String = ""
-## Centro (px, na tela) do botão de onde o arrasto atual começou: dedo = este ponto + deslocamento do arrasto.
-var _aim_origin_px: Vector2 = Vector2.ZERO
+
 
 
 ## Liga nos botões da HUD. Chamar uma vez, depois de adicionar à árvore.
@@ -56,12 +56,8 @@ func setup(zone: Zone, player: LocalPlayer, hud: Hud, preview: AimPreview) -> vo
 
 	var attack_button: TouchActionButton = _hud.attack_button
 	attack_button.tapped.connect(_on_attack_tapped)
-	attack_button.aim_moved.connect(func(offset: Vector2) -> void:
-		_aim_origin_px = attack_button.get_global_rect().get_center()
-		_on_aim_moved(offset, _attack))
-	attack_button.aim_released.connect(func(offset: Vector2) -> void:
-		_aim_origin_px = attack_button.get_global_rect().get_center()
-		_on_attack_released(offset))
+	attack_button.aim_moved.connect(func(offset: Vector2) -> void: _on_aim_moved(offset, _attack))
+	attack_button.aim_released.connect(_on_attack_released)
 	attack_button.aim_cancelled.connect(_end_aim)
 	_hud.clear_target_button.tapped.connect(_on_clear_target_tapped)
 	# Cada carta é ligada pelo ÍNDICE: a habilidade dela muda quando o inventário muda.
@@ -134,7 +130,6 @@ func _on_card_index_tapped(index: int) -> void:
 
 
 func _on_card_index_moved(offset: Vector2, index: int) -> void:
-	_aim_origin_px = _hud.get_card(index).get_global_rect().get_center()
 	var ability: AbilityView = _ability_at(index)
 	# Recarregando: sem prévia (soltar só avisa).
 	if ability != null and _cooldown_left(index) <= 0.0:
@@ -142,7 +137,6 @@ func _on_card_index_moved(offset: Vector2, index: int) -> void:
 
 
 func _on_card_index_released(offset: Vector2, index: int) -> void:
-	_aim_origin_px = _hud.get_card(index).get_global_rect().get_center()
 	var ability: AbilityView = _ability_at(index)
 	if ability != null and not _is_cooling(index):
 		_on_card_released(offset, ability)
@@ -222,8 +216,8 @@ func _on_attack_tapped() -> void:
 
 
 func _on_attack_released(offset: Vector2) -> void:
-	# Quem está embaixo do dedo NA HORA de soltar (o último movimento pode ter sido antes).
-	var under: RemotePlayer = _unit_under_finger(offset, _attack.aim_type == AbilityView.AimType.ALLY)
+	# Quem está dentro do círculo desenhado NA HORA de soltar (o último movimento pode ter sido antes).
+	var under: RemotePlayer = _nearest_remote(_aim_point(offset, _attack), TARGET_PICK_RADIUS, _attack.aim_type == AbilityView.AimType.ALLY)
 	var picked: String = under.session_id if under != null else _hovered_id
 	_end_aim()
 	if picked.is_empty():
@@ -279,9 +273,9 @@ func _on_card_tapped(ability: AbilityView) -> void:
 
 ## Soltar a carta depois de arrastar: lança no que estava na mira.
 func _on_card_released(offset: Vector2, ability: AbilityView) -> void:
-	# Quem está embaixo do dedo NA HORA de soltar (o último movimento pode ter sido antes).
+	# Quem está dentro do círculo desenhado NA HORA de soltar (o último movimento pode ter sido antes).
 	var picks_unit: bool = ability.aim_type == AbilityView.AimType.TARGET or ability.aim_type == AbilityView.AimType.ALLY
-	var under: RemotePlayer = _unit_under_finger(offset, ability.aim_type == AbilityView.AimType.ALLY) if picks_unit else null
+	var under: RemotePlayer = _nearest_remote(_aim_point(offset, ability), TARGET_PICK_RADIUS, ability.aim_type == AbilityView.AimType.ALLY) if picks_unit else null
 	var picked: String = under.session_id if under != null else _hovered_id
 	_end_aim()
 	var aim: Vector3 = _aim_point(offset, ability)
@@ -316,7 +310,7 @@ func _on_aim_moved(offset: Vector2, ability: AbilityView) -> void:
 	match ability.aim_type:
 		AbilityView.AimType.TARGET, AbilityView.AimType.ALLY:
 			_preview.show_circle(aim, TARGET_PICK_RADIUS, origin)
-			var hovered: RemotePlayer = _unit_under_finger(offset, ability.aim_type == AbilityView.AimType.ALLY)
+			var hovered: RemotePlayer = _nearest_remote(aim, TARGET_PICK_RADIUS, ability.aim_type == AbilityView.AimType.ALLY)
 			if hovered != null:
 				_hovered_id = hovered.session_id
 				_preview.show_target(hovered.global_position)
@@ -337,54 +331,16 @@ func _end_aim() -> void:
 	_preview.hide_aim()
 
 
-## Ponto no chão para onde a mira vai: o ponto embaixo do dedo ([method _finger_ground]) ou, em linha/área, o inimigo
-## embaixo do dedo. Área: limitado ao alcance da habilidade (o servidor limita igual). Alvo/aliado/linha: sem limite
-## (a linha só usa a direção).
+## Ponto no chão onde o desenho da mira está (e onde o efeito vai cair): sai do personagem na direção do arrasto
+## (relativa à câmera), a uma distância proporcional ao arrasto, até o alcance da habilidade (ou
+## [constant TARGET_PICK_RANGE] para escolher alguém). Mesma conta na prévia e no soltar.
 func _aim_point(offset: Vector2, ability: AbilityView) -> Vector3:
-	var origin: Vector3 = _player.global_position
-	var point: Vector3 = _finger_ground(offset)
-	# Linha/área com um inimigo embaixo do dedo: mira nele. O dedo fica em cima do CORPO; com a câmera inclinada, o
-	# chão embaixo do dedo cai atrás dele e a linha sairia torta (passava do lado).
-	if ability.aim_type == AbilityView.AimType.DIRECTION or ability.aim_type == AbilityView.AimType.AREA:
-		var enemy: RemotePlayer = _unit_under_finger(offset, false)
-		if enemy != null:
-			point = enemy.global_position
-	if ability.aim_type == AbilityView.AimType.AREA and ability.range_m > 0.0:
-		var flat: Vector3 = Vector3(point.x - origin.x, 0.0, point.z - origin.z)
-		if flat.length() > ability.range_m:
-			point = origin + flat.normalized() * ability.range_m
-	return point
-
-
-## Ponto do chão (plano na altura do jogador) embaixo do dedo, que está em [member _aim_origin_px] + [param offset]
-## na tela. Sem câmera: o próprio jogador.
-func _finger_ground(offset: Vector2) -> Vector3:
-	var camera: Camera3D = _player.get_viewport().get_camera_3d()
-	if camera == null:
-		return _player.global_position
-	var finger: Vector2 = _aim_origin_px + offset
-	var hit: Variant = Plane(Vector3.UP, _player.global_position.y).intersects_ray(camera.project_ray_origin(finger), camera.project_ray_normal(finger))
-	return hit if hit is Vector3 else _player.global_position
-
-
-## Quem está embaixo do dedo na tela: o mais perto do dedo (meio do corpo projetado na tela) até
-## [constant PICK_SCREEN_PX]. [param allies] true: entre os aliados; senão entre os alvos de ataque.
-func _unit_under_finger(offset: Vector2, allies: bool) -> RemotePlayer:
-	var camera: Camera3D = _player.get_viewport().get_camera_3d()
-	if camera == null:
-		return null
-	var finger: Vector2 = _aim_origin_px + offset
-	var best: RemotePlayer = null
-	var best_distance: float = PICK_SCREEN_PX
-	for remote: RemotePlayer in (_zone.get_allies() if allies else _zone.get_targetables()):
-		var body: Vector3 = remote.global_position + Vector3.UP * PICK_BODY_HEIGHT
-		if camera.is_position_behind(body):
-			continue
-		var distance: float = camera.unproject_position(body).distance_to(finger)
-		if distance <= best_distance:
-			best = remote
-			best_distance = distance
-	return best
+	var picks_unit: bool = ability.aim_type == AbilityView.AimType.TARGET or ability.aim_type == AbilityView.AimType.ALLY
+	var reach: float = TARGET_PICK_RANGE if picks_unit else ability.range_m
+	var screen_direction: Vector3 = Vector3(offset.x, 0.0, offset.y).rotated(Vector3.UP, _player.get_camera_yaw())
+	var amount: float = clampf(offset.length() / MAX_AIM_DRAG_PX, 0.0, 1.0)
+	var world_direction: Vector3 = screen_direction.normalized() if screen_direction.length() > 0.01 else _player.get_facing()
+	return _player.global_position + world_direction * reach * amount
 
 
 ## Alvo (boneco/monstro, ou jogador se a zona tem PvP) mais perto de [param point] até
