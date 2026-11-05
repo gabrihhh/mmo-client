@@ -53,6 +53,8 @@ const _TOAST_SECONDS: float = 1.8
 ## Botão pequeno embaixo do ataque: solta o alvo fixo ([JOGO-02]). Apagado sem alvo.
 @onready var clear_target_button: TouchActionButton = %ClearTargetButton
 @onready var _menu_button: TouchActionButton = %MenuButton
+## Barra de carregamento do lançamento (acima dos controles, [CLI-08]): o [CombatController] liga e desliga.
+@onready var cast_bar: CastBar = %CastBar
 
 var _cards: Array[TouchActionButton] = []
 ## Último inventário recebido (para a ficha saber o que está vestido no mesmo slot).

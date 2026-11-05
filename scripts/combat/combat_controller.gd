@@ -150,11 +150,17 @@ func _on_card_index_released(offset: Vector2, index: int) -> void:
 ## volta pronta (o servidor zerou a recarga e devolveu a mana); o golpe do Atacar some do relógio (recomeça quando
 ## eu parar no alcance).
 func _on_combat_event(event: Dictionary) -> void:
+	var type: String = Protocol.read_string(event, "type")
+	if type == "death" and Protocol.read_string(event, "id") == Network.instance.player_id:
+		_hud.cast_bar.stop()
+		return
 	if Protocol.read_string(event, "source") != Network.instance.player_id:
 		return
-	var type: String = Protocol.read_string(event, "type")
 	var ability_id: String = Protocol.read_string(event, "ability")
+	if type == "cast_start":
+		_show_cast_bar(event, ability_id)
 	if type == "cast_cancel":
+		_hud.cast_bar.stop()
 		if ability_id == _attack.id:
 			_attack_ready_ms = 0
 			_hud.attack_button.set_cooldown(0.0, 0.0)
@@ -175,6 +181,20 @@ func _on_combat_event(event: Dictionary) -> void:
 	var started: int = _index_of(ability_id)
 	if started >= 0:
 		_start_cooldown(started, _abilities[started])
+
+
+## Barra de carregamento ([CastBar], [CLI-08]) do lançamento confirmado em [param event] ("cast_start"): ícone da carta
+## (ou a espada no ataque simples) e o tempo até a ação sair — no projétil, até o tiro sair da mão ("release" s antes
+## do fim). Investida/Disparada não carregam: sem barra.
+func _show_cast_bar(event: Dictionary, ability_id: String) -> void:
+	var seconds: float = Protocol.read_float(event, "duration") - Protocol.read_float(event, "release")
+	if ability_id == _attack.id:
+		_hud.cast_bar.start(null, seconds)
+		return
+	var index: int = _index_of(ability_id)
+	if index >= 0 and _abilities[index].is_movement():
+		return
+	_hud.cast_bar.start(ItemIcons.ability(ability_id), seconds)
 
 
 ## Posição (0..5) da carta com [param ability_id] entre as vestidas, ou -1.
