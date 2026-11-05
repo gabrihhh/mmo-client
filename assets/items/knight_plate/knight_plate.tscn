@@ -1,8 +1,8 @@
 [gd_scene load_steps=2 format=3]
 
 ; Peitoral de placas (knight_plate), Meshy image→3D (2ª versão, 2026-11-04: couraça FECHADA, cobre peito e costas).
-; Item de peito: só a direção importa (frente/tabardo em +Z); tamanho e posição saem do encaixe automático no
-; tronco ([EquipmentView], [ART-02]).
+; Item de peito: só a direção importa (frente em +Z); tamanho e posição saem do encaixe automático no tronco
+; (chest_fit_box). No jogo vira malha com os pesos do corpo, ombreira seguindo o ombro ([BodySkinning], [ART-04]).
 
 [ext_resource type="PackedScene" path="res://assets/items/knight_plate/knight_plate.glb" id="1_glb"]
 

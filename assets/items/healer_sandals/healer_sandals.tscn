@@ -1,7 +1,8 @@
 [gd_scene load_steps=2 format=3]
 
-; Sapatilha da luz (healer_sandals), UM pé, Meshy image→3D. Item de pés: só a direção importa (bico em +Z;
-; o .glb tem o bico em −X); tamanho e posição saem do encaixe automático no pé ([EquipmentView], [ART-02]).
+; Sapatilha da luz (healer_sandals), UM pé (o direito usa o mesmo, espelhado), Meshy image→3D. Item de pés: a cena só
+; precisa estar em pé (+Y para cima); o bico é achado sozinho (nesta cena ele está em −Z) e o tamanho e a
+; posição saem dos vértices do pé do corpo. No jogo vira malha com os pesos do corpo ([BodySkinning], [ART-04]).
 
 [ext_resource type="PackedScene" path="res://assets/items/healer_sandals/healer_sandals.glb" id="1_glb"]
 

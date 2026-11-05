@@ -1,7 +1,8 @@
 [gd_scene load_steps=2 format=3]
 
-; Túnica arcana (mage_tunic), Meshy image→3D. Item de peito (peça rígida presa ao osso do peito):
-; origem no meio da GOLA, pendurada para baixo (−Y). Medida no corpo masculino. Frente para +Z.
+; Túnica arcana (mage_tunic), Meshy image→3D.
+; Item de peito: só a direção importa (frente em +Z); tamanho e posição saem do encaixe automático no tronco
+; (chest_fit_box). No jogo vira malha com os pesos do corpo, ombreira seguindo o ombro ([BodySkinning], [ART-04]).
 
 [ext_resource type="PackedScene" path="res://assets/items/mage_tunic/mage_tunic.glb" id="1_glb"]
 

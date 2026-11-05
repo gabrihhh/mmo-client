@@ -1,7 +1,8 @@
 [gd_scene load_steps=2 format=3]
 
-; Sapatilha arcana (mage_shoes), UM pé, Meshy image→3D. Item de pés (rígido, um por pé; o direito é espelhado):
-; origem no TORNOZELO do corpo masculino (sola no chão, envolve o pé), bico para +Z. O .glb tem o bico em −X.
+; Sapatilha arcana (mage_shoes), UM pé (o direito usa o mesmo, espelhado), Meshy image→3D. Item de pés: a cena só
+; precisa estar em pé (+Y para cima); o bico é achado sozinho (nesta cena ele está em −Z) e o tamanho e a
+; posição saem dos vértices do pé do corpo. No jogo vira malha com os pesos do corpo ([BodySkinning], [ART-04]).
 
 [ext_resource type="PackedScene" path="res://assets/items/mage_shoes/mage_shoes.glb" id="1_glb"]
 
