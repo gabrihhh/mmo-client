@@ -19,7 +19,8 @@ extends Node
 
 ## Arrastar o dedo esta distância (px) a partir do botão = mira no alcance máximo.
 const MAX_AIM_DRAG_PX: float = 220.0
-## Ao arrastar para escolher alguém (ataque, alvo, aliado), até onde (m) o círculo de mira vai.
+## Ao arrastar o ataque simples para fixar o alvo, até onde (m) o círculo de mira vai. Cartas de alvo/aliado vão só até
+## o alcance delas (o círculo nunca mostra alguém que o servidor recusaria por "fora de alcance").
 const TARGET_PICK_RANGE: float = 15.0
 ## Raio (m) em volta do ponto mirado em que um jogador conta como "debaixo da mira".
 const TARGET_PICK_RADIUS: float = 1.5
@@ -336,7 +337,9 @@ func _end_aim() -> void:
 ## [constant TARGET_PICK_RANGE] para escolher alguém). Mesma conta na prévia e no soltar.
 func _aim_point(offset: Vector2, ability: AbilityView) -> Vector3:
 	var picks_unit: bool = ability.aim_type == AbilityView.AimType.TARGET or ability.aim_type == AbilityView.AimType.ALLY
-	var reach: float = TARGET_PICK_RANGE if picks_unit else ability.range_m
+	var reach: float = ability.range_m
+	if ability == _attack or (picks_unit and reach <= 0.0):
+		reach = TARGET_PICK_RANGE
 	var screen_direction: Vector3 = Vector3(offset.x, 0.0, offset.y).rotated(Vector3.UP, _player.get_camera_yaw())
 	var amount: float = clampf(offset.length() / MAX_AIM_DRAG_PX, 0.0, 1.0)
 	var world_direction: Vector3 = screen_direction.normalized() if screen_direction.length() > 0.01 else _player.get_facing()

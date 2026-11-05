@@ -6,7 +6,9 @@ extends Control
 ## - toque rápido (sem arrastar)          → [signal tapped]
 ## - segurar e arrastar além do limite     → [signal aim_started], depois [signal aim_moved] a cada movimento
 ## - soltar arrastando                     → [signal aim_released] com o deslocamento final
-## - soltar com o dedo de volta no botão   → [signal aim_cancelled] (desistiu de mirar)
+## - soltar com o dedo de volta perto do centro do botão (até [constant CANCEL_RADIUS_PX]) → [signal aim_cancelled]
+##   (desistiu de mirar). Só perto do CENTRO: um alvo perto pede um arrasto curto, e o dedo ainda pode estar em cima da
+##   carta — soltar ali tem que lançar.
 ## O deslocamento é em pixels da tela a partir do centro do botão (y negativo = para cima/frente).
 ##
 ## MULTITOQUE: como o [TouchJoystick], lê os toques em [method _input] e acompanha o próprio dedo.
@@ -24,6 +26,8 @@ signal aim_cancelled
 
 ## Distância (px) que o dedo precisa andar para virar "mira" em vez de toque.
 const DRAG_THRESHOLD_PX: float = 24.0
+## Mirando, soltar a até esta distância (px) do centro do botão cancela.
+const CANCEL_RADIUS_PX: float = 28.0
 
 ## Formato: carta (retângulo arredondado) ou círculo (ataque, "Desfocar").
 enum Shape { CARD, CIRCLE }
@@ -324,7 +328,7 @@ func _finish(release_position: Vector2) -> void:
 	var offset: Vector2 = release_position - _center()
 	if not _aiming:
 		tapped.emit()
-	elif _contains(release_position):
+	elif offset.length() <= CANCEL_RADIUS_PX:
 		aim_cancelled.emit()
 	else:
 		aim_released.emit(offset)
