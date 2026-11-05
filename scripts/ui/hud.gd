@@ -58,6 +58,8 @@ var _cards: Array[TouchActionButton] = []
 ## Último inventário recebido (para a ficha saber o que está vestido no mesmo slot).
 var _inventory: InventoryState = null
 var _toast_left: float = 0.0
+## Sobrevida do escudo por cima da barra de vida (criada no primeiro [method set_health]).
+var _shield_fill: ColorRect = null
 ## Há alvo fixo agora (liga o "Desfocar"); ver [method set_target_active].
 var _has_target: bool = false
 
@@ -171,9 +173,24 @@ func _on_item_action(item: InventoryState.Item, equipped: bool) -> void:
 	_open_panel(_inventory_panel)
 
 
-## Atualiza a barra de vida (valores absolutos).
-func set_health(current: float, maximum: float) -> void:
+## Atualiza a barra de vida (valores absolutos). [param shield] = escudo ativo: sobrevida azul-clara logo depois da
+## vida, sem a barra crescer (com vida cheia cobre o fim dela), e "+N" no número ([JOGO-06]).
+func set_health(current: float, maximum: float, shield: float = 0.0) -> void:
 	_set_bar(_health_bar, _health_label, current, maximum)
+	if _shield_fill == null:
+		_shield_fill = ColorRect.new()
+		_shield_fill.color = Color(0.55, 0.85, 1.0, 0.95)
+		_shield_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_health_bar.add_child(_shield_fill)
+		_health_bar.move_child(_shield_fill, 0)  # embaixo do número
+	var total: float = maxf(1.0, maximum)
+	var shield_ratio: float = clampf(shield / total, 0.0, 1.0)
+	_shield_fill.visible = shield_ratio > 0.001
+	if _shield_fill.visible:
+		var start: float = clampf(minf(current / total, 1.0 - shield_ratio), 0.0, 1.0)
+		_shield_fill.position = Vector2(start * _health_bar.size.x, 0.0)
+		_shield_fill.size = Vector2(shield_ratio * _health_bar.size.x, _health_bar.size.y)
+		_health_label.text += "  +%d" % roundi(shield)
 
 
 ## Atualiza a barra de mana (valores absolutos).

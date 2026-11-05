@@ -315,7 +315,7 @@ func _on_snapshot(_tick: int, _ack: int) -> void:
 	var own: PlayerState = network.get_player(network.player_id)
 	if own == null:
 		return
-	_hud.set_health(own.hp, own.max_hp)
+	_hud.set_health(own.hp, own.max_hp, own.shield)
 	_hud.set_mana(network.mana, network.max_mana)
 	if own.dead:
 		_hud.show_toast("Você morreu · renasce em %d s" % ceili(network.respawn_in))

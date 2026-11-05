@@ -3,6 +3,8 @@ extends Node3D
 ## Barra acima da cabeça (vida ou mana), sempre de frente para a câmera. Ver mmo-docs [JOGO-05], [CLI-04].
 ## Só visual: chame [method set_ratio] com a fração (0..1). A cena do jogador usa duas: "HealthBar"
 ## (vermelha) logo abaixo do nome e "ManaBar" (azul, mais fina) logo abaixo dela.
+## Vida com escudo ([method set_values]): o escudo aparece como **sobrevida azul-clara** logo depois do vermelho,
+## sem a barra crescer para a direita — se vida + escudo passam do máximo, o azul cobre o fim da barra ([JOGO-06]).
 ##
 ## O nó inteiro copia a rotação da câmera a cada quadro (em vez de billboard no material): assim o
 ## preenchimento, ancorado na borda esquerda do nó, encolhe para a esquerda da TELA.
@@ -13,14 +15,19 @@ extends Node3D
 @export var fill_color: Color = Color(0.85, 0.2, 0.2)
 ## Cor do fundo (parte vazia).
 @export var back_color: Color = Color(0, 0, 0, 0.6)
+## Cor da sobrevida do escudo (por cima da vida).
+@export var shield_color: Color = Color(0.55, 0.85, 1.0, 0.95)
 
 var _fill: MeshInstance3D = null
+var _shield: MeshInstance3D = null
 
 
 func _ready() -> void:
 	_make_quad(back_color, Vector3.ZERO, 0)
 	# O preenchimento começa na borda esquerda e encolhe para a esquerda.
 	_fill = _make_quad(fill_color, Vector3(-bar_size.x / 2.0, 0.0, 0.001), 1)
+	_shield = _make_quad(shield_color, Vector3(-bar_size.x / 2.0, 0.0, 0.002), 2)
+	_shield.visible = false
 	set_ratio(1.0)
 
 
@@ -34,6 +41,21 @@ func _process(_delta: float) -> void:
 func set_ratio(ratio: float) -> void:
 	if _fill != null:
 		_fill.scale.x = maxf(0.001, clampf(ratio, 0.0, 1.0))
+
+
+## Vida ([param hp_ratio]) e escudo ([param shield_ratio], fração da vida máxima): o azul começa onde a vida acaba,
+## mas nunca passa da borda — com vida cheia ele cobre o final da barra. Sem escudo, some.
+func set_values(hp_ratio: float, shield_ratio: float) -> void:
+	set_ratio(hp_ratio)
+	if _shield == null:
+		return
+	var shield: float = clampf(shield_ratio, 0.0, 1.0)
+	_shield.visible = shield > 0.001
+	if not _shield.visible:
+		return
+	var start: float = clampf(minf(hp_ratio, 1.0 - shield), 0.0, 1.0)
+	_shield.position.x = -bar_size.x / 2.0 + start * bar_size.x
+	_shield.scale.x = maxf(0.001, shield)
 
 
 func _make_quad(color: Color, offset: Vector3, priority: int) -> MeshInstance3D:

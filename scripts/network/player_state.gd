@@ -129,6 +129,11 @@ func hp_ratio() -> float:
 	return clampf(hp / max_hp, 0.0, 1.0) if max_hp > 0.0 else 1.0
 
 
+## Escudo como fração da vida máxima (0 = sem escudo), para a sobrevida azul na barra ([HealthBar3D.set_values]).
+func shield_ratio() -> float:
+	return clampf(shield / max_hp, 0.0, 1.0) if max_hp > 0.0 else 0.0
+
+
 ## true se tem mana (jogador); bonecos/NPCs não têm.
 func has_mana() -> bool:
 	return max_mana > 0.0

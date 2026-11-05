@@ -161,7 +161,7 @@ func _process(delta: float) -> void:
 	# Vida e morte vêm do servidor ([JOGO-05]): morto, o corpo cai, some e não anda.
 	var own: PlayerState = network.get_player(network.player_id)
 	if own != null:
-		_health_bar.set_ratio(own.hp_ratio())
+		_health_bar.set_values(own.hp_ratio(), own.shield_ratio())
 		_death.update(_body, own.dead, delta)
 		_health_bar.visible = not own.dead
 		_mana_bar.set_ratio(own.mana_ratio())

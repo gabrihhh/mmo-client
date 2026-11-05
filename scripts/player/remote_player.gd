@@ -74,7 +74,7 @@ func _process(delta: float) -> void:
 	_ground_y = lerpf(_ground_y, ZoneTerrain.height_at(position.x, position.z), 1.0 - exp(-18.0 * delta))
 	position.y += _ground_y
 	rotation.y = _state.sample_rot_y(render_tick)
-	_health_bar.set_ratio(_state.hp_ratio())
+	_health_bar.set_values(_state.hp_ratio(), _state.shield_ratio())
 	_death.update(_body, _state.dead, delta)
 	_health_bar.visible = not _state.dead
 	_mana_bar.set_ratio(_state.mana_ratio())
