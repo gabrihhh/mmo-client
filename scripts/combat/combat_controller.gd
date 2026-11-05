@@ -31,9 +31,13 @@ var _attack: AbilityView = AbilityView.new("punch", "Soco", "Arma", AbilityView.
 var _abilities: Array[AbilityView] = []
 ## Id do alvo fixo ("" = nenhum).
 var _target_id: String = ""
-## Recarga por HABILIDADE (id → instante em ms em que fica pronta). Por id, não por carta: trocar de
-## item e voltar mantém o relógio. Provisório no cliente; no passo 3 o servidor confirma e recusa antes da hora.
-var _ready_at_ms: Dictionary[String, int] = {}
+## Recarga por POSIÇÃO de carta (índice 0..5 → instante em ms em que fica pronta, e a duração total que começou), como
+## no servidor ([JOGO-06], Zone.cardSlot): trocar de item não zera — a carta nova na mesma posição espera o que
+## faltava da anterior (o relógio continua o mesmo); depois de usada, vale a recarga dela.
+var _card_ready_ms: Dictionary[int, int] = {}
+var _card_total_s: Dictionary[int, float] = {}
+## Golpe do ataque simples em andamento: instante em que acaba (relógio do botão Atacar).
+var _attack_ready_ms: int = 0
 ## Quem está debaixo da mira durante um arrasto de alvo ("" = ninguém).
 var _hovered_id: String = ""
 
@@ -75,35 +79,38 @@ func _apply_inventory(inventory: InventoryState) -> void:
 	_refresh_cooldowns()
 
 
-## Segundos que faltam para [param ability] ficar pronta (0 = pronta).
-func _cooldown_left(ability: AbilityView) -> float:
-	if not _ready_at_ms.has(ability.id):
+## Segundos que faltam para a carta da posição [param index] ficar pronta (0 = pronta).
+func _cooldown_left(index: int) -> float:
+	if not _card_ready_ms.has(index):
 		return 0.0
-	return maxf(0.0, float(_ready_at_ms[ability.id] - Time.get_ticks_msec()) / 1000.0)
+	return maxf(0.0, float(_card_ready_ms[index] - Time.get_ticks_msec()) / 1000.0)
 
 
-## Começa a recarga de [param ability] e atualiza o relógio nos botões.
-func _start_cooldown(ability: AbilityView) -> void:
+## Começa a recarga da posição [param index] com a recarga de [param ability] e atualiza o relógio nos botões.
+func _start_cooldown(index: int, ability: AbilityView) -> void:
 	if ability.cooldown_s <= 0.0:
 		return
-	_ready_at_ms[ability.id] = Time.get_ticks_msec() + int(ability.cooldown_s * 1000.0)
+	_card_ready_ms[index] = Time.get_ticks_msec() + int(ability.cooldown_s * 1000.0)
+	_card_total_s[index] = ability.cooldown_s
 	_refresh_cooldowns()
 
 
-## Copia a recarga de cada habilidade para o botão que a mostra (cartas e ataque).
+## Copia a recarga de cada posição para a carta que está nela (mesmo que seja outra habilidade) e o golpe para o Atacar.
 func _refresh_cooldowns() -> void:
-	_hud.attack_button.set_cooldown(_cooldown_left(_attack), _attack.cooldown_s)
+	var attack_left: float = maxf(0.0, float(_attack_ready_ms - Time.get_ticks_msec()) / 1000.0)
+	_hud.attack_button.set_cooldown(attack_left, _attack.cooldown_s)
 	for i: int in range(Hud.CARD_COUNT):
-		var ability: AbilityView = _ability_at(i)
-		_hud.get_card(i).set_cooldown(_cooldown_left(ability) if ability != null else 0.0, ability.cooldown_s if ability != null else 0.0)
+		var left: float = _cooldown_left(i) if _ability_at(i) != null else 0.0
+		_hud.get_card(i).set_cooldown(left, _card_total_s.get(i, 0.0))
 
 
-## true (e avisa) se [param ability] ainda está recarregando.
-func _is_cooling(ability: AbilityView) -> bool:
-	var left: float = _cooldown_left(ability)
+## true (e avisa) se a posição [param index] ainda está recarregando.
+func _is_cooling(index: int) -> bool:
+	var left: float = _cooldown_left(index)
 	if left <= 0.0:
 		return false
-	_hud.show_toast("%s recarrega em %.1f s" % [ability.title, left])
+	var ability: AbilityView = _ability_at(index)
+	_hud.show_toast("%s recarrega em %.1f s" % [ability.title if ability != null else "Carta", left])
 	return true
 
 
@@ -113,20 +120,20 @@ func _ability_at(index: int) -> AbilityView:
 
 func _on_card_index_tapped(index: int) -> void:
 	var ability: AbilityView = _ability_at(index)
-	if ability != null and not _is_cooling(ability):
+	if ability != null and not _is_cooling(index):
 		_on_card_tapped(ability)
 
 
 func _on_card_index_moved(offset: Vector2, index: int) -> void:
 	var ability: AbilityView = _ability_at(index)
 	# Recarregando: sem prévia (soltar só avisa).
-	if ability != null and _cooldown_left(ability) <= 0.0:
+	if ability != null and _cooldown_left(index) <= 0.0:
 		_on_aim_moved(offset, ability)
 
 
 func _on_card_index_released(offset: Vector2, index: int) -> void:
 	var ability: AbilityView = _ability_at(index)
-	if ability != null and not _is_cooling(ability):
+	if ability != null and not _is_cooling(index):
 		_on_card_released(offset, ability)
 	else:
 		_end_aim()
@@ -142,26 +149,34 @@ func _on_combat_event(event: Dictionary) -> void:
 	var type: String = Protocol.read_string(event, "type")
 	var ability_id: String = Protocol.read_string(event, "ability")
 	if type == "cast_cancel":
-		_ready_at_ms.erase(ability_id)
 		if ability_id == _attack.id:
+			_attack_ready_ms = 0
 			_hud.attack_button.set_cooldown(0.0, 0.0)
 			return
+		var cancelled: int = _index_of(ability_id)
+		if cancelled >= 0:
+			_card_ready_ms.erase(cancelled)
+			_hud.show_toast("%s cancelado (você andou)" % _abilities[cancelled].title)
 		_refresh_cooldowns()
-		for ability: AbilityView in _abilities:
-			if ability != null and ability.id == ability_id:
-				_hud.show_toast("%s cancelado (você andou)" % ability.title)
 		return
 	if type != "cast_start":
 		return
 	if ability_id == _attack.id:
 		var duration: float = Protocol.read_float(event, "duration")
-		_ready_at_ms[ability_id] = Time.get_ticks_msec() + int(duration * 1000.0)
+		_attack_ready_ms = Time.get_ticks_msec() + int(duration * 1000.0)
 		_hud.attack_button.set_cooldown(duration, duration)
 		return
-	for ability: AbilityView in _abilities:
-		if ability != null and ability.id == ability_id:
-			_start_cooldown(ability)
-			return
+	var started: int = _index_of(ability_id)
+	if started >= 0:
+		_start_cooldown(started, _abilities[started])
+
+
+## Posição (0..5) da carta com [param ability_id] entre as vestidas, ou -1.
+func _index_of(ability_id: String) -> int:
+	for i: int in range(_abilities.size()):
+		if _abilities[i] != null and _abilities[i].id == ability_id:
+			return i
+	return -1
 
 
 func _process(_delta: float) -> void:
@@ -341,7 +356,7 @@ func _cast(ability: AbilityView, target_id: String = "", point: Vector3 = Vector
 	# Investida/Disparada: predição local na fila de passos ([JOGO-07]). Confere recarga e mana antes,
 	# para não prever algo que o servidor vai recusar.
 	if ability.is_movement():
-		if _is_cooling(ability):
+		if _is_cooling(_index_of(ability.id)):
 			return
 		if Network.instance.mana < ability.mana_cost:
 			_hud.show_toast("Mana insuficiente.")
@@ -353,7 +368,7 @@ func _cast(ability: AbilityView, target_id: String = "", point: Vector3 = Vector
 	if point != Vector3.INF:
 		_player.face_toward(point, maxf(ability.cast_time_s, 0.3))
 	# Pronta e com mana: já anima no toque ([JOGO-08]); o servidor ainda pode recusar (aí a animação para).
-	if _cooldown_left(ability) <= 0.0 and Network.instance.mana >= ability.mana_cost:
+	if _cooldown_left(_index_of(ability.id)) <= 0.0 and Network.instance.mana >= ability.mana_cost:
 		_player.predict_action(ability.id, ability.cast_time_s)
 	match ability.aim_type:
 		AbilityView.AimType.DIRECTION:
