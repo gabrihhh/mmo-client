@@ -47,6 +47,10 @@ var has_body: bool = false
 var ally: bool = false
 ## NPC que serve de alvo de ataque (false: atirador invulnerável, aliado). ATENÇÃO: NpcSnapshot.targetable.
 var targetable: bool = true
+## Nível ([JOGO-12]): de jogadores e NPCs, público. ATENÇÃO: PlayerSnapshot.level em mmo-server/src/net/protocol.ts.
+var level: int = 0
+## Monstro (zumbi, [JOGO-13]): acima dele só vida, nível e barra de lançamento (sem nome). ATENÇÃO: NpcSnapshot.monster.
+var monster: bool = false
 
 ## A aparência mudou ([member look]): o boneco troca os modelos dos itens.
 signal look_changed
@@ -78,6 +82,8 @@ static func from_snapshot(data: Dictionary, at_tick: int) -> PlayerState:
 	state.ally = ally_value is bool and ally_value == true
 	var targetable_value: Variant = data.get("targetable")
 	state.targetable = not (targetable_value is bool and targetable_value == false)
+	var monster_value: Variant = data.get("monster")
+	state.monster = monster_value is bool and monster_value == true
 	state.apply_snapshot(data, at_tick)
 	return state
 
@@ -108,6 +114,7 @@ func apply_snapshot(data: Dictionary, at_tick: int) -> void:
 	guard = Protocol.read_float(data, "guard")
 	mana = Protocol.read_float(data, "mana", mana)
 	max_mana = Protocol.read_float(data, "maxMana", max_mana)
+	level = Protocol.read_int(data, "level", level)
 	var dead_value: Variant = data.get("dead")
 	if dead_value is bool:
 		var is_dead: bool = dead_value
@@ -122,6 +129,11 @@ func apply_snapshot(data: Dictionary, at_tick: int) -> void:
 		_ticks.pop_front()
 		_positions.pop_front()
 		_rotations.pop_front()
+
+
+## Texto acima da cabeça de um jogador ([CLI-04]): "[nível] nome".
+func title() -> String:
+	return "[%d] %s" % [level, name]
 
 
 ## Fração de vida (0..1); 1 se a vida máxima não é conhecida.

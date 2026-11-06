@@ -31,6 +31,9 @@ var _projectiles: Dictionary[int, ProjectileVisual] = {}
 var _cast_serial: Dictionary[String, int] = {}
 ## Aviso no chão do lançamento atual de cada personagem (some na hora se for cancelado).
 var _cast_warnings: Dictionary[String, GroundWarning] = {}
+## Nível e XP do último snapshot (para mostrar "+20 XP" quando a XP sobe; −1 = ainda não recebeu).
+var _last_level: int = -1
+var _last_xp: float = 0.0
 
 ## Altura (m) de onde os projéteis voam (mais ou menos a mão de quem lança).
 const _PROJECTILE_HEIGHT: float = 1.3
@@ -202,6 +205,15 @@ func _on_combat_event(event: Dictionary) -> void:
 			if Protocol.read_string(event, "killer") == me and dead_id != me:
 				var victim: RemotePlayer = get_target_node(dead_id)
 				_hud.show_toast("Você derrotou %s" % (victim.display_name if victim != null else dead_id))
+		"level_up":
+			# Todos veem quem subiu ([JOGO-12]); quem subiu também ganha o aviso no topo.
+			var leveled_id: String = Protocol.read_string(event, "id")
+			var new_level: int = Protocol.read_int(event, "level")
+			var leveled: Node3D = get_entity_node(leveled_id)
+			if leveled != null:
+				FloatingText.spawn(self, leveled.global_position + Vector3.UP * (_FLOATING_TEXT_HEIGHT + 0.5), "Nível %d!" % new_level, Color(0.0, 0.9, 1.0))
+			if leveled_id == me:
+				_hud.show_toast("Você subiu para o nível %d!" % new_level)
 
 
 ## Alguém começou a lançar: o personagem anima (golpe no fim do lançamento), aparece o aviso no chão das
@@ -210,6 +222,10 @@ func _on_cast_start(event: Dictionary) -> void:
 	var source_id: String = Protocol.read_string(event, "source")
 	var ability: String = Protocol.read_string(event, "ability")
 	var duration: float = Protocol.read_float(event, "duration")
+	# Monstro: barra de lançamento acima da vida ([JOGO-13]).
+	var npc_node: RemotePlayer = get_target_node(source_id)
+	if npc_node != null:
+		npc_node.show_cast(duration)
 	var model: CharacterModel = _character_of(source_id)
 	var serial: int = _cast_serial.get(source_id, 0) + 1
 	_cast_serial[source_id] = serial
@@ -244,6 +260,9 @@ func _on_cast_start(event: Dictionary) -> void:
 ## tira o aviso do chão e invalida os efeitos agendados (clarão, projétil visual).
 func _on_cast_cancel(source_id: String) -> void:
 	_cast_serial[source_id] = _cast_serial.get(source_id, 0) + 1
+	var npc_node: RemotePlayer = get_target_node(source_id)
+	if npc_node != null:
+		npc_node.hide_cast()
 	var model: CharacterModel = _character_of(source_id)
 	if model != null:
 		model.stop_action()
@@ -318,8 +337,20 @@ func _on_snapshot(_tick: int, _ack: int) -> void:
 	_hud.set_health(own.hp, own.max_hp, own.shield)
 	_hud.set_mana(network.mana, network.max_mana)
 	_hud.set_experience(network.level, network.xp, network.xp_next)
+	# XP subiu no mesmo nível (matou um monstro): "+20 XP" em ciano acima de você. Subir de nível tem o aviso próprio.
+	if _last_level == network.level and network.xp > _last_xp + 0.05 and _local_player != null:
+		FloatingText.spawn(self, _local_player.global_position + Vector3.UP * (_FLOATING_TEXT_HEIGHT + 0.5),
+			"+%s XP" % _format_xp(network.xp - _last_xp), Color(0.0, 0.9, 1.0))
+	_last_level = network.level
+	_last_xp = network.xp
 	if own.dead:
 		_hud.show_toast("Você morreu · renasce em %d s" % ceili(network.respawn_in))
+
+
+## XP com no máximo 1 casa, sem ",0" ("20", "20.2").
+static func _format_xp(value: float) -> String:
+	var rounded: float = snappedf(value, 0.1)
+	return str(roundi(rounded)) if is_equal_approx(rounded, roundf(rounded)) else "%.1f" % rounded
 
 
 func _on_left_zone(_code: int, _reason: String) -> void:

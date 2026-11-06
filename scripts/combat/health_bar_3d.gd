@@ -6,6 +6,9 @@ extends Node3D
 ## Vida com escudo ([method set_values]): o escudo aparece como **sobrevida azul-clara** logo depois do vermelho,
 ## sem a barra crescer para a direita — se vida + escudo passam do máximo, o azul cobre o fim da barra ([JOGO-06]).
 ##
+## Monstros ([JOGO-13]): [method set_level_badge] põe um quadrado preto com o nível em ciano à esquerda da barra
+## (mesmas cores do quadrado da HUD, [CLI-08]). A barra de lançamento deles também é um [HealthBar3D] (branca).
+##
 ## O nó inteiro copia a rotação da câmera a cada quadro (em vez de billboard no material): assim o
 ## preenchimento, ancorado na borda esquerda do nó, encolhe para a esquerda da TELA.
 
@@ -18,8 +21,15 @@ extends Node3D
 ## Cor da sobrevida do escudo (por cima da vida).
 @export var shield_color: Color = Color(0.55, 0.85, 1.0, 0.95)
 
+## Lado do quadrado do nível, em metros.
+const BADGE_SIZE: float = 0.22
+## Cor do número do nível (ciano, igual à HUD).
+const BADGE_TEXT_COLOR: Color = Color(0.0, 0.9, 1.0)
+
 var _fill: MeshInstance3D = null
 var _shield: MeshInstance3D = null
+## Número do quadrado do nível (null até o primeiro [method set_level_badge]).
+var _badge_label: Label3D = null
 
 
 func _ready() -> void:
@@ -58,11 +68,30 @@ func set_values(hp_ratio: float, shield_ratio: float) -> void:
 	_shield.scale.x = maxf(0.001, shield)
 
 
-func _make_quad(color: Color, offset: Vector3, priority: int) -> MeshInstance3D:
+## Mostra o quadrado do nível ([param level]) à esquerda da barra; criado na primeira chamada.
+func set_level_badge(level: int) -> void:
+	if _badge_label == null:
+		var center: Vector3 = Vector3(-bar_size.x / 2.0 - 0.03 - BADGE_SIZE / 2.0, 0.0, 0.0)
+		var square: MeshInstance3D = _make_quad(Color(0, 0, 0, 0.95), center, 0, Vector2(BADGE_SIZE, BADGE_SIZE))
+		square.material_override.render_priority = 3
+		_badge_label = Label3D.new()
+		_badge_label.position = center + Vector3(0.0, 0.0, 0.003)
+		_badge_label.pixel_size = 0.0045
+		_badge_label.font_size = 40
+		_badge_label.outline_size = 0
+		_badge_label.modulate = BADGE_TEXT_COLOR
+		_badge_label.no_depth_test = true
+		_badge_label.render_priority = 4
+		_badge_label.shaded = false
+		add_child(_badge_label)
+	_badge_label.text = str(level)
+
+
+func _make_quad(color: Color, offset: Vector3, priority: int, size: Vector2 = Vector2.ZERO) -> MeshInstance3D:
 	var quad: QuadMesh = QuadMesh.new()
-	quad.size = bar_size
+	quad.size = bar_size if size == Vector2.ZERO else size
 	# Com o centro deslocado meia barra, a escala X encolhe a partir da borda esquerda.
-	quad.center_offset = Vector3(bar_size.x / 2.0, 0.0, 0.0) if priority > 0 else Vector3.ZERO
+	quad.center_offset = Vector3(bar_size.x / 2.0, 0.0, 0.0) if priority > 0 and size == Vector2.ZERO else Vector3.ZERO
 	var material: StandardMaterial3D = StandardMaterial3D.new()
 	material.albedo_color = color
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA

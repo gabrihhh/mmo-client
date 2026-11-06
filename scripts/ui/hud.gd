@@ -213,14 +213,14 @@ func set_mana(current: float, maximum: float) -> void:
 
 ## Atualiza a linha de XP e o quadrado do nível ([JOGO-12]): [param xp] juntada dentro do [param level] de
 ## [param xp_next] que ele pede (0 = nível máximo: linha cheia). Valores prontos do servidor.
-func set_experience(level: int, xp: int, xp_next: int) -> void:
+func set_experience(level: int, xp: float, xp_next: float) -> void:
 	_level_label.text = str(level)
-	if xp_next <= 0:
+	if xp_next <= 0.0:
 		_xp_bar.max_value = 1.0
 		_xp_bar.value = 1.0
 	else:
-		_xp_bar.max_value = float(xp_next)
-		_xp_bar.value = clampf(float(xp), 0.0, float(xp_next))
+		_xp_bar.max_value = xp_next
+		_xp_bar.value = clampf(xp, 0.0, xp_next)
 
 
 ## Texto pequeno do topo (ex.: "Username · Online: 3").
