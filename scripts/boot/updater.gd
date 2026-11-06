@@ -1,7 +1,7 @@
 extends Control
 ## Atualizador: a ÚNICA cena que vai dentro do APK. Ver mmo-docs [INFRA-08].
 ##
-## Ao abrir: baixa o manifesto do servidor, baixa o pacote do jogo (.pck) se houver versão nova,
+## Ao abrir: acha o servidor, baixa o manifesto, baixa o pacote do jogo (.pck) se houver versão nova,
 ## confere o SHA-256, carrega o pacote e abre o [code]GameBoot[/code] (que vem dentro do pacote).
 ## A atualização é OBRIGATÓRIA: sem conseguir falar com o servidor, o jogo não abre (ele também
 ## não funcionaria sem servidor).
@@ -10,11 +10,15 @@ extends Control
 ## elas só existem depois de carregar o pacote. Mudou algo aqui → é preciso um APK novo e subir
 ## [constant LAUNCHER_VERSION].
 ##
+## Achar o servidor ([INFRA-10]): primeiro o endereço gravado no APK (IP Tailscale do PC de dev, [CLI-06]); se ele não
+## responder em [constant PROBE_TIMEOUT_S] s, pergunta na rede local por broadcast UDP e usa quem responder. O endereço
+## achado vai para [constant DISCOVERED_URL_SETTING] (só nesta execução), que o jogo usa no lugar do gravado.
+##
 ## Dev: se os arquivos do jogo já existem localmente (rodando o projeto pelo editor/terminal), pula a
 ## atualização e usa esses arquivos (a não ser com `-- --update`). No APK eles não existem.
 
 ## Versão deste instalador. O manifesto pode exigir uma mínima (minLauncherVersion).
-const LAUNCHER_VERSION: int = 1
+const LAUNCHER_VERSION: int = 2
 ## Rota do manifesto no servidor (mmo-server/src/http/updates.ts); %s = plataforma (ver [method _platform]).
 const MANIFEST_PATH: String = "/updates/%s/manifest.json"
 ## Primeira cena do jogo, dentro do pacote. ATENÇÃO: igual a GameBoot.SCENE (scripts/boot/game_boot.gd).
@@ -28,6 +32,17 @@ const INSTALLED_FILE: String = "user://update/installed.cfg"
 const FORCE_UPDATE_ARG: String = "--update"
 ## Tempo máximo (s) para baixar o manifesto. O .pck não tem limite (pode ser grande em rede lenta).
 const MANIFEST_TIMEOUT_S: float = 10.0
+## Tempo máximo (s) para o endereço gravado responder antes de procurar na rede local.
+const PROBE_TIMEOUT_S: float = 4.0
+## Endereço achado na rede local (ws://ip:porta), só em memória; o jogo prefere ele ao gravado.
+## ATENÇÃO: lido em scripts/network/network_config.gd (server_url).
+const DISCOVERED_URL_SETTING: String = "mmo/network/discovered_url"
+## Porta UDP, pergunta e tempos da descoberta. ATENÇÃO: iguais a mmo-server/src/net/discovery.ts.
+const DISCOVERY_PORT: int = 2568
+const DISCOVERY_REQUEST: String = "MMO_DISCOVER 1"
+## Quanto tempo (s) esperar resposta na rede local, e de quanto em quanto (s) repetir a pergunta.
+const DISCOVERY_SECONDS: float = 3.0
+const DISCOVERY_RESEND_S: float = 0.5
 
 @onready var _status_label: Label = %StatusLabel
 @onready var _progress_bar: ProgressBar = %ProgressBar
@@ -38,6 +53,14 @@ var _http: HTTPRequest = null
 var _downloading: bool = false
 ## Manifesto em processamento (já validado).
 var _manifest: Dictionary = {}
+## Endereço HTTP do servidor em uso (do gravado ou do achado na rede local).
+var _base_url: String = ""
+## true enquanto testa o endereço gravado (falhou → procura na rede local).
+var _probing_configured: bool = false
+## Descoberta em andamento: socket, segundos que faltam e até a próxima pergunta.
+var _udp: PacketPeerUDP = null
+var _discovery_left: float = 0.0
+var _resend_left: float = 0.0
 
 
 func _ready() -> void:
@@ -51,7 +74,9 @@ func _ready() -> void:
 	_start()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	if _udp != null:
+		_poll_discovery(delta)
 	if not _downloading:
 		return
 	var total: int = _http.get_body_size()
@@ -59,23 +84,35 @@ func _process(_delta: float) -> void:
 		_progress_bar.value = 100.0 * float(_http.get_downloaded_bytes()) / float(total)
 
 
-## (Re)começa: baixa o manifesto.
+## (Re)começa: tenta o endereço gravado no APK (falhando, procura na rede local).
 func _start() -> void:
 	_retry_button.visible = false
 	_progress_bar.visible = false
 	_set_status("Procurando atualizações...")
-	_http.timeout = MANIFEST_TIMEOUT_S
+	_base_url = _configured_http_base()
+	_probing_configured = true
+	_request_manifest(PROBE_TIMEOUT_S)
+
+
+## Pede o manifesto em [member _base_url], com [param timeout] s de limite.
+func _request_manifest(timeout: float) -> void:
+	_http.cancel_request()
+	_http.timeout = timeout
 	_http.download_file = ""
 	_connect_once(_on_manifest_received)
 	print("Updater: manifesto em ", _manifest_url())
 	var error: Error = _http.request(_manifest_url())
 	if error != OK:
-		_fail("Endereço do servidor inválido (%s)." % error_string(error))
+		_on_manifest_received(HTTPRequest.RESULT_CANT_CONNECT, 0, PackedStringArray(), PackedByteArray())
 
 
 func _on_manifest_received(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
 	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
 		print("Updater: manifesto falhou: url=%s result=%d http=%d" % [_manifest_url(), result, code])
+		if _probing_configured:
+			_probing_configured = false
+			_start_discovery()
+			return
 		_fail("Sem conexão com o servidor. Verifique a internet.\n(erro %d/%d)" % [result, code])
 		return
 	var manifest: Dictionary = _parse_manifest(body.get_string_from_utf8())
@@ -95,6 +132,66 @@ func _on_manifest_received(result: int, code: int, _headers: PackedStringArray, 
 		_load_and_open(installed_path)
 		return
 	_download_pack()
+
+
+## Pergunta na rede local (broadcast UDP) se há um servidor do jogo ([INFRA-10]).
+func _start_discovery() -> void:
+	_set_status("Procurando o servidor nesta rede...")
+	_udp = PacketPeerUDP.new()
+	_udp.set_broadcast_enabled(true)
+	var error: Error = _udp.bind(0)
+	if error == OK:
+		error = _udp.set_dest_address("255.255.255.255", DISCOVERY_PORT)
+	if error != OK:
+		_stop_discovery()
+		_fail("Sem conexão com o servidor. Verifique a internet.\n(rede local: %s)" % error_string(error))
+		return
+	_discovery_left = DISCOVERY_SECONDS
+	_resend_left = 0.0
+
+
+## A cada quadro: repete a pergunta, lê respostas e, no fim do tempo sem resposta, desiste.
+func _poll_discovery(delta: float) -> void:
+	_resend_left -= delta
+	if _resend_left <= 0.0:
+		_resend_left = DISCOVERY_RESEND_S
+		_udp.put_packet(DISCOVERY_REQUEST.to_utf8_buffer())
+	while _udp.get_available_packet_count() > 0:
+		var packet: PackedByteArray = _udp.get_packet()
+		var host: String = _udp.get_packet_ip()
+		var port: int = _parse_discovery_reply(packet.get_string_from_utf8())
+		if port > 0 and not host.is_empty():
+			_stop_discovery()
+			print("Updater: servidor achado na rede local em %s:%d" % [host, port])
+			ProjectSettings.set_setting(DISCOVERED_URL_SETTING, "ws://%s:%d" % [host, port])
+			_base_url = "http://%s:%d" % [host, port]
+			_set_status("Procurando atualizações...")
+			_request_manifest(MANIFEST_TIMEOUT_S)
+			return
+	_discovery_left -= delta
+	if _discovery_left <= 0.0:
+		_stop_discovery()
+		_fail("Servidor não encontrado: nem pela internet (Tailscale) nem nesta rede Wi-Fi.")
+
+
+func _stop_discovery() -> void:
+	if _udp != null:
+		_udp.close()
+	_udp = null
+
+
+## Porta do jogo numa resposta válida da descoberta ({ game: "mmo", version: 1, port }); 0 se não for.
+func _parse_discovery_reply(text: String) -> int:
+	var parsed: Variant = JSON.parse_string(text)
+	if not parsed is Dictionary:
+		return 0
+	var data: Dictionary = parsed
+	var game: Variant = data.get("game")
+	var port: Variant = data.get("port")
+	if not (game is String and game == "mmo") or not (port is float or port is int):
+		return 0
+	var number: float = port
+	return int(number) if number >= 1.0 and number <= 65535.0 and number == floorf(number) else 0
 
 
 func _download_pack() -> void:
@@ -212,8 +309,13 @@ func _platform() -> String:
 	return "android" if OS.has_feature("android") else "desktop"
 
 
-## Endereço HTTP do servidor, derivado do endereço WebSocket (ws:// → http://, wss:// → https://).
+## Endereço HTTP do servidor em uso (o gravado, ou o achado na rede local).
 func _http_base_url() -> String:
+	return _base_url if not _base_url.is_empty() else _configured_http_base()
+
+
+## Endereço HTTP gravado no APK, derivado do endereço WebSocket (ws:// → http://, wss:// → https://).
+func _configured_http_base() -> String:
 	# get_setting_with_override aplica a variação por plataforma (server_url.android); get_setting não.
 	var setting: Variant = ProjectSettings.get_setting_with_override(SERVER_URL_SETTING)
 	var ws_url: String = (str(setting) if setting != null else "ws://localhost:2567").trim_suffix("/")
