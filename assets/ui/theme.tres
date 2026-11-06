@@ -1,9 +1,11 @@
-[gd_resource type="Theme" load_steps=24 format=3]
+[gd_resource type="Theme" load_steps=28 format=3]
 
 [ext_resource type="Texture2D" path="res://assets/ui/pixel/frame.png" id="1_frame"]
 [ext_resource type="Texture2D" path="res://assets/ui/pixel/card.png" id="2_card"]
 [ext_resource type="Texture2D" path="res://assets/ui/pixel/panel.png" id="4_panel"]
 [ext_resource type="Texture2D" path="res://assets/ui/pixel/card_pressed.png" id="3_card_pressed"]
+[ext_resource type="Texture2D" path="res://assets/ui/pixel/input.png" id="5_input"]
+[ext_resource type="Texture2D" path="res://assets/ui/pixel/input_focus.png" id="6_input_focus"]
 
 ; Tema da interface do jogo (telas de login, HUD...). Ver mmo-docs [CLI-07].
 ; Campos de texto e botões: cantos arredondados e espaço interno para o texto não encostar na borda.
@@ -229,6 +231,26 @@ texture_margin_right = 12.0
 texture_margin_bottom = 12.0
 modulate_color = Color(1, 1, 1, 0.45)
 
+; Campo de texto pixel art (login/cadastro, [CLI-05]): input.png afundado; selecionado = aro dourado por cima
+; (input_focus.png, meio transparente). 9-slice com margem 12 px (4 pixels do desenho x 3), como as cartas.
+[sub_resource type="StyleBoxTexture" id="PixelLineEdit_normal"]
+content_margin_left = 24.0
+content_margin_top = 12.0
+content_margin_right = 24.0
+content_margin_bottom = 12.0
+texture = ExtResource("5_input")
+texture_margin_left = 12.0
+texture_margin_top = 12.0
+texture_margin_right = 12.0
+texture_margin_bottom = 12.0
+
+[sub_resource type="StyleBoxTexture" id="PixelLineEdit_focus"]
+texture = ExtResource("6_input_focus")
+texture_margin_left = 12.0
+texture_margin_top = 12.0
+texture_margin_right = 12.0
+texture_margin_bottom = 12.0
+
 [sub_resource type="StyleBoxFlat" id="HudDimmer_panel"]
 bg_color = Color(0, 0, 0, 0.35)
 
@@ -259,5 +281,9 @@ PixelButton/styles/hover = SubResource("PixelButton_hover")
 PixelButton/styles/pressed = SubResource("PixelButton_pressed")
 PixelButton/styles/disabled = SubResource("PixelButton_disabled")
 PixelButton/styles/focus = SubResource("Button_focus")
+PixelLineEdit/base_type = &"LineEdit"
+PixelLineEdit/styles/normal = SubResource("PixelLineEdit_normal")
+PixelLineEdit/styles/focus = SubResource("PixelLineEdit_focus")
+PixelLineEdit/styles/read_only = SubResource("PixelLineEdit_normal")
 HudDimmer/base_type = &"Panel"
 HudDimmer/styles/panel = SubResource("HudDimmer_panel")

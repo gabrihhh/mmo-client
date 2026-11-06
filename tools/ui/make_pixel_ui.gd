@@ -2,7 +2,8 @@ extends SceneTree
 ## Gera as peças pixel art da HUD ([CLI-08]) em `assets/ui/pixel/`: moldura das barras/controles (e a versão opaca
 ## dos painéis do Menu), fundo das cartas
 ## e do Menu (normal e apertado), botão redondo
-## (ataque e "Desfocar"), espada, espada riscada e os ícones do menu (☰, mochila, engrenagem, sair).
+## (ataque e "Desfocar"), espada, espada riscada, os ícones do menu (☰, mochila, engrenagem, sair) e as peças da
+## tela de login ([CLI-05]): campo de texto (normal e selecionado) e o piso de pedra do fundo.
 ##
 ## Tudo é desenhado pixel a pixel aqui (sem Meshy, sem imagem de fora): mudar uma cor ou um desenho e rodar de novo.
 ## Os mapas de pixels usam uma letra por cor ([constant PALETTE]); "." = transparente. Depois de pintar, cada
@@ -27,6 +28,9 @@ const CARD_SCALE: int = 3
 ## Lado do fundo da carta antes de ampliar; a margem do 9-slice é [constant CARD_MARGIN] (o tema/botão usa ×CARD_SCALE).
 const CARD_SIZE: int = 12
 const CARD_MARGIN: int = 4
+
+## Lado do piso de pedra do fundo do login (repetido na tela, ampliado pela cena).
+const TILE_SIZE: int = 16
 
 ## Cores por letra. Contorno = "k".
 const PALETTE: Dictionary[String, Color] = {
@@ -179,6 +183,11 @@ func _init() -> void:
 		var frame: Image = _frame(opaque)
 		frame.resize(FRAME_SIZE * FRAME_SCALE, FRAME_SIZE * FRAME_SCALE, Image.INTERPOLATE_NEAREST)
 		_save(frame, "panel" if opaque else "frame")
+	for focused: bool in [false, true]:
+		var field: Image = _input(focused)
+		field.resize(CARD_SIZE * CARD_SCALE, CARD_SIZE * CARD_SCALE, Image.INTERPOLATE_NEAREST)
+		_save(field, "input_focus" if focused else "input")
+	_save(_stone_tile(), "bg_tile")
 	print("pixel ui: ok -> ", OUT_DIR)
 	quit()
 
@@ -315,6 +324,68 @@ func _card(pressed: bool) -> Image:
 			image.set_pixel(x, y, color)
 	for c: Vector2i in [Vector2i(0, 0), Vector2i(n - 1, 0), Vector2i(0, n - 1), Vector2i(n - 1, n - 1)]:
 		image.set_pixelv(c, Color(0, 0, 0, 0))
+	return image
+
+
+## Campo de texto ([constant CARD_SIZE] px antes de ampliar, mesma margem das cartas): contorno, aro de pedra cinza
+## (selecionado = dourado) claro embaixo/direita e escuro em cima/esquerda (parece afundado), contorno interno e fundo
+## quase preto com sombra na primeira linha. Selecionado (`input_focus.png`) é só o aro dourado, com o meio
+## transparente: o LineEdit desenha o estilo "focus" POR CIMA do normal.
+func _input(focused: bool) -> Image:
+	var n: int = CARD_SIZE
+	var image: Image = Image.create_empty(n, n, false, Image.FORMAT_RGBA8)
+	var light: Color = PALETTE["g"] if focused else PALETTE["s"]
+	var dark: Color = PALETTE["G"] if focused else PALETTE["S"]
+	var fill: Color = Color8(16, 14, 18)
+	for y: int in range(n):
+		for x: int in range(n):
+			var edge: int = mini(mini(x, y), mini(n - 1 - x, n - 1 - y))
+			var color: Color = fill
+			match edge:
+				0, 2:
+					color = PALETTE["k"]
+				1:
+					# Afundado: luz embaixo/direita, sombra em cima/esquerda.
+					color = dark if (y == 1 and x < n - 2) or (x == 1 and y < n - 2) else light
+				3:
+					color = Color8(8, 7, 10) if (y == 3 or x == 3) else fill
+			if focused and edge >= 3:
+				color = Color(0, 0, 0, 0)
+			image.set_pixel(x, y, color)
+	for c: Vector2i in [Vector2i(0, 0), Vector2i(n - 1, 0), Vector2i(0, n - 1), Vector2i(n - 1, n - 1)]:
+		image.set_pixelv(c, Color(0, 0, 0, 0))
+	return image
+
+
+## Piso de pedra escura ([constant TILE_SIZE] px, repete sem emenda): 4 lajotas com rejunte escuro, luz em cima e
+## sombra embaixo de cada uma e alguns pixels de musgo. Semente fixa: sai sempre igual.
+func _stone_tile() -> Image:
+	var n: int = TILE_SIZE
+	var image: Image = Image.create_empty(n, n, false, Image.FORMAT_RGBA8)
+	var stone: Color = Color8(38, 42, 54)
+	var light: Color = Color8(52, 57, 72)
+	var shadow: Color = Color8(28, 31, 41)
+	var grout: Color = Color8(18, 19, 26)
+	var half: int = n / 2
+	for y: int in range(n):
+		for x: int in range(n):
+			# Fileira de baixo deslocada meia lajota (como tijolos).
+			var lx: int = (x + (half / 2 if y >= half else 0)) % half
+			var ly: int = y % half
+			var color: Color = stone
+			if lx == 0 or ly == 0:
+				color = grout
+			elif ly == 1:
+				color = light
+			elif ly == half - 1 or lx == half - 1:
+				color = shadow
+			image.set_pixel(x, y, color)
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = 7
+	for i: int in range(6):
+		var p: Vector2i = Vector2i(rng.randi_range(1, n - 2), rng.randi_range(1, n - 2))
+		if image.get_pixelv(p) != grout:
+			image.set_pixelv(p, Color8(44, 62, 50) if i % 2 == 0 else Color8(56, 60, 76))
 	return image
 
 

@@ -7,6 +7,8 @@ extends Control
 ## - "Criar conta": username (exibido no jogo exatamente como digitado), e-mail, senha e confirmação.
 ## - "Entrar como convidado" (TESTE): cada toque cria uma conta NOVA, com dados gerados pelo cliente.
 ## As regras são conferidas aqui para avisar na hora ([Protocol]), mas quem decide é o servidor.
+## Esperando o servidor ("Entrando...", "Criando conta..."): os campos e botões SOMEM e fica só a mensagem com o
+## carregando pixel art ([PixelLoader]); erro → volta o formulário de onde veio. Visual pixel art: [CLI-05].
 ## Autenticou → o [Network] entra na zona sozinho → no [signal Network.joined_zone] abre a zona. Conta que ainda não
 ## escolheu o corpo ([signal Network.body_choice_needed]) vai antes para a escolha de personagem ([CharacterSelect]).
 ## Se a conexão cair, o jogo volta para cá e mostra [member Network.last_error].
@@ -23,6 +25,8 @@ const DEV_USER_ARG: String = "--dev-user="
 const DEV_PASSWORD: String = "dev-password-123"
 
 @onready var _status_label: Label = %StatusLabel
+## Carregando pixel art, visível só enquanto espera o servidor.
+@onready var _loader: PixelLoader = %Loader
 @onready var _login_form: Control = %LoginForm
 @onready var _login_field: LineEdit = %LoginField
 @onready var _password_field: LineEdit = %PasswordField
@@ -42,6 +46,8 @@ var _dev_user: String = ""
 var _dev_registering: bool = false
 ## Cadastro de convidado em andamento (se o nome sorteado já existir, sorteia outro).
 var _pending_guest: Dictionary = {}
+## Formulário em uso: true = criar conta, false = entrar (é o que volta depois de um erro).
+var _register_mode: bool = false
 
 
 func _ready() -> void:
@@ -151,7 +157,7 @@ func _on_auth_failed(code: String, message: String) -> void:
 		Network.instance.register(_dev_user, "%s@dev.local" % _dev_user.to_lower(), DEV_PASSWORD)
 		return
 	# Sessão salva não vale mais: mostra o formulário de entrar.
-	_show_form(code in ["username_taken", "email_taken", "invalid_username", "invalid_email", "invalid_password"] and _register_form.visible)
+	_show_form(code in ["username_taken", "email_taken", "invalid_username", "invalid_email", "invalid_password"] and _register_mode)
 	_show_error(message)
 
 
@@ -165,21 +171,29 @@ func _on_left_zone(_code: int, _reason: String) -> void:
 
 ## Mostra o formulário de cadastro ([param register] = true) ou o de entrar.
 func _show_form(register: bool) -> void:
+	_register_mode = register
 	_register_form.visible = register
 	_login_form.visible = not register
+	_loader.visible = false
 	_set_enabled(true)
 
 
+## Mostra a mensagem de erro e devolve o formulário em uso (some o carregando).
 func _show_error(message: String) -> void:
 	_status_label.text = message
-	if not _register_form.visible and not _login_form.visible:
-		_login_form.visible = true
-	_set_enabled(true)
+	_show_form(_register_mode)
 
 
-## Esconde os formulários e mostra só a mensagem (entrando/criando conta).
+## Esconde os formulários (nada para tocar) e mostra só a mensagem com o carregando (entrando/criando conta).
 func _set_busy(message: String) -> void:
 	_status_label.text = message
+	_login_form.visible = false
+	_register_form.visible = false
+	_loader.visible = true
+	# Fecha o teclado do celular, se estava aberto num campo.
+	var focused: Control = get_viewport().gui_get_focus_owner()
+	if focused != null:
+		focused.release_focus()
 	_set_enabled(false)
 
 

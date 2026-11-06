@@ -1,7 +1,10 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/login_screen.gd" id="1_login"]
 [ext_resource type="Theme" path="res://assets/ui/theme.tres" id="2_theme"]
+[ext_resource type="Texture2D" path="res://assets/ui/pixel/bg_tile.png" id="3_tile"]
+[ext_resource type="Texture2D" path="res://assets/ui/pixel/sword.png" id="4_sword"]
+[ext_resource type="Script" path="res://scripts/ui/pixel_loader.gd" id="5_loader"]
 
 [node name="Login" type="Control"]
 layout_mode = 3
@@ -20,130 +23,204 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.12, 0.16, 0.22, 1)
+mouse_filter = 2
+color = Color(0.07, 0.075, 0.1, 1)
+
+[node name="Tiles" type="TextureRect" parent="Background"]
+texture_filter = 1
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 0.25
+anchor_bottom = 0.25
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(4, 4)
+mouse_filter = 2
+texture = ExtResource("3_tile")
+stretch_mode = 1
 
 [node name="Center" type="VBoxContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 60.0
-offset_top = 140.0
-offset_right = -60.0
-offset_bottom = -140.0
+offset_left = 40.0
+offset_top = 100.0
+offset_right = -40.0
+offset_bottom = -100.0
 grow_horizontal = 2
 grow_vertical = 2
 alignment = 1
-theme_override_constants/separation = 28
+theme_override_constants/separation = 36
 
-[node name="Title" type="Label" parent="Center"]
+[node name="TitleRow" type="HBoxContainer" parent="Center"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 96
+alignment = 1
+theme_override_constants/separation = 20
+
+[node name="SwordLeft" type="TextureRect" parent="Center/TitleRow"]
+texture_filter = 1
+custom_minimum_size = Vector2(80, 80)
+layout_mode = 2
+size_flags_vertical = 4
+texture = ExtResource("4_sword")
+expand_mode = 1
+stretch_mode = 5
+flip_h = true
+
+[node name="Title" type="Label" parent="Center/TitleRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.965, 0.77, 0.32, 1)
+theme_override_colors/font_outline_color = Color(0.094, 0.063, 0.047, 1)
+theme_override_colors/font_shadow_color = Color(0.4, 0.24, 0.07, 1)
+theme_override_constants/outline_size = 20
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 8
+theme_override_font_sizes/font_size = 110
 text = "MMO"
 horizontal_alignment = 1
 
-[node name="StatusLabel" type="Label" parent="Center"]
+[node name="SwordRight" type="TextureRect" parent="Center/TitleRow"]
+texture_filter = 1
+custom_minimum_size = Vector2(80, 80)
+layout_mode = 2
+size_flags_vertical = 4
+texture = ExtResource("4_sword")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Panel" type="PanelContainer" parent="Center"]
+layout_mode = 2
+theme_type_variation = &"PixelPanel"
+
+[node name="VBox" type="VBoxContainer" parent="Center/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="StatusLabel" type="Label" parent="Center/Panel/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 80)
+custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.85, 0.6, 1)
 theme_override_font_sizes/font_size = 26
 horizontal_alignment = 1
 autowrap_mode = 3
 
-[node name="LoginForm" type="VBoxContainer" parent="Center"]
+[node name="Loader" type="Control" parent="Center/Panel/VBox"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+script = ExtResource("5_loader")
+
+[node name="LoginForm" type="VBoxContainer" parent="Center/Panel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 20
 
-[node name="LoginField" type="LineEdit" parent="Center/LoginForm"]
+[node name="LoginField" type="LineEdit" parent="Center/Panel/VBox/LoginForm"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 90)
 layout_mode = 2
+theme_type_variation = &"PixelLineEdit"
 theme_override_font_sizes/font_size = 32
 placeholder_text = "Usuário ou e-mail"
 
-[node name="PasswordField" type="LineEdit" parent="Center/LoginForm"]
+[node name="PasswordField" type="LineEdit" parent="Center/Panel/VBox/LoginForm"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 90)
 layout_mode = 2
+theme_type_variation = &"PixelLineEdit"
 theme_override_font_sizes/font_size = 32
 placeholder_text = "Senha"
 secret = true
 virtual_keyboard_type = 6
 
-[node name="LoginButton" type="Button" parent="Center/LoginForm"]
+[node name="LoginButton" type="Button" parent="Center/Panel/VBox/LoginForm"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 110)
 layout_mode = 2
+theme_type_variation = &"PixelButton"
 theme_override_font_sizes/font_size = 40
 text = "Entrar"
 
-[node name="GuestButton" type="Button" parent="Center/LoginForm"]
+[node name="GuestButton" type="Button" parent="Center/Panel/VBox/LoginForm"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
+theme_type_variation = &"PixelButton"
 theme_override_font_sizes/font_size = 32
 text = "Entrar como convidado"
 
-[node name="ToRegisterButton" type="Button" parent="Center/LoginForm"]
+[node name="ToRegisterButton" type="Button" parent="Center/Panel/VBox/LoginForm"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 80)
 layout_mode = 2
+theme_override_colors/font_color = Color(0.965, 0.77, 0.32, 1)
+theme_override_colors/font_hover_color = Color(1, 0.88, 0.55, 1)
+theme_override_colors/font_pressed_color = Color(1, 0.88, 0.55, 1)
 theme_override_font_sizes/font_size = 28
 text = "Não tem conta? Criar conta"
 flat = true
 
-[node name="RegisterForm" type="VBoxContainer" parent="Center"]
+[node name="RegisterForm" type="VBoxContainer" parent="Center/Panel/VBox"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
 theme_override_constants/separation = 20
 
-[node name="UsernameField" type="LineEdit" parent="Center/RegisterForm"]
+[node name="UsernameField" type="LineEdit" parent="Center/Panel/VBox/RegisterForm"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 90)
 layout_mode = 2
+theme_type_variation = &"PixelLineEdit"
 theme_override_font_sizes/font_size = 32
 placeholder_text = "Username (aparece no jogo)"
 
-[node name="EmailField" type="LineEdit" parent="Center/RegisterForm"]
+[node name="EmailField" type="LineEdit" parent="Center/Panel/VBox/RegisterForm"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 90)
 layout_mode = 2
+theme_type_variation = &"PixelLineEdit"
 theme_override_font_sizes/font_size = 32
 placeholder_text = "E-mail"
 virtual_keyboard_type = 5
 
-[node name="NewPasswordField" type="LineEdit" parent="Center/RegisterForm"]
+[node name="NewPasswordField" type="LineEdit" parent="Center/Panel/VBox/RegisterForm"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 90)
 layout_mode = 2
+theme_type_variation = &"PixelLineEdit"
 theme_override_font_sizes/font_size = 32
 placeholder_text = "Senha (mín. 8)"
 secret = true
 virtual_keyboard_type = 6
 
-[node name="ConfirmField" type="LineEdit" parent="Center/RegisterForm"]
+[node name="ConfirmField" type="LineEdit" parent="Center/Panel/VBox/RegisterForm"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 90)
 layout_mode = 2
+theme_type_variation = &"PixelLineEdit"
 theme_override_font_sizes/font_size = 32
 placeholder_text = "Confirmar senha"
 secret = true
 virtual_keyboard_type = 6
 
-[node name="RegisterButton" type="Button" parent="Center/RegisterForm"]
+[node name="RegisterButton" type="Button" parent="Center/Panel/VBox/RegisterForm"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 110)
 layout_mode = 2
+theme_type_variation = &"PixelButton"
 theme_override_font_sizes/font_size = 40
 text = "Criar conta"
 
-[node name="ToLoginButton" type="Button" parent="Center/RegisterForm"]
+[node name="ToLoginButton" type="Button" parent="Center/Panel/VBox/RegisterForm"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 80)
 layout_mode = 2
+theme_override_colors/font_color = Color(0.965, 0.77, 0.32, 1)
+theme_override_colors/font_hover_color = Color(1, 0.88, 0.55, 1)
+theme_override_colors/font_pressed_color = Color(1, 0.88, 0.55, 1)
 theme_override_font_sizes/font_size = 28
 text = "Já tem conta? Entrar"
 flat = true
