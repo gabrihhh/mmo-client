@@ -22,6 +22,13 @@ const PETAL_COLORS: Array[Color] = [
 	Color(1.0, 0.6, 0.3), Color(0.55, 0.75, 1.0),
 ]
 ## Pedras da praça.
+## Centro (x, z em m) de cada bosque; as árvores caem até [constant GROVE_SPREAD] m dele. O mapa do Menu
+## ([ZoneMap]) desenha os bosques daqui.
+const GROVES: Array[Vector2] = [
+	Vector2(-40, -35), Vector2(45, -50), Vector2(-60, 40), Vector2(55, 45), Vector2(0, -85), Vector2(-95, -10),
+	Vector2(95, 5), Vector2(10, 90), Vector2(-85, -90), Vector2(90, -95), Vector2(-100, 95), Vector2(100, 100),
+]
+const GROVE_SPREAD: float = 12.0
 const STONE: Color = Color(0.5, 0.48, 0.45)
 const STONE_DARK: Color = Color(0.36, 0.34, 0.32)
 const STONE_LIGHT: Color = Color(0.6, 0.57, 0.53)
@@ -196,13 +203,9 @@ func _add_trees_and_rocks() -> void:
 	var st: SurfaceTool = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	# Bosques: alguns centros, árvores em volta de cada um.
-	var groves: Array[Vector2] = [
-		Vector2(-40, -35), Vector2(45, -50), Vector2(-60, 40), Vector2(55, 45), Vector2(0, -85), Vector2(-95, -10),
-		Vector2(95, 5), Vector2(10, 90), Vector2(-85, -90), Vector2(90, -95), Vector2(-100, 95), Vector2(100, 100),
-	]
-	for grove: Vector2 in groves:
+	for grove: Vector2 in GROVES:
 		for k: int in range(_rng.randi_range(5, 9)):
-			var at: Vector2 = grove + Vector2(_rng.randf_range(-12.0, 12.0), _rng.randf_range(-12.0, 12.0))
+			var at: Vector2 = grove + Vector2(_rng.randf_range(-GROVE_SPREAD, GROVE_SPREAD), _rng.randf_range(-GROVE_SPREAD, GROVE_SPREAD))
 			_tree(st, Vector3(at.x, ZoneTerrain.field_height(at.x, at.y), at.y), _rng.randf_range(0.8, 1.4))
 	# Pedras soltas pelo campo.
 	for k: int in range(70):

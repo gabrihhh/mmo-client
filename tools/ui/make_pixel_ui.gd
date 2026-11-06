@@ -2,7 +2,7 @@ extends SceneTree
 ## Gera as peças pixel art da HUD ([CLI-08]) em `assets/ui/pixel/`: moldura das barras/controles (e a versão opaca
 ## dos painéis do Menu), fundo das cartas
 ## e do Menu (normal e apertado), botão redondo
-## (ataque e "Desfocar"), espada, espada riscada, os ícones do menu (☰, mochila, engrenagem, sair) e as peças da
+## (ataque e "Desfocar"), espada, espada riscada, os ícones do menu (☰, mochila, mapa, engrenagem, sair) e as peças da
 ## tela de login ([CLI-05]): campo de texto (normal e selecionado) e o piso de pedra do fundo.
 ##
 ## Tudo é desenhado pixel a pixel aqui (sem Meshy, sem imagem de fora): mudar uma cor ou um desenho e rodar de novo.
@@ -123,6 +123,25 @@ const ICON_BAG: Array[String] = [
 	"....bbbbbbbb....",
 	"................",
 ]
+## Mapa dobrado (Mapa): papel em três dobras (x = papel, s = sombra da dobra), caminho tracejado vermelho até um X.
+const ICON_MAP: Array[String] = [
+	"................",
+	"................",
+	"..xxxxsxxxxsxx..",
+	"..xxxxsxxxxsxx..",
+	"..xrxxsxxxxsxx..",
+	"..xxrxsxxxxsxx..",
+	"..xxxxsrxxxsxx..",
+	"..xxxxsxrxxsxx..",
+	"..xxxxsxxxxsrx..",
+	"..xxxxsxxxrsxx..",
+	"..xxxxsxxxxsxx..",
+	"..xxxxsxxxrsrx..",
+	"..xxxxsxxxxsrx..",
+	"..xxxxsxxxrsxr..",
+	"..xxxxsxxxxsxx..",
+	"................",
+]
 ## Engrenagem (Configuração).
 const ICON_GEAR: Array[String] = [
 	"................",
@@ -171,6 +190,7 @@ func _init() -> void:
 	_save(_outlined(crossed), "sword_crossed")
 	_save(_outlined(_from_map(ICON_MENU)), "icon_menu")
 	_save(_outlined(_from_map(ICON_BAG)), "icon_bag")
+	_save(_outlined(_from_map(ICON_MAP)), "icon_map")
 	_save(_outlined(_from_map(ICON_GEAR)), "icon_gear")
 	_save(_outlined(_from_map(ICON_EXIT)), "icon_exit")
 	_save(_round_button(32, false), "round_button")

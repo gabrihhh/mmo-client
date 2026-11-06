@@ -4,7 +4,8 @@ extends CanvasLayer
 ## logo abaixo dela, a linha de XP (cinza, enchendo de ciano) com o quadrado do nível na ponta direita ([JOGO-12]);
 ## embaixo, outra moldura igual junta as 6 cartas e a linha joystick | ataque simples (+ "Desfocar" embaixo) | menu,
 ## com espaços iguais entre eles e nas bordas. O Menu (Inventário, Configuração, "Sair da conta", cada um com ícone
-## à esquerda) fecha pelo X no canto ou tocando fora dele (no fundo escurecido). Inventário ([CLI-10]), em tela
+## à esquerda) fecha pelo X no canto ou tocando fora dele (no fundo escurecido). Mapa ([CLI-11], [ZoneMap]): a zona
+## inteira em pixel art, girada como a câmera, com você, monstros, bonecos/NPCs e jogadores ao vivo (tela inteira). Inventário ([CLI-10]), em tela
 ## inteira: boneco com o que está vestido ([PaperDoll]) + mochila em grade de ícones que rola; tocar num item abre
 ## a ficha dele ([ItemDetailPanel], também em tela inteira).
 ##
@@ -48,6 +49,8 @@ const LEVEL_BOX_COLOR: Color = Color(0.0, 0.0, 0.0)
 @onready var _menu_dimmer: Panel = %MenuDimmer
 @onready var _inventory_panel: PanelContainer = %InventoryPanel
 @onready var _settings_panel: PanelContainer = %SettingsPanel
+## Mapa da zona em tela inteira (Menu → Mapa).
+@onready var _map_panel: PanelContainer = %MapPanel
 @onready var _logout_button: Button = %LogoutButton
 @onready var _paper_doll: PaperDoll = %PaperDoll
 @onready var _bag_title: Label = %BagTitle
@@ -87,6 +90,9 @@ func _ready() -> void:
 	_menu_button.tapped.connect(_open_panel.bind(_menu_panel))
 	(%InventoryButton as Button).pressed.connect(_open_panel.bind(_inventory_panel))
 	(%SettingsButton as Button).pressed.connect(_open_panel.bind(_settings_panel))
+	(%MapButton as Button).pressed.connect(_open_panel.bind(_map_panel))
+	(%CloseMapButton as Button).pressed.connect(_open_panel.bind(null))
+	(%MapBackButton as Button).pressed.connect(_open_panel.bind(_menu_panel))
 	(%CloseMenuButton as Button).pressed.connect(_open_panel.bind(null))
 	(%InventoryBackButton as Button).pressed.connect(_open_panel.bind(_menu_panel))
 	(%CloseInventoryButton as Button).pressed.connect(_open_panel.bind(null))
@@ -251,12 +257,12 @@ func _refresh_clear_target() -> void:
 
 ## true com algum painel do menu aberto.
 func is_menu_open() -> bool:
-	return _menu_panel.visible or _inventory_panel.visible or _settings_panel.visible or _item_detail.visible
+	return _menu_panel.visible or _inventory_panel.visible or _settings_panel.visible or _item_detail.visible or _map_panel.visible
 
 
 ## Abre [param panel] e fecha os outros; null fecha tudo. Com menu aberto, os controles do jogo param.
 func _open_panel(panel: PanelContainer) -> void:
-	for candidate: PanelContainer in [_menu_panel, _inventory_panel, _settings_panel, _item_detail]:
+	for candidate: PanelContainer in [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel]:
 		candidate.visible = candidate == panel
 	var playing: bool = panel == null
 	_menu_dimmer.visible = not playing
