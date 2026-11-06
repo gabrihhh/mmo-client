@@ -13,12 +13,13 @@ transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
 [node name="Model" parent="Body" instance=ExtResource("3_dummy")]
 
 [node name="NameLabel" type="Label3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.33, 0)
 billboard = 1
 pixel_size = 0.0065
 text = "Boneco"
-font_size = 48
-outline_size = 12
+font_size = 40
+outline_size = 10
+vertical_alignment = 2
 
 [node name="HealthBar" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.15, 0)
