@@ -92,15 +92,51 @@ text = "100 / 100"
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="XpRow" type="HBoxContainer" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 16.0
+offset_top = 174.0
+offset_right = -16.0
+offset_bottom = 210.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="XpBar" type="ProgressBar" parent="Root/XpRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+mouse_filter = 2
+show_percentage = false
+
+[node name="LevelBox" type="PanelContainer" parent="Root/XpRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="LevelLabel" type="Label" parent="Root/XpRow/LevelBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "1"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="StatusLabel" type="Label" parent="Root"]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 offset_left = 24.0
-offset_top = 176.0
+offset_top = 216.0
 offset_right = -24.0
-offset_bottom = 212.0
+offset_bottom = 252.0
 grow_horizontal = 2
 theme_override_colors/font_color = Color(1, 1, 1, 0.75)
 theme_override_font_sizes/font_size = 22
@@ -113,9 +149,9 @@ layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 offset_left = 24.0
-offset_top = 220.0
+offset_top = 260.0
 offset_right = -24.0
-offset_bottom = 300.0
+offset_bottom = 340.0
 grow_horizontal = 2
 theme_override_colors/font_color = Color(1, 0.85, 0.6, 1)
 theme_override_font_sizes/font_size = 26

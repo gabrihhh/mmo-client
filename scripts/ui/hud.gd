@@ -1,6 +1,7 @@
 class_name Hud
 extends CanvasLayer
 ## HUD do jogo em retrato ([CLI-08]): vida/mana numa moldura pixel art (variação de tema `PixelFrame`) no topo;
+## logo abaixo dela, a linha de XP (cinza, enchendo de ciano) com o quadrado do nível na ponta direita ([JOGO-12]);
 ## embaixo, outra moldura igual junta as 6 cartas e a linha joystick | ataque simples (+ "Desfocar" embaixo) | menu,
 ## com espaços iguais entre eles e nas bordas. O Menu (Inventário, Configuração, "Sair da conta", cada um com ícone
 ## à esquerda) fecha pelo X no canto ou tocando fora dele (no fundo escurecido). Inventário ([CLI-10]), em tela
@@ -24,11 +25,19 @@ const CARD_COUNT: int = 6
 const BAG_SLOT_PX: float = 120.0
 ## Tempo (s) que um aviso fica na tela.
 const _TOAST_SECONDS: float = 1.8
+## Cores da linha de XP e do quadrado do nível ([CLI-08]): fundo cinza, preenchimento e número ciano, quadrado preto.
+const XP_BACK_COLOR: Color = Color(0.35, 0.35, 0.38)
+const XP_FILL_COLOR: Color = Color(0.0, 0.9, 1.0)
+const LEVEL_BOX_COLOR: Color = Color(0.0, 0.0, 0.0)
 
 @onready var _health_bar: ProgressBar = %HealthBar
 @onready var _health_label: Label = %HealthLabel
 @onready var _mana_bar: ProgressBar = %ManaBar
 @onready var _mana_label: Label = %ManaLabel
+@onready var _xp_row: Control = %XpRow
+@onready var _xp_bar: ProgressBar = %XpBar
+@onready var _level_box: PanelContainer = %LevelBox
+@onready var _level_label: Label = %LevelLabel
 @onready var _status_label: Label = %StatusLabel
 @onready var _toast: Label = %Toast
 @onready var _card_row: HBoxContainer = %CardRow
@@ -73,6 +82,7 @@ func _ready() -> void:
 			_cards.append(card)
 	_set_bar_color(_health_bar, Color(0.8, 0.22, 0.22))
 	_set_bar_color(_mana_bar, Color(0.25, 0.45, 0.9))
+	_style_experience()
 
 	_menu_button.tapped.connect(_open_panel.bind(_menu_panel))
 	(%InventoryButton as Button).pressed.connect(_open_panel.bind(_inventory_panel))
@@ -87,6 +97,7 @@ func _ready() -> void:
 	_item_detail.action_pressed.connect(_on_item_action)
 	_menu_dimmer.gui_input.connect(_on_dimmer_input)
 	_vitals_frame.resized.connect(play_area_changed.emit)
+	_xp_row.resized.connect(play_area_changed.emit)
 	_controls_frame.resized.connect(play_area_changed.emit)
 	_toast.text = ""
 
@@ -97,13 +108,13 @@ func _process(delta: float) -> void:
 		_toast.modulate.a = clampf(_toast_left / 0.4, 0.0, 1.0)
 
 
-## Altura (0 = topo, 1 = base da tela) do meio do espaço livre entre a moldura de vida/mana e a dos
-## controles. A câmera põe o boneco aí ([member IsometricCamera.screen_focus_y]), [CLI-08].
+## Altura (0 = topo, 1 = base da tela) do meio do espaço livre entre a moldura de vida/mana (com a linha de XP
+## embaixo dela) e a dos controles. A câmera põe o boneco aí ([member IsometricCamera.screen_focus_y]), [CLI-08].
 func play_area_center_ratio() -> float:
 	var screen_height: float = _vitals_frame.get_viewport_rect().size.y
 	if screen_height <= 0.0:
 		return 0.5
-	var top: float = _vitals_frame.get_global_rect().end.y
+	var top: float = maxf(_vitals_frame.get_global_rect().end.y, _xp_row.get_global_rect().end.y)
 	var bottom: float = _controls_frame.get_global_rect().position.y
 	return clampf((top + bottom) / 2.0 / screen_height, 0.0, 1.0)
 
@@ -200,6 +211,18 @@ func set_mana(current: float, maximum: float) -> void:
 	_set_bar(_mana_bar, _mana_label, current, maximum)
 
 
+## Atualiza a linha de XP e o quadrado do nível ([JOGO-12]): [param xp] juntada dentro do [param level] de
+## [param xp_next] que ele pede (0 = nível máximo: linha cheia). Valores prontos do servidor.
+func set_experience(level: int, xp: int, xp_next: int) -> void:
+	_level_label.text = str(level)
+	if xp_next <= 0:
+		_xp_bar.max_value = 1.0
+		_xp_bar.value = 1.0
+	else:
+		_xp_bar.max_value = float(xp_next)
+		_xp_bar.value = clampf(float(xp), 0.0, float(xp_next))
+
+
 ## Texto pequeno do topo (ex.: "Username · Online: 3").
 func set_status(text: String) -> void:
 	_status_label.text = text
@@ -270,6 +293,19 @@ func _set_bar(bar: ProgressBar, label: Label, current: float, maximum: float) ->
 	bar.max_value = maxf(1.0, maximum)
 	bar.value = clampf(current, 0.0, maximum)
 	label.text = "%d / %d" % [roundi(current), roundi(maximum)]
+
+
+## Cores da linha de XP (cinza/ciano, cantos retos) e do quadrado do nível (preto, número ciano).
+func _style_experience() -> void:
+	_set_bar_color(_xp_bar, XP_FILL_COLOR)
+	var back: StyleBoxFlat = StyleBoxFlat.new()
+	back.bg_color = XP_BACK_COLOR
+	_xp_bar.add_theme_stylebox_override("background", back)
+	var box: StyleBoxFlat = StyleBoxFlat.new()
+	box.bg_color = LEVEL_BOX_COLOR
+	box.set_content_margin_all(2.0)
+	_level_box.add_theme_stylebox_override("panel", box)
+	_level_label.add_theme_color_override("font_color", XP_FILL_COLOR)
 
 
 func _set_bar_color(bar: ProgressBar, color: Color) -> void:

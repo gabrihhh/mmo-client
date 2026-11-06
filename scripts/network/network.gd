@@ -81,6 +81,11 @@ var pvp: bool = false
 var mana: float = 0.0
 var max_mana: float = 0.0
 var respawn_in: float = 0.0
+## Nível do personagem, XP juntada dentro dele e XP que o nível pede para subir (0 = nível máximo), [JOGO-12].
+## ATENÇÃO: vem do `me` do snapshot (OwnStatus em mmo-server/src/net/protocol.ts); o cliente não calcula.
+var level: int = 1
+var xp: int = 0
+var xp_next: int = 0
 ## Alvo fixo do ataque simples segundo o SERVIDOR ("" = nenhum).
 var attack_target: String = ""
 ## Golpe em andamento segundo o servidor: alvo ("" = nenhum) e segundos que faltam.
@@ -408,6 +413,9 @@ func _apply_snapshot(data: Dictionary) -> void:
 	mana = Protocol.read_float(me, "mana", mana)
 	max_mana = Protocol.read_float(me, "maxMana", max_mana)
 	respawn_in = Protocol.read_float(me, "respawnIn")
+	level = Protocol.read_int(me, "level", level)
+	xp = Protocol.read_int(me, "xp", xp)
+	xp_next = Protocol.read_int(me, "xpNext", xp_next)
 	attack_target = Protocol.read_string(me, "target")
 	var casting: Dictionary = Protocol.read_dict(me, "casting")
 	casting_target = Protocol.read_string(casting, "target")

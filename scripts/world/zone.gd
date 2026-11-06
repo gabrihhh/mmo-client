@@ -309,7 +309,7 @@ func _character_of(id: String) -> CharacterModel:
 	return null
 
 
-## A cada snapshot: barras de vida/mana do jogador local e o aviso de morte.
+## A cada snapshot: barras de vida/mana/XP do jogador local e o aviso de morte.
 func _on_snapshot(_tick: int, _ack: int) -> void:
 	var network: Network = Network.instance
 	var own: PlayerState = network.get_player(network.player_id)
@@ -317,6 +317,7 @@ func _on_snapshot(_tick: int, _ack: int) -> void:
 		return
 	_hud.set_health(own.hp, own.max_hp, own.shield)
 	_hud.set_mana(network.mana, network.max_mana)
+	_hud.set_experience(network.level, network.xp, network.xp_next)
 	if own.dead:
 		_hud.show_toast("Você morreu · renasce em %d s" % ceili(network.respawn_in))
 
