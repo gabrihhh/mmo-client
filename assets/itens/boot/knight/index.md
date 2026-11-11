@@ -18,7 +18,8 @@
 ## Habilidades
 
 Cada habilidade tem a pasta da sua animação própria (`male.glb` e `female.glb`, [ART-08]). Pasta vazia = usa a
-animação genérica indicada.
+animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação em **30 fps**, personagem no lugar
+(sem andar: quem move é o jogo). Parado, toca no corpo todo; andando, só tronco e braços (as pernas correm).
 
 ### Ataque simples — pasta `animation-attack/`
 
@@ -32,6 +33,11 @@ Este item não tem ataque simples (só a arma tem); pasta reservada.
 - Ao segurar (prévia): nenhuma (não há o que mirar; soltar só lança).
 - Os outros veem: só a animação. Animação: `buff` (Meshy; genérica, também em 14 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/iron_stance.png`.
+- **Tempo da animação (Blender, 30 fps):**
+  - **Instantânea:** o efeito acontece no toque (quadro 0); a animação acompanha o efeito, sem preparação.
+  - Recarga 16 s (não repete em seguida): depois do efeito, uma volta curta ao repouso (~0,3–0,6 s) basta.
+  - Hoje usa a genérica `buff`: dura 1,5 s (quadro 45), golpe em 0,57 s (quadro 17).
+  - Toca sempre na velocidade normal (×1): a duração é livre, mas curta (o personagem já pode agir).
 
 ## Anotações
 

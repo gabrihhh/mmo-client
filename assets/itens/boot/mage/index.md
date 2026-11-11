@@ -18,7 +18,8 @@
 ## Habilidades
 
 Cada habilidade tem a pasta da sua animação própria (`male.glb` e `female.glb`, [ART-08]). Pasta vazia = usa a
-animação genérica indicada.
+animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação em **30 fps**, personagem no lugar
+(sem andar: quem move é o jogo). Parado, toca no corpo todo; andando, só tronco e braços (as pernas correm).
 
 ### Ataque simples — pasta `animation-attack/`
 
@@ -32,6 +33,12 @@ Este item não tem ataque simples (só a arma tem); pasta reservada.
 - Ao segurar (prévia): faixa dourada translúcida saindo do personagem na direção do dedo: 7 m de comprimento × 1,2 m de largura.
 - Os outros veem: só a animação. Animação: `dash` (Meshy; genérica, também em 4 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/blink.png`.
+- **Tempo da animação (Blender, 30 fps):**
+  - **Instantânea:** o efeito acontece no toque (quadro 0); a animação acompanha o efeito, sem preparação.
+  - O deslocamento dura **0,1 s = quadro 3** (7 m): o movimento do corpo deve caber nisso (o jogo move o personagem; a animação fica no lugar).
+  - Recarga 10 s (não repete em seguida): depois do efeito, uma volta curta ao repouso (~0,3–0,6 s) basta.
+  - Hoje usa a genérica `dash`: dura 1,8 s (quadro 54), sem momento de golpe (toca na velocidade normal).
+  - Toca sempre na velocidade normal (×1): a duração é livre, mas curta (o personagem já pode agir).
 
 ## Anotações
 
