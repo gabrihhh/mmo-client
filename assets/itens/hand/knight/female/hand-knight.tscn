@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3]
+
+; Espada longa (knight_sword), Meshy image→3D. O .glb vem com ~0,95 m e origem no centro: aqui fica com
+; 1,0 m (×1,05) e a origem no MEIO DO CABO, comprimento em +Y ([ART-02]).
+
+[ext_resource type="PackedScene" path="res://assets/itens/hand/knight/female/hand-knight.glb" id="1_glb"]
+
+[node name="KnightSword" type="Node3D"]
+
+[node name="Model" parent="." instance=ExtResource("1_glb")]
+transform = Transform3D(1.05, 0, -0, 0, 1.05, 0, 0, 0, 1.05, 0, 0.33, 0)

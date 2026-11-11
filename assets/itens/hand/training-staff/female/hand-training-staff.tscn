@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3]
+
+; Cajado de treino (training_staff): placeholder gerado por tools/placeholders/make_placeholders.gd.
+
+[ext_resource type="PackedScene" path="res://assets/placeholders/staff.glb" id="1_glb"]
+
+[node name="Item" instance=ExtResource("1_glb")]

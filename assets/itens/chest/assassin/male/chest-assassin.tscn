@@ -1,0 +1,12 @@
+[gd_scene load_steps=2 format=3]
+
+; Colete sombrio (assassin_vest), Meshy image→3D.
+; Item de peito: só a direção importa (frente em +Z); tamanho e posição saem do encaixe automático no tronco
+; (chest_fit_box). No jogo vira malha com os pesos do corpo, ombreira seguindo o ombro ([BodySkinning], [ART-04]).
+
+[ext_resource type="PackedScene" path="res://assets/itens/chest/assassin/male/chest-assassin.glb" id="1_glb"]
+
+[node name="AssassinVest" type="Node3D"]
+
+[node name="Model" parent="." instance=ExtResource("1_glb")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)

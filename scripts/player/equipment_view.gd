@@ -50,6 +50,9 @@ var fit_boxes: Dictionary[String, AABB] = {}
 ## Malha do corpo (com pesos): de onde as roupas copiam os pesos ([BodySkinning]). null = roupas rígidas.
 var body: MeshInstance3D = null
 
+## Corpo do personagem ("male"/"female"): escolhe a malha de cada item feita para ele ([ItemModels.model_path]).
+var body_id: String = Protocol.BODY_MALE
+
 ## Animador do personagem (ação tocando? postura parada da arma); null = sem isso.
 var animator: CharacterAnimator = null
 
@@ -303,7 +306,7 @@ func _refresh() -> void:
 			continue
 		if key == "off_hand" and not ItemModels.is_paired(item_id):
 			continue
-		var model: Node3D = ItemModels.instantiate(item_id)
+		var model: Node3D = ItemModels.instantiate(item_id, body_id)
 		if model == null:
 			continue
 		if key == "off_hand":

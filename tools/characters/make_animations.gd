@@ -15,6 +15,13 @@ extends SceneTree
 ## Elas vêm de OUTRO rig (o da API do Meshy), com os ossos em outros lugares dentro do corpo (ombro para trás, braço
 ## inclinado...): copiar só a rotação deixava braços e pernas tortos. Por isso são reconvertidas quadro a quadro
 ## ([method _bake]): cada osso aponta para a mesma direção que tem na animação original.
+##
+## Animação própria de habilidade ([ART-08]): res://assets/itens/<slot>/<nome>/animation-attack/ (ataque simples) e
+## animation-skill-N/ (carta N) guardam male.glb e female.glb (o 1º clipe do arquivo, inteiro). Se existir, entra
+## na biblioteca como "skill_<abilityId>" ([constant ItemAnimations.SKILL_PREFIX]) e o jogo toca ela no lugar da
+## genérica de [AbilityVisuals]; sem o do corpo, usa o do outro corpo (é reconvertido do mesmo jeito). A pasta de
+## cada habilidade vem de [constant ItemAnimations.FOLDERS] (gerada). Importar o .glb com o mapa de ossos:
+## python3 tools/characters/animation_import.py (escreve o .import), depois importar no Godot.
 
 ## Clipes de ação do Meshy (mesmos nomes nos dois corpos): nome no .glb → [nome no jogo, início (s), fim (s)].
 ## Cada clipe é cortado no trecho útil (sem preparação parada nem recuperação longa); o momento do golpe dentro do
@@ -37,12 +44,15 @@ const MESHY_TWO_HANDED: Dictionary[String, Array] = {"Attack2H": ["attack_sword"
 ## Golpe de espadão do Mixamo ("Great Sword Slash", FBX sem pele, 30 fps, sem redução de quadros): ataque simples
 ## da espada do Cavaleiro ([JOGO-08]). Mesmo arquivo para os dois corpos (o rig do Mixamo é reconvertido em cada um).
 const MIXAMO_GREAT_SWORD: Dictionary[String, Array] = {"mixamo_com": ["attack_greatsword", 0.0, -1.0]}
+## Nome do clipe numa fonte que significa "o primeiro clipe do arquivo" (animações próprias das pastas dos itens).
+const FIRST_CLIP: String = "*"
 ## Clipe inteiro (sem corte): fim negativo.
 const WHOLE: float = -1.0
 ## Personagens: cena, biblioteca gerada e fontes ("glb" → {nome do clipe no .glb → [nome no jogo, início, fim]}).
 ## Se duas fontes dão o mesmo nome no jogo, vale a primeira.
 const CHARACTERS: Array[Dictionary] = [
 	{
+		"body": "male",
 		"scene": "res://assets/characters/male/male_character.tscn",
 		"output": "res://assets/characters/male/male_animations.tres",
 		"sources": {
@@ -56,6 +66,7 @@ const CHARACTERS: Array[Dictionary] = [
 		},
 	},
 	{
+		"body": "female",
 		"scene": "res://assets/characters/female/female_character.tscn",
 		"output": "res://assets/characters/female/female_animations.tres",
 		"sources": {
@@ -102,8 +113,27 @@ func _initialize() -> void:
 	var failed: bool = false
 	for entry: Dictionary in CHARACTERS:
 		print("== %s" % entry["scene"])
-		failed = _make(entry["scene"], entry["sources"], entry["output"]) != OK or failed
+		var sources: Dictionary = (entry["sources"] as Dictionary).duplicate()
+		sources.merge(_item_sources(String(entry["body"])))
+		failed = _make(entry["scene"], sources, entry["output"]) != OK or failed
 	quit(1 if failed else 0)
+
+
+## Animações próprias das pastas dos itens para o corpo [param body] ([ART-08]): .glb → {primeiro clipe →
+## ["skill_<abilityId>", 0, inteiro]}. Usa o arquivo do corpo; sem ele, o do outro corpo.
+func _item_sources(body: String) -> Dictionary:
+	var result: Dictionary = {}
+	for ability_id: String in ItemAnimations.FOLDERS:
+		var folder: String = ItemAnimations.FOLDERS[ability_id]
+		var candidates: Array[String] = ["%s/%s.glb" % [folder, body]]
+		for other: String in ItemModels.BODIES:
+			if other != body:
+				candidates.append("%s/%s.glb" % [folder, other])
+		for path: String in candidates:
+			if ResourceLoader.exists(path):
+				result[path] = {FIRST_CLIP: [ItemAnimations.SKILL_PREFIX + ability_id, 0.0, WHOLE]}
+				break
+	return result
 
 
 ## Gera e salva a biblioteca de um personagem.
@@ -159,13 +189,21 @@ func _own_animations(glb_path: String, clips: Dictionary, target: Skeleton3D, ta
 	var hips_offset: Vector3 = Vector3.ZERO
 	var source_hips: int = source_skeleton.find_bone(HIPS)
 	var target_hips: int = target.find_bone(HIPS)
+	if source_hips < 0:
+		push_warning("%s sem osso Hips: importar com o mapa de ossos (python3 tools/characters/animation_import.py)" % glb_path)
 	if source_hips >= 0 and target_hips >= 0:
 		hips_offset = target.get_bone_rest(target_hips).origin - source_skeleton.get_bone_rest(source_hips).origin
-	for source_name: String in clips:
+	for clip_name: String in clips:
+		var source_name: String = clip_name
+		if clip_name == FIRST_CLIP:
+			source_name = ""
+			for candidate: StringName in player.get_animation_list():
+				if source_name.is_empty() and candidate != &"RESET":
+					source_name = String(candidate)
 		if not player.has_animation(source_name):
 			push_warning("%s não tem a animação %s (tem: %s)" % [glb_path, source_name, player.get_animation_list()])
 			continue
-		var spec: Array = clips[source_name]
+		var spec: Array = clips[clip_name]
 		var anim: Animation = _trim(player.get_animation(source_name), float(spec[1]), float(spec[2]))
 		if other_rig:
 			anim = _bake(anim, source_skeleton, target)

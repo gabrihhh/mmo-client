@@ -1,7 +1,7 @@
 """Conta triângulos, vértices, materiais e texturas de modelos .glb (orçamento em mmo-docs [ART-05]).
 
 Uso (da pasta mmo-client):
-    python3 tools/count_triangles.py assets/items/*/*.glb
+    python3 tools/count_triangles.py assets/itens/*/*/*/*.glb
     python3 tools/count_triangles.py novo_item.glb      # conferir um modelo antes de colocar no jogo
 
 Lê só o cabeçalho JSON do GLB (sem dependências). Malha usada por vários nós conta uma vez por nó.

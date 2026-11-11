@@ -15,6 +15,8 @@ const SHIRT_SURFACE: int = 0
 ## Animações do personagem ("idle", "run", ações, "flinch"; [CharacterAnimator]). Vazio = as do placeholder.
 ## As trilhas apontam para o esqueleto pelo caminho [member skeleton_path].
 @export var animations: AnimationLibrary = null
+## Corpo deste modelo ("male"/"female", [CharacterBodies]): cada item usa a malha feita para ele ([ItemModels]).
+@export var body_id: String = Protocol.BODY_MALE
 ## Esqueleto, a partir desta raiz.
 @export var skeleton_path: NodePath = ^"Skeleton3D"
 ## Malha do corpo, a partir desta raiz.
@@ -72,6 +74,7 @@ func _ready() -> void:
 		_equipment.fit_boxes = {"chest": chest_fit_box}
 		# Peito e calçados copiam os pesos do corpo; o calçado é encaixado pelo pé do corpo ([BodySkinning]).
 		_equipment.body = _body if _body.skin != null else null
+	_equipment.body_id = body_id
 	_equipment.setup(skeleton, placements)
 	_equipment.animator = _animator
 
@@ -99,6 +102,13 @@ func set_move_speed(ratio: float) -> void:
 ## Ação sincronizada com o lançamento: corpo todo se parado, só tronco/braços andando ([method CharacterAnimator.play_action]).
 func play_action(animation_name: String, duration: float) -> void:
 	_animator.play_action(animation_name, duration)
+
+
+## Ação da habilidade [param ability_id]: a animação própria do item ("skill_<abilityId>", das pastas
+## animation-* em res://assets/itens, [ART-08]) se a biblioteca tiver; senão a genérica de [AbilityVisuals].
+func play_ability(ability_id: String, duration: float) -> void:
+	var own: String = ItemAnimations.SKILL_PREFIX + ability_id
+	play_action(own if _animator.has_animation(own) else AbilityVisuals.animation(ability_id), duration)
 
 
 ## Interrompe a ação em andamento.

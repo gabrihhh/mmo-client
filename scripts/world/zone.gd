@@ -231,7 +231,7 @@ func _on_cast_start(event: Dictionary) -> void:
 	_cast_serial[source_id] = serial
 	var already_animated: bool = _local_player != null and source_id == Network.instance.player_id and _local_player.consume_prediction(ability)
 	if model != null and not already_animated:
-		model.play_action(AbilityVisuals.animation(ability), duration)
+		model.play_ability(ability, duration)
 	var color: Color = AbilityVisuals.color(ability)
 	if model != null and duration > 0.0 and AbilityVisuals.has_cast_glow(ability):
 		model.show_cast_glow(color, duration)

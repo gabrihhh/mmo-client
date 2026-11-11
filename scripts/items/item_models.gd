@@ -2,37 +2,47 @@ class_name ItemModels
 extends RefCounted
 ## Liga cada item ao modelo 3D que aparece no boneco quando ele está vestido ([ART-02]) e ao jeito de segurar.
 ##
-## Item sem modelo aqui simplesmente não aparece (ex.: colete e bota de treino, que ainda não têm modelo).
-## Modelo novo: gere o .glb ([ART-02], [MESHY-07]), faça a cena com escala/origem e adicione a linha itemId → caminho.
-## Itens de peito e pés são peças rígidas presas a ossos ([EquipmentView]); o de pés é um pé só (o direito espelha).
-## ATENÇÃO: os itemIds vêm de mmo-server/src/items/catalog.ts.
+## Cada item tem uma pasta em res://assets/itens/<slot>/<nome>/ ([ART-08]) com uma malha feita para cada corpo:
+## male/<slot>-<nome>.tscn (ou .glb) e female/<slot>-<nome>.tscn. A cena (.tscn) acerta escala e origem em volta do .glb.
+## Corpo sem malha própria usa a do outro corpo (reserva); item sem malha nenhuma não aparece no boneco.
+## Item novo: crie a pasta (mesma arquitetura), ponha as malhas e adicione a linha itemId → pasta.
+## Itens de peito e pés copiam os pesos do corpo ([EquipmentView], [ART-04]); o de pés é um pé só (o direito espelha).
+## ATENÇÃO: os itemIds vêm de mmo-server/src/items/catalog.ts; o mmo-docs/tools/gerar_catalogo_itens.py lê esta tabela
+## para escrever o index.md de cada pasta.
 
-## itemId → cena do modelo (.glb importado).
-const _PATHS: Dictionary[String, String] = {
-	"training_sword": "res://assets/items/sword/curved_sword.tscn",
-	"training_staff": "res://assets/placeholders/staff.glb",
-	"training_hood": "res://assets/items/hood/cloth_hood.tscn",
-	"arcane_staff": "res://assets/items/arcane_staff/arcane_staff.tscn",
-	"mage_hat": "res://assets/items/mage_hat/mage_hat.tscn",
-	"mage_tunic": "res://assets/items/mage_tunic/mage_tunic.tscn",
-	"mage_shoes": "res://assets/items/mage_shoes/mage_shoes.tscn",
-	"knight_sword": "res://assets/items/knight_sword/knight_sword.tscn",
-	"knight_helm": "res://assets/items/knight_helm/knight_helm.tscn",
-	"knight_plate": "res://assets/items/knight_plate/knight_plate.tscn",
-	"knight_greaves": "res://assets/items/knight_greaves/knight_greaves.tscn",
-	"ranger_crossbow": "res://assets/items/ranger_crossbow/ranger_crossbow.tscn",
-	"ranger_hood": "res://assets/items/ranger_hood/ranger_hood.tscn",
-	"ranger_jerkin": "res://assets/items/ranger_jerkin/ranger_jerkin.tscn",
-	"ranger_boots": "res://assets/items/ranger_boots/ranger_boots.tscn",
-	"assassin_daggers": "res://assets/items/assassin_daggers/assassin_daggers.tscn",
-	"assassin_hood": "res://assets/items/assassin_hood/assassin_hood.tscn",
-	"assassin_vest": "res://assets/items/assassin_vest/assassin_vest.tscn",
-	"assassin_boots": "res://assets/items/assassin_boots/assassin_boots.tscn",
-	"healer_tome": "res://assets/items/healer_tome/healer_tome.tscn",
-	"healer_circlet": "res://assets/items/healer_circlet/healer_circlet.tscn",
-	"healer_robe": "res://assets/items/healer_robe/healer_robe.tscn",
-	"healer_sandals": "res://assets/items/healer_sandals/healer_sandals.tscn",
+## itemId → pasta do item (res://assets/itens/<slot>/<nome>; slot: hand, head, chest, boot).
+const _FOLDERS: Dictionary[String, String] = {
+	"training_sword": "res://assets/itens/hand/training-sword",
+	"training_staff": "res://assets/itens/hand/training-staff",
+	"training_hood": "res://assets/itens/head/training",
+	"training_vest": "res://assets/itens/chest/training",
+	"training_boots": "res://assets/itens/boot/training",
+	"arcane_staff": "res://assets/itens/hand/mage",
+	"mage_hat": "res://assets/itens/head/mage",
+	"mage_tunic": "res://assets/itens/chest/mage",
+	"mage_shoes": "res://assets/itens/boot/mage",
+	"knight_sword": "res://assets/itens/hand/knight",
+	"knight_helm": "res://assets/itens/head/knight",
+	"knight_plate": "res://assets/itens/chest/knight",
+	"knight_greaves": "res://assets/itens/boot/knight",
+	"ranger_crossbow": "res://assets/itens/hand/ranger",
+	"ranger_hood": "res://assets/itens/head/ranger",
+	"ranger_jerkin": "res://assets/itens/chest/ranger",
+	"ranger_boots": "res://assets/itens/boot/ranger",
+	"assassin_daggers": "res://assets/itens/hand/assassin",
+	"assassin_hood": "res://assets/itens/head/assassin",
+	"assassin_vest": "res://assets/itens/chest/assassin",
+	"assassin_boots": "res://assets/itens/boot/assassin",
+	"healer_tome": "res://assets/itens/hand/healer",
+	"healer_circlet": "res://assets/itens/head/healer",
+	"healer_robe": "res://assets/itens/chest/healer",
+	"healer_sandals": "res://assets/itens/boot/healer",
 }
+## Corpos com pasta própria dentro da pasta do item. ATENÇÃO: = CharacterBodies.SCENES / BODY_TYPES do servidor.
+const BODIES: Array[String] = [Protocol.BODY_MALE, Protocol.BODY_FEMALE]
+
+## Cache de [method model_path]: "itemId|corpo" → caminho ("" = sem malha). Evita perguntar ao disco a cada troca.
+static var _path_cache: Dictionary[String, String] = {}
 
 ## Como a mão segura (giro em X, graus, a partir do osso da mão). Os modelos de segurar têm o comprimento em +Y:
 ## 90 = "lâmina para a frente" (espada: com o braço caído aponta para a frente); 0 = em pé (cajado).
@@ -90,24 +100,55 @@ const _PAIRED: Array[String] = ["assassin_daggers"]
 ## vez que um item aparece (alguém veste, o atirador de teste troca de conjunto) o jogo para para ler o modelo e as
 ## texturas do disco — no celular, um engasgo visível. [method instantiate] usa o que já carregou (ou espera terminar).
 static func preload_all() -> void:
-	for item_id: String in _PATHS:
-		var path: String = _PATHS[item_id]
-		if not ResourceLoader.has_cached(path):
-			ResourceLoader.load_threaded_request(path)
+	for item_id: String in _FOLDERS:
+		for body: String in BODIES:
+			var path: String = model_path(item_id, body)
+			if not path.is_empty() and not ResourceLoader.has_cached(path):
+				ResourceLoader.load_threaded_request(path)
 
 
-## true se [param item_id] tem modelo 3D (ex.: as botas de treino ainda não têm).
+## Pasta do item [param item_id] (res://assets/itens/<slot>/<nome>), ou "" se ele não tiver pasta.
+static func folder(item_id: String) -> String:
+	return _FOLDERS.get(item_id, "")
+
+
+## Cena da malha de [param item_id] feita para o corpo [param body] ("male"/"female"): o .tscn da pasta do corpo
+## (ou o .glb, se não tiver cena). Sem malha desse corpo, a do outro corpo (reserva). "" = o item não tem malha.
+static func model_path(item_id: String, body: String) -> String:
+	var key: String = "%s|%s" % [item_id, body]
+	if _path_cache.has(key):
+		return _path_cache[key]
+	var result: String = ""
+	var item_folder: String = folder(item_id)
+	if not item_folder.is_empty():
+		# Nome do arquivo = "<slot>-<nome>", das duas últimas partes da pasta (ex.: head/healer → head-healer).
+		var file_name: String = "%s-%s" % [item_folder.get_base_dir().get_file(), item_folder.get_file()]
+		var order: Array[String] = [body]
+		for other: String in BODIES:
+			if other != body:
+				order.append(other)
+		for candidate_body: String in order:
+			for extension: String in ["tscn", "glb"]:
+				var path: String = "%s/%s/%s.%s" % [item_folder, candidate_body, file_name, extension]
+				if result.is_empty() and ResourceLoader.exists(path):
+					result = path
+	_path_cache[key] = result
+	return result
+
+
+## true se [param item_id] tem malha para algum corpo (ex.: as botas de treino ainda não têm).
 static func has_model(item_id: String) -> bool:
-	return _PATHS.has(item_id)
+	return not model_path(item_id, Protocol.BODY_MALE).is_empty()
 
 
-## Cria o modelo do item [param item_id], ou null se ele não tiver modelo.
-static func instantiate(item_id: String) -> Node3D:
-	if not _PATHS.has(item_id):
+## Cria a malha do item [param item_id] para o corpo [param body], ou null se ele não tiver malha.
+static func instantiate(item_id: String, body: String) -> Node3D:
+	var path: String = model_path(item_id, body)
+	if path.is_empty():
 		return null
-	var scene: PackedScene = load(_PATHS[item_id]) as PackedScene
+	var scene: PackedScene = load(path) as PackedScene
 	if scene == null:
-		push_warning("Modelo do item %s não carregou: %s" % [item_id, _PATHS[item_id]])
+		push_warning("Modelo do item %s não carregou: %s" % [item_id, path])
 		return null
 	return scene.instantiate() as Node3D
 

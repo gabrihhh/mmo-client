@@ -48,7 +48,8 @@ Seções-chave deste repo: [CLI-02] câmera, [CLI-03] estrutura do cliente, [CLI
 scenes/            .tscn por domínio (boot/, ui/, world/, player/)
 scripts/           .gd por domínio (boot/, network/, player/, camera/, ui/, input/, world/)
 tools/             publish_update.sh (publica o .pck no servidor), build_apk.sh (gera o APK), placeholders/ ([ART-02])
-assets/            modelos/materiais exportados do Blender
+assets/            modelos/materiais exportados do Blender (corpos, ícones, UI, placeholders)
+assets/itens/      um item por pasta: <slot>/<nome>/{index.md, male/, female/, animation-*} ([ART-08])
 ```
 
 ## Comandos

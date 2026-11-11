@@ -193,7 +193,7 @@ func _process(delta: float) -> void:
 ## Anima a ação de [param ability_id] já no toque (sem esperar a ida e volta pela rede). O "cast_start" do
 ## servidor confirma ([method consume_prediction]); uma recusa interrompe ([method cancel_prediction]).
 func predict_action(ability_id: String, cast_time: float) -> void:
-	model.play_action(AbilityVisuals.animation(ability_id), cast_time)
+	model.play_ability(ability_id, cast_time)
 	_predicted_ability = ability_id
 	_predicted_at_ms = Time.get_ticks_msec()
 

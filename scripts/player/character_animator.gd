@@ -26,6 +26,8 @@ const LOWER_BONES: Array[String] = [
 ## tools/characters/make_animations.gd: MESHY_ACTIONS, MIXAMO_GREAT_SWORD...) pela mão direita (mais à frente
 ## descendo, logo depois do pico de velocidade); mudou o clipe ou o corte → medir de novo. O placeholder
 ## (tools/placeholders/make_character.gd) tem outros tempos e fica fora de sincronia (não é usado no jogo).
+## Animação própria de item ("skill_<abilityId>", [ART-08]): medir e pôr aqui com esse nome; sem linha toca na
+## velocidade normal.
 const HIT_TIMES: Dictionary[String, float] = {
 	"attack_sword": 0.87,
 	"attack_greatsword": 0.6,

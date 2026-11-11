@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3]
+
+; Elmo do cavaleiro (knight_helm), Meshy image→3D. Item de cabeça: origem no centro da base (pescoço).
+; Frente (abertura em T) para +Z.
+
+[ext_resource type="PackedScene" path="res://assets/itens/head/knight/female/head-knight.glb" id="1_glb"]
+
+[node name="KnightHelm" type="Node3D"]
+
+[node name="Model" parent="." instance=ExtResource("1_glb")]
+transform = Transform3D(0.44, 0, -0, 0, 0.44, 0, 0, 0, 0.44, 0, 0.21, 0)
