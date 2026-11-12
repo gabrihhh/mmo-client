@@ -38,7 +38,8 @@ const _FOLDERS: Dictionary[String, String] = {
 	"healer_robe": "res://assets/itens/chest/healer",
 	"healer_sandals": "res://assets/itens/boot/healer",
 }
-## Corpos com pasta própria dentro da pasta do item. ATENÇÃO: = CharacterBodies.SCENES / BODY_TYPES do servidor.
+## Corpos com pasta própria dentro da pasta do item. ATENÇÃO: = BODY_TYPES do servidor (corpos de jogador). Corpo de
+## monstro (o zumbi) não tem pasta: usa a malha do masculino ([method model_path] cai na reserva).
 const BODIES: Array[String] = [Protocol.BODY_MALE, Protocol.BODY_FEMALE]
 
 ## Cache de [method model_path]: "itemId|corpo" → caminho ("" = sem malha). Evita perguntar ao disco a cada troca.

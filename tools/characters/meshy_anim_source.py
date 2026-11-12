@@ -7,7 +7,11 @@
 - Com um clipe só, renomeia (ex.: "Armature|Idle|baselayer" → "Idle"); arquivo com vários clipes (meshy_animate com
   action_ids) mantém os nomes do Meshy (ex.: "Right_Hand_Sword_Slash").
 
-Uso: python3 meshy_anim_source.py entrada.glb saida.glb [NomeDoClipe]
+Com `--keep-materials`: mantém textura e materiais — para usar o próprio MODELO rigado pela API como corpo do jogo
+(ex.: o zumbi, assets/characters/zombie/zombie.glb, [ART-03]); os ossos ficam com os nomes Mixamo e o modelo importa
+com o mesmo mixamo_bone_map.tres dos outros corpos.
+
+Uso: python3 meshy_anim_source.py entrada.glb saida.glb [NomeDoClipe] [--keep-materials]
 """
 import json
 import struct
@@ -19,7 +23,7 @@ BONES: list[str] = ["Hips", "Head", "LeftShoulder", "LeftArm", "LeftForeArm", "L
                     "RightUpLeg", "RightLeg", "RightFoot", "RightToeBase"]
 
 
-def main(src: str, dst: str, clip: str | None) -> None:
+def main(src: str, dst: str, clip: str | None, keep_materials: bool = False) -> None:
     data = open(src, "rb").read()
     json_len = struct.unpack("<I", data[12:16])[0]
     doc = json.loads(data[20:20 + json_len])
@@ -36,14 +40,16 @@ def main(src: str, dst: str, clip: str | None) -> None:
         doc["animations"][0]["name"] = clip
     print("clipes:", [a.get("name") for a in doc["animations"]])
 
-    for key in ("images", "textures", "samplers", "materials"):
-        doc.pop(key, None)
-    for mesh in doc["meshes"]:
-        for prim in mesh["primitives"]:
-            prim.pop("material", None)
+    if not keep_materials:
+        for key in ("images", "textures", "samplers", "materials"):
+            doc.pop(key, None)
+        for mesh in doc["meshes"]:
+            for prim in mesh["primitives"]:
+                prim.pop("material", None)
 
     # Refaz o buffer só com os bufferViews ainda usados.
     used = {a["bufferView"] for a in doc["accessors"] if "bufferView" in a}
+    used |= {img["bufferView"] for img in doc.get("images", []) if "bufferView" in img}
     remap: dict[int, int] = {}
     views: list[dict] = []
     out = bytearray()
@@ -59,6 +65,9 @@ def main(src: str, dst: str, clip: str | None) -> None:
     for acc in doc["accessors"]:
         if "bufferView" in acc:
             acc["bufferView"] = remap[acc["bufferView"]]
+    for img in doc.get("images", []):
+        if "bufferView" in img:
+            img["bufferView"] = remap[img["bufferView"]]
     doc["bufferViews"] = views
     out += b"\0" * (-len(out) % 4)
     doc["buffers"] = [{"byteLength": len(out)}]
@@ -73,4 +82,6 @@ def main(src: str, dst: str, clip: str | None) -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None)
+    flags = [a for a in sys.argv[1:] if a.startswith("--")]
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    main(args[0], args[1], args[2] if len(args) > 2 else None, "--keep-materials" in flags)

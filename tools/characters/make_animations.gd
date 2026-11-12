@@ -79,6 +79,22 @@ const CHARACTERS: Array[Dictionary] = [
 			"res://tools/characters/animations/mixamo_great_sword_slash.fbx": MIXAMO_GREAT_SWORD,
 		},
 	},
+	{
+		# Zumbi (monstro, [JOGO-13]): modelo do Meshy com rig da API. Anda arrastado: o "Walking" do próprio rig faz
+		# o papel de "run"; o resto vem das animações do masculino (reconvertidas para este esqueleto).
+		"body": "zombie",
+		"scene": "res://assets/characters/zombie/zombie_character.tscn",
+		"output": "res://assets/characters/zombie/zombie_animations.tres",
+		"sources": {
+			"res://tools/characters/animations/zombie_walk.glb": {"Walking": ["run", 0.0, WHOLE]},
+			"res://tools/characters/animations/male_idle.glb": {"Idle": ["idle", 0.0, WHOLE]},
+			"res://tools/characters/animations/male_idle_sword.glb": MESHY_IDLE_SWORD,
+			"res://tools/characters/animations/male_idle_staff.glb": MESHY_IDLE_STAFF,
+			"res://tools/characters/animations/male_attack2h.glb": MESHY_TWO_HANDED,
+			"res://tools/characters/animations/male_combat.glb": MESHY_ACTIONS,
+			"res://tools/characters/animations/mixamo_great_sword_slash.fbx": MIXAMO_GREAT_SWORD,
+		},
+	},
 ]
 ## Animações de verdade que dão a volta (ciclo).
 const LOOPED: Array[String] = ["run", "idle", "idle_sword", "idle_staff"]

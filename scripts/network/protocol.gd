@@ -29,6 +29,8 @@ const MSG_CHOOSE_BODY: String = "choose_body"
 ## Corpos de personagem. ATENÇÃO: espelho de BODY_TYPES em mmo-server/src/net/protocol.ts.
 const BODY_MALE: String = "male"
 const BODY_FEMALE: String = "female"
+## Corpo de monstro (só NPC; nenhum jogador escolhe). ATENÇÃO: NPC_BODY_TYPES em mmo-server/src/net/protocol.ts.
+const BODY_ZOMBIE: String = "zombie"
 ## Intenção de movimento de UM tick (o servidor simula; o cliente não manda posição).
 ## data: { seq: int crescente, x, z: direção no mundo, comprimento até 1 }. Ver mmo-docs [INFRA-09].
 const MSG_INPUT: String = "input"

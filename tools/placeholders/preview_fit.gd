@@ -5,7 +5,7 @@ extends SceneTree
 ##
 ## Rodar da pasta mmo-client (precisa de tela, não roda com --headless):
 ##   godot --path . --resolution 1800x720 --script res://tools/placeholders/preview_fit.gd -- saida.png <conjunto> <cena do corpo>
-## Conjuntos: mago, cavaleiro, atirador, assassino, curandeiro, treino.
+## Conjuntos: mago, cavaleiro, atirador, assassino, curandeiro, treino, zumbi, zumbi-besta.
 ## Ex. de corpo: res://assets/characters/male/male_character.tscn.
 ## 4º argumento opcional `lancando`: todos no meio de um lançamento (o item de mão flutuante aparece aberto).
 
@@ -23,6 +23,9 @@ const KITS: Dictionary[String, Dictionary] = {
 	"atirador": {"hand": "ranger_crossbow", "head": "ranger_hood", "chest": "ranger_jerkin", "feet": "ranger_boots"},
 	"assassino": {"hand": "assassin_daggers", "head": "assassin_hood", "chest": "assassin_vest", "feet": "assassin_boots"},
 	"curandeiro": {"hand": "healer_tome", "head": "healer_circlet", "chest": "healer_robe", "feet": "healer_sandals"},
+	# Zumbis ([JOGO-13]): só a arma na mão (corpo res://assets/characters/zombie/zombie_character.tscn).
+	"zumbi": {"hand": "knight_sword"},
+	"zumbi-besta": {"hand": "ranger_crossbow"},
 }
 
 var _frames: int = 0

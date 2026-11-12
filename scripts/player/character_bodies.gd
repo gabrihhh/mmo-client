@@ -4,10 +4,12 @@ extends RefCounted
 ## sempre ([INFRA-07], tela [CharacterSelect]); o servidor manda o de cada jogador no PlayerInfo.
 ## As cenas de jogador (local_player.tscn, remote_player.tscn) vêm com o masculino; [method swap] troca na entrada.
 
-## Corpo → cena do modelo. ATENÇÃO: corpos = BODY_TYPES em mmo-server/src/net/protocol.ts.
+## Corpo → cena do modelo. ATENÇÃO: corpos = NPC_BODY_TYPES em mmo-server/src/net/protocol.ts (os de jogador e os
+## de monstro: o zumbi, [JOGO-13]).
 const SCENES: Dictionary[String, String] = {
 	Protocol.BODY_MALE: "res://assets/characters/male/male_character.tscn",
 	Protocol.BODY_FEMALE: "res://assets/characters/female/female_character.tscn",
+	Protocol.BODY_ZOMBIE: "res://assets/characters/zombie/zombie_character.tscn",
 }
 
 
