@@ -2,8 +2,8 @@
 
 Peça = objeto MESH dentro da coleção "Itens" (em qualquer subcoleção) chamado `<slot>-<nome>-<corpo>`, ex.
 `chest-healer-female`. Vai para `assets/itens/<slot>/<nome>/<corpo>/<slot>-<nome>.glb`, no espaço do personagem
-(origem nos pés, metros, glTF Y para cima). O corpo masculino fica ao lado da feminina no .blend: o deslocamento
-do objeto `<corpo>-armature` é descontado.
+(origem nos pés, metros, glTF Y para cima). Os corpos ficam lado a lado no .blend: a posição e o giro do objeto
+`<corpo>-body` são descontados (pode mover o corpo à vontade).
 
 Cores: cada MATERIAL da peça é uma cor (a Base Color dele). Todas viram 1 material só com uma textura de N×1 pixels
 (um pixel por cor) e a UV de cada face aponta para o pixel da cor dela: 1 draw call, textura minúscula.
@@ -23,6 +23,16 @@ import mathutils
 NAME = re.compile(r"^(head|chest|boot|hand)-([a-z0-9-]+)-(male|female)$")
 ## Limite de triângulos de uma peça (orçamento low poly do personagem, [ART-01]).
 MAX_TRIS = 600
+
+
+def body_frame(body: str):
+    """Onde está o corpo [body] no .blend (posição e giro do objeto `<corpo>-body`; sem ele, `<corpo>-armature`).
+    As peças são modeladas em cima desse corpo, onde quer que ele esteja: o jogo usa o espaço do próprio corpo."""
+    obj = bpy.data.objects.get(f"{body}-body") or bpy.data.objects.get(f"{body}-armature")
+    if obj is None:
+        return None
+    loc, rot, _scale = obj.matrix_world.decompose()
+    return mathutils.Matrix.Translation(loc) @ rot.to_matrix().to_4x4()
 
 
 def srgb(c: float) -> float:
@@ -68,13 +78,12 @@ def export(src, itens_dir: str) -> None:
     if not os.path.isdir(folder):
         print(f"ERRO pasta {folder} não existe (o item {slot}/{name} existe no jogo?)")
         return
-    offset = bpy.data.objects[f"{body}-armature"].matrix_world.translation.copy() if f"{body}-armature" in bpy.data.objects else None
-    if offset is None:
-        print(f"AVISO sem objeto '{body}-armature': nada descontado da posição")
+    frame = body_frame(body)
+    if frame is None:
+        print(f"AVISO sem objeto '{body}-body': peça exportada como está no .blend")
+        frame = mathutils.Matrix.Identity(4)
     mesh = src.data.copy()
-    mesh.transform(src.matrix_world)
-    if offset is not None:
-        mesh.transform(mathutils.Matrix.Translation(-offset))
+    mesh.transform(frame.inverted() @ src.matrix_world)
     colors = []
     for slot_mat in src.material_slots or [None]:
         color = material_color(slot_mat.material if slot_mat else None)
