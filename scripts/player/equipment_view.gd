@@ -321,7 +321,8 @@ func _refresh() -> void:
 				_held_pull = ItemModels.hold_pull(item_id, false)
 				_held_direction = Vector3.ZERO
 				_carry_weight = 1.0
-		elif fit_boxes.has(key):
+		elif fit_boxes.has(key) and not ItemModels.is_tailored(item_id, body_id):
+			# Malha sob medida já vem do tamanho do corpo: só a genérica é esticada para a caixa.
 			_fit(model, fit_boxes[key], slot)
 		mount.add_child(model)
 		if (slot == "chest" or slot == "feet") and body != null:
@@ -347,19 +348,26 @@ func _hide_body_feet(hidden: bool) -> void:
 
 ## Troca o item rígido [param model] (no encaixe [param mount], chave [param key]) por malhas com os pesos do corpo
 ## ([BodySkinning]). Peito: fica onde o encaixe pela caixa o pôs. Calçado: encaixado pelo pé do corpo.
+## Peito sob medida ([method ItemModels.is_tailored], [ART-08]): a malha foi modelada em cima do corpo, no espaço do
+## personagem (origem nos pés, metros): fica exatamente onde veio e segue o braço inteiro, como a pele embaixo.
 func _dress(model: Node3D, mount: Node3D, key: String) -> void:
 	var data: BodySkinning.BodyData = BodySkinning.sample(body, _skeleton, _body_mesh)
+	var item_id: String = String(_state.look.get(MOUNTS[key][0], "")) if _state != null else ""
+	var tailored: bool = key == "chest" and ItemModels.is_tailored(item_id, body_id)
 	var rest: Transform3D
-	if key == "chest":
+	if tailored:
+		# Espaço do personagem (raiz do CharacterModel) → espaço do esqueleto, vezes o próprio item.
+		var root: Node3D = get_parent() as Node3D
+		rest = _skeleton.global_transform.affine_inverse() * root.global_transform * model.transform
+	elif key == "chest":
 		# Onde o item fica com o corpo em repouso: repouso do osso × encaixe × item (espaço do esqueleto).
 		rest = _skeleton.get_bone_global_rest(_skeleton.find_bone(MOUNTS[key][1])) * mount.transform * model.transform
 	else:
 		rest = BodySkinning.foot_rest(model, data, _skeleton, "Left" if key == "foot_left" else "Right")
 		if rest == Transform3D.IDENTITY:
 			return
-	var item_id: String = String(_state.look.get(MOUNTS[key][0], "")) if _state != null else ""
 	var cache_key: String = "%d|%s|%s" % [_body_mesh.get_instance_id(), item_id, key]
-	var created: Array[MeshInstance3D] = BodySkinning.skin(model, _skeleton, rest, data, key == "chest", cache_key)
+	var created: Array[MeshInstance3D] = BodySkinning.skin(model, _skeleton, rest, data, key == "chest" and not tailored, cache_key)
 	if created.is_empty():
 		return
 	_skinned.append_array(created)

@@ -136,6 +136,15 @@ static func model_path(item_id: String, body: String) -> String:
 	return result
 
 
+## true se a malha de [param item_id] para [param body] é **sob medida** ([ART-08]): um .glb direto na pasta do próprio
+## corpo (sem .tscn), modelado em cima dele no Blender, no espaço do personagem (origem nos pés, metros, frente +Z).
+## O jogo não estica (sem encaixe pela caixa) e, no peito, a roupa segue o braço inteiro. A genérica (Meshy, com
+## .tscn de escala/origem, ou cópia de outro corpo) é encaixada como antes ([ART-04]). Hoje só vale para o peito.
+static func is_tailored(item_id: String, body: String) -> bool:
+	var path: String = model_path(item_id, body)
+	return path.ends_with(".glb") and path.get_base_dir().get_file() == body
+
+
 ## true se [param item_id] tem malha para algum corpo (ex.: as botas de treino ainda não têm).
 static func has_model(item_id: String) -> bool:
 	return not model_path(item_id, Protocol.BODY_MALE).is_empty()
