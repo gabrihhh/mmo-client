@@ -28,6 +28,14 @@ const SOLE_DROP_M: float = 0.006
 const CHEST_ARM_SHARE: float = 0.35
 ## Ossos do braço (prefixo do lado na frente), todos levados ao UpperArm/Shoulder no item de peito.
 const ARM_BONES: Array[String] = ["UpperArm", "LowerArm", "Hand", "Fingers", "Thumb"]
+## Pele coberta por roupa sob medida ([method covered_mesh]): até quanto (m) para fora da pele, pela normal, a roupa
+## ainda conta como "por cima".
+const COVER_REACH_M: float = 0.06
+## Idem, quanto (m) para dentro da pele: roupa modelada encostada ou levemente afundada também cobre.
+const COVER_INSET_M: float = 0.01
+## Quanto (m) a pele coberta afunda (pela normal, para dentro): com o braço baixando da pose T a pele do ombro sobe
+## mais que a roupa e atravessava. Afundar (em vez de apagar) não abre buraco por onde se veja através do corpo.
+const COVER_SINK_M: float = 0.025
 ## Ossos que contam como "pé" (prefixo do lado na frente).
 const FOOT_BONES: Array[String] = ["Foot", "Toes"]
 
@@ -37,6 +45,8 @@ static var _cache: Dictionary[Mesh, BodyData] = {}
 ## 0,6 s no PC (bem mais no celular); com o cache, trocar de roupa de novo é instantâneo (o atirador de teste troca a
 ## cada ~3 s e congelava o jogo).
 static var _mesh_cache: Dictionary[String, Array] = {}
+## Corpo com pele afundada sob roupa sob medida: chave (corpo|pés|roupa) → malha ([method covered_mesh]).
+static var _covered_cache: Dictionary[String, ArrayMesh] = {}
 
 
 ## Dados de um corpo, no espaço do esqueleto, com o corpo em repouso.
@@ -54,6 +64,8 @@ class BodyData:
 	var chest_remap: Dictionary[int, Array] = {}
 	## Malha do corpo com os pés escondidos (para quem está de calçado), criada na primeira vez.
 	var feet_hidden: ArrayMesh = null
+	## Espaço da malha do corpo → espaço do esqueleto em repouso (para levar as normais junto com as posições).
+	var to_skeleton: Transform3D = Transform3D.IDENTITY
 
 
 ## Dados do corpo [param body] (malha com pesos) no esqueleto [param skeleton]; calculados na primeira vez.
@@ -74,6 +86,7 @@ static func sample(body: MeshInstance3D, skeleton: Skeleton3D, original: Mesh = 
 		if bind_bone[b] >= 0:
 			to_skeleton = skeleton.get_bone_global_rest(bind_bone[b]) * body_skin.get_bind_pose(b)
 			break
+	data.to_skeleton = to_skeleton
 	for surface: int in range(mesh.get_surface_count()):
 		var arrays: Array = mesh.surface_get_arrays(surface)
 		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
@@ -141,6 +154,67 @@ static func feet_hidden_mesh(body: MeshInstance3D, skeleton: Skeleton3D, origina
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 		mesh.surface_set_material(surface, original.surface_get_material(surface))
 	data.feet_hidden = mesh
+	return mesh
+
+
+## Malha do corpo ([param base]: a original ou a de pés escondidos, mesma ordem de vértices da [param original]) com a
+## pele que fica embaixo das roupas sob medida [param covers] afundada [constant COVER_SINK_M] para dentro. [param covers]
+## = malhas já vestidas ([method skin]: vértices no espaço do esqueleto em repouso). Pele coberta = o segmento pela
+## normal dela, de [constant COVER_INSET_M] para dentro até [constant COVER_REACH_M] para fora, cruza um triângulo da
+## roupa. Calculado uma vez por [param key] e compartilhado.
+static func covered_mesh(original: Mesh, base: Mesh, covers: Array[Mesh], key: String) -> ArrayMesh:
+	if _covered_cache.has(key):
+		return _covered_cache[key]
+	var data: BodyData = _cache.get(original)
+	if data == null:
+		return null
+	# Triângulos da roupa numa grade: cada um entra nas células que a caixa dele (aumentada do alcance) toca.
+	var tris: PackedVector3Array = PackedVector3Array()
+	for cover: Mesh in covers:
+		for surface: int in range(cover.get_surface_count()):
+			var arrays: Array = cover.surface_get_arrays(surface)
+			var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX] if arrays[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
+			if indices.is_empty():
+				indices = PackedInt32Array(range(vertices.size()))
+			for i: int in range(0, indices.size() - 2, 3):
+				tris.append_array([vertices[indices[i]], vertices[indices[i + 1]], vertices[indices[i + 2]]])
+	var grid: Dictionary[Vector3i, PackedInt32Array] = {}
+	for t: int in range(tris.size() / 3):
+		var box: AABB = AABB(tris[t * 3], Vector3.ZERO).expand(tris[t * 3 + 1]).expand(tris[t * 3 + 2]).grow(COVER_REACH_M)
+		var low: Vector3i = _cell(box.position)
+		var high: Vector3i = _cell(box.end)
+		for x: int in range(low.x, high.x + 1):
+			for y: int in range(low.y, high.y + 1):
+				for z: int in range(low.z, high.z + 1):
+					var cell: Vector3i = Vector3i(x, y, z)
+					if not grid.has(cell):
+						grid[cell] = PackedInt32Array()
+					grid[cell].append(t)
+	var mesh: ArrayMesh = ArrayMesh.new()
+	var offset: int = 0
+	var to_mesh: Basis = data.to_skeleton.basis.inverse()
+	for surface: int in range(base.get_surface_count()):
+		var arrays: Array = base.surface_get_arrays(surface)
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+		for v: int in range(vertices.size()):
+			var cell: Vector3i = _cell(data.positions[offset + v])
+			if normals.is_empty() or not grid.has(cell):
+				continue
+			var point: Vector3 = data.positions[offset + v]
+			var normal: Vector3 = (data.to_skeleton.basis * normals[v]).normalized()
+			var start: Vector3 = point - normal * COVER_INSET_M
+			var end: Vector3 = point + normal * COVER_REACH_M
+			for t: int in grid[cell]:
+				if Geometry3D.segment_intersects_triangle(start, end, tris[t * 3], tris[t * 3 + 1], tris[t * 3 + 2]) != null:
+					vertices[v] -= to_mesh * (normal * COVER_SINK_M)
+					break
+		offset += vertices.size()
+		arrays[Mesh.ARRAY_VERTEX] = vertices
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		mesh.surface_set_material(surface, base.surface_get_material(surface))
+	_covered_cache[key] = mesh
 	return mesh
 
 

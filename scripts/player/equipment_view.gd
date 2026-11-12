@@ -75,6 +75,10 @@ var _held_direction: Vector3 = Vector3.ZERO
 var _body_mesh: Mesh = null
 ## Malhas com pesos criadas para o item de peito ([BodySkinning]); liberadas a cada troca de roupa.
 var _skinned: Array[MeshInstance3D] = []
+## Malhas vestidas das roupas sob medida do look atual: a pele embaixo delas afunda ([method BodySkinning.covered_mesh]).
+var _covers: Array[Mesh] = []
+## Chave das roupas em [member _covers] (itens), para o cache da malha do corpo.
+var _covers_key: String = ""
 ## Fecha os dedos de quem segura algo (null = corpo sem ossos de dedo).
 var _hand_grip: HandGrip = null
 ## Quanto a arma está na posição de carregar (0 = segue a mão animada, 1 = carregada à frente com IK).
@@ -289,6 +293,8 @@ func _refresh() -> void:
 	for instance: MeshInstance3D in _skinned:
 		instance.queue_free()
 	_skinned.clear()
+	_covers.clear()
+	_covers_key = ""
 	_hide_body_feet(_state != null and _mounts.has("foot_left") and ItemModels.has_model(String(_state.look.get("feet", ""))))
 	var hand_item: String = _state.look.get("hand", "") if _state != null else ""
 	if animator != null:
@@ -327,6 +333,18 @@ func _refresh() -> void:
 		mount.add_child(model)
 		if (slot == "chest" or slot == "feet") and body != null:
 			_dress(model, mount, key)
+	_sink_covered_skin()
+
+
+## Afunda a pele que fica embaixo das roupas sob medida ([member _covers]) para ela não atravessar a roupa quando o
+## corpo se mexe ([method BodySkinning.covered_mesh]). Parte da malha que [method _hide_body_feet] escolheu.
+func _sink_covered_skin() -> void:
+	if body == null or _covers.is_empty():
+		return
+	var key: String = "%d|%d|%s" % [_body_mesh.get_instance_id(), body.mesh.get_instance_id(), _covers_key]
+	var variant: ArrayMesh = BodySkinning.covered_mesh(_body_mesh, body.mesh, _covers, key)
+	if variant != null:
+		body.mesh = variant
 
 
 ## Com calçado ([param hidden] true), o corpo usa a malha com os pés escondidos ([method BodySkinning.feet_hidden_mesh]):
@@ -372,6 +390,10 @@ func _dress(model: Node3D, mount: Node3D, key: String) -> void:
 		return
 	_skinned.append_array(created)
 	model.visible = false
+	if tailored:
+		_covers_key += item_id + ";"
+		for instance: MeshInstance3D in created:
+			_covers.append(instance.mesh)
 
 
 ## Encaixa o item de peito [param model] na caixa [param box] do tronco (espaço do encaixe), a partir do tamanho real
