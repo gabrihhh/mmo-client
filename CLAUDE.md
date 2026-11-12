@@ -65,6 +65,7 @@ godot --path . -- --profile=espada --dev-user=Espada --bot-fight=espada   # idem
 godot --headless --path . --script res://tools/placeholders/make_character.gd   # gera o personagem ([ART-03])
 tools/publish_update.sh android                   # publica versão nova do jogo p/ celular ([INFRA-08])
 tools/build_apk.sh --install                      # gera o APK e instala no aparelho do adb ([CLI-06])
+python3 tools/blender/export_items.py chest-healer-female   # peça do workspace-blender → jogo ([ART-09])
 ```
 
 Código e identificadores em inglês; comentários e docs em português.
