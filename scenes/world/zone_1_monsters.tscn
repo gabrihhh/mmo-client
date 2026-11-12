@@ -1,0 +1,27 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/monster_spawns.gd" id="1_spawns"]
+[ext_resource type="Script" path="res://scripts/world/monster_spawn.gd" id="2_spawn"]
+
+[node name="Zone1Monsters" type="Node3D"]
+script = ExtResource("1_spawns")
+
+[node name="Lutador1" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 0, -14)
+script = ExtResource("2_spawn")
+
+[node name="Lutador2" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 0, 14)
+script = ExtResource("2_spawn")
+
+[node name="Atirador1" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 36, 0, -14)
+script = ExtResource("2_spawn")
+kind = 1
+level = 1
+
+[node name="Atirador2" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 36, 0, 14)
+script = ExtResource("2_spawn")
+kind = 1
+level = 1
