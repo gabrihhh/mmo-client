@@ -88,15 +88,15 @@ const _OFF_HAND_GRIP: Dictionary[String, Vector3] = {
 	"training_sword": Vector3(0.0, -0.11, 0.0),
 	"knight_sword": Vector3(0.0, -0.09, 0.0),
 }
-## Itens de mão que FLUTUAM ao lado do personagem em vez de ficar na mão ([EquipmentView], [ART-09]): a mão fica
+## Itens de mão que FLUTUAM perto do personagem em vez de ficar na mão ([EquipmentView], [ART-09]): a mão fica
 ## vazia e o item paira, balançando de leve. Durante um lançamento ([method EquipmentView.set_casting]) a blend shape
-## dele vai a 1 (ex.: o livro abre) e ele vai para a posição de lançamento (o livro aberto se afasta do corpo para
-## não atravessar o braço). Valor: [posição parado, posição lançando,
-## nome da blend shape] — posições no espaço do personagem (m; +Z frente, +Y cima, lado direito = −X), onde fica a
+## dele vai a 1 (ex.: o livro abre) e ele vai para a posição de lançamento. O livro fica NA FRENTE do personagem (à
+## altura da cintura, ~0,5 m à frente: aberto, as mãos da animação não alcançam). Valor: [posição parado, posição
+## lançando, nome da blend shape] — posições no espaço do personagem (m; +Z frente, +Y cima, lado direito = −X), onde fica a
 ## origem do modelo (a base do livro). O modelo vira a sua frente (+Z, onde fica quem lê) para o peito do personagem.
 ## A malha vem do Blender sem corpo no nome (`hand-healer`), igual para os dois corpos.
 const _FLOATING: Dictionary[String, Array] = {
-	"healer_tome": [Vector3(-0.45, 1.05, 0.05), Vector3(-0.62, 1.2, 0.2), "aberto"],
+	"healer_tome": [Vector3(0.0, 1.0, 0.45), Vector3(0.0, 1.0, 0.55), "aberto"],
 }
 ## Armas que vêm em PAR (duas adagas): o mesmo modelo também aparece na mão esquerda, espelhado, seguindo a mão
 ## animada ([EquipmentView]).

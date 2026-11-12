@@ -18,8 +18,9 @@ extends Node
 ##   posição de carregar.
 ## A arma também escolhe a postura parada do personagem ([method CharacterAnimator.set_idle_animation]).
 ## Item de mão que **flutua** ([method ItemModels.floats], ex.: o livro do curandeiro): não vai para a mão (ela fica
-## vazia e aberta); paira ao lado do personagem balançando e, durante um lançamento ([method set_casting]), abre
-## (blend shape [method ItemModels.float_blend_shape] de 0 a 1) e chega um pouco para a frente.
+## vazia e aberta); paira perto do personagem (o livro: na frente) balançando e, durante um lançamento
+## ([method set_casting]), abre (blend shape [method ItemModels.float_blend_shape] de 0 a 1) e vai para a posição de
+## lançamento.
 ## Mãos fechadas ([HandGrip], [ART-07]): com item na mão a direita fecha; a esquerda também em arma de duas mãos ou em
 ## par. Só nos corpos importados com ossos de dedo.
 

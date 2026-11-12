@@ -6,14 +6,14 @@
 
 - **Conjunto:** Curandeiro · **Slot:** Arma (mão) (pasta `hand/`) · **Vida extra:** +0
 - **Descrição:** Tomo branco com um sol dourado. Não causa dano: cura e protege os aliados.
-- **No boneco:** flutua ao lado do personagem (mão vazia), fechado; abre durante os lançamentos (blend shape do Blender) — posições em `ItemModels._FLOATING` ([ART-09]).
+- **No boneco:** flutua na frente do personagem (mão vazia), fechado; abre durante os lançamentos (blend shape do Blender) — posições em `ItemModels._FLOATING` ([ART-09]).
 
 ## Malhas (uma por corpo)
 
 | Corpo | Arquivo | Escala na cena | Situação |
 |---|---|---|---|
-| Masculino | `male/hand-healer.glb` | ×1 (o .glb direto, no espaço do personagem) | ✅ **do Blender** (flutua ao lado do personagem; mesma malha nos dois corpos) |
-| Feminino | `female/hand-healer.glb` | ×1 (o .glb direto, no espaço do personagem) | ✅ **do Blender** (flutua ao lado do personagem; mesma malha nos dois corpos) |
+| Masculino | `male/hand-healer.glb` | ×1 (o .glb direto, no espaço do personagem) | ✅ **do Blender** (flutua na frente do personagem; mesma malha nos dois corpos) |
+| Feminino | `female/hand-healer.glb` | ×1 (o .glb direto, no espaço do personagem) | ✅ **do Blender** (flutua na frente do personagem; mesma malha nos dois corpos) |
 
 ## Habilidades
 
