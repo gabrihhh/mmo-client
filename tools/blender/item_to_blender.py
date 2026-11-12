@@ -7,10 +7,13 @@ Itens/<conjunto>/<slot>, exatamente onde o item fica no jogo (o masculino ao lad
 depois volta com tools/blender/export_items.py. Objeto com o mesmo nome já no .blend não é tocado.
 
 Blender aberto: o arquivo é alterado no disco; no Blender, File → Revert para ver (sem salvar antes, senão perde).
+Dono trabalhando no arquivo: `--separate` grava as peças num .blend à parte (workspace-blender/<slot>-<nome>.blend)
+sem tocar no testes.blend; no Blender, File → Append → esse arquivo → Object → as peças.
 
 Uso (da pasta mmo-client):
   python3 tools/blender/item_to_blender.py healer_circlet            # os dois corpos
   python3 tools/blender/item_to_blender.py healer_circlet --body female
+  python3 tools/blender/item_to_blender.py healer_tome --separate      # sem mexer no testes.blend
 """
 import argparse
 import os
@@ -40,6 +43,7 @@ def main() -> None:
     parser.add_argument("item_id", help="id do item no jogo (ex.: healer_circlet)")
     parser.add_argument("--body", choices=["male", "female"], action="append", help="padrão: os dois")
     parser.add_argument("--blend", default=os.path.join(WORKSPACE, "testes.blend"))
+    parser.add_argument("--separate", action="store_true", help="grava num .blend à parte, para File → Append")
     parser.add_argument("--set", dest="item_set", help="coleção do conjunto (padrão: o nome da pasta do item)")
     args = parser.parse_args()
     slot, name = item_folder(args.item_id)
@@ -55,7 +59,8 @@ def main() -> None:
             sys.exit(f"o Godot não exportou {args.item_id} ({body})")
         temps.append(out)
         pairs += [out, f"{slot}-{name}-{body}", body]
-    run = subprocess.run(blender_cmd() + ["-b", os.path.abspath(args.blend), "--python", INNER, "--", item_set, slot] + pairs,
+    extra = ["--write", os.path.join(WORKSPACE, f"{slot}-{name}.blend")] if args.separate else []
+    run = subprocess.run(blender_cmd() + ["-b", os.path.abspath(args.blend), "--python", INNER, "--"] + extra + [item_set, slot] + pairs,
                          capture_output=True, text=True)
     for line in run.stdout.splitlines():
         if line.startswith(("IMPORTADO", "AVISO", "ERRO", "SALVO")):

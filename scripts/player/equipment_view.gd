@@ -327,6 +327,10 @@ func _refresh() -> void:
 				_held_pull = ItemModels.hold_pull(item_id, false)
 				_held_direction = Vector3.ZERO
 				_carry_weight = 1.0
+		elif key == "head" and ItemModels.is_tailored(item_id, body_id):
+			# Sob medida ([ART-08]): modelado no espaço do personagem; desfaz o encaixe em repouso para cair onde foi
+			# modelado e daí seguir a cabeça.
+			model.transform = _mount_rest(mount, MOUNTS[key][1]).affine_inverse()
 		elif fit_boxes.has(key) and not ItemModels.is_tailored(item_id, body_id):
 			# Malha sob medida já vem do tamanho do corpo: só a genérica é esticada para a caixa.
 			_fit(model, fit_boxes[key], slot)
@@ -419,6 +423,14 @@ func _basis_along(length_axis: Vector3, side_hint: Vector3) -> Basis:
 		side = length_axis.cross(Vector3.RIGHT if absf(length_axis.x) < 0.9 else Vector3.FORWARD)
 	side = side.normalized()
 	return Basis(length_axis.cross(side), length_axis, side)
+
+
+## O encaixe [param mount] (no osso [param bone_name]) com o corpo em repouso, no espaço do personagem (raiz do
+## CharacterModel): o espaço em que as peças sob medida são modeladas.
+func _mount_rest(mount: Node3D, bone_name: String) -> Transform3D:
+	var root: Node3D = get_parent() as Node3D
+	var bone: Transform3D = _skeleton.get_bone_global_rest(_skeleton.find_bone(bone_name))
+	return root.global_transform.affine_inverse() * _skeleton.global_transform * bone * mount.transform
 
 
 ## Posição global do osso [param bone_name] na pose atual.

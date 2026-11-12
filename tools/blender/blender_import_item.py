@@ -1,6 +1,8 @@
 """Roda DENTRO do Blender (chamado por tools/blender/item_to_blender.py, ver lá o uso). Põe no .blend um item do jogo.
 
-Argumentos (depois de `--`): <conjunto> <slot> e pares <arquivo.glb> <nome do objeto> <corpo>...
+Argumentos (depois de `--`): [--write <saida.blend>] <conjunto> <slot> e trios <arquivo.glb> <nome do objeto> <corpo>...
+Com --write, o .blend aberto NÃO é salvo: as peças vão sozinhas para <saida.blend>, para o dono trazer com
+File → Append sem fechar o arquivo em que está trabalhando.
 Cada .glb (item vestido, no espaço do personagem: tools/blender/item_to_glb.gd) vira UM objeto `<nome do objeto>` na
 coleção Itens/<conjunto>/<slot>, com a origem nos pés, em cima do objeto `<corpo>-body` (onde quer que ele esteja). Objeto com o mesmo nome já existente não é tocado (aviso). Salva o .blend.
 """
@@ -43,7 +45,11 @@ def layer_of(collection, layer=None):
 
 def main() -> None:
     args = sys.argv[sys.argv.index("--") + 1:]
+    write_to = None
+    if args[0] == "--write":
+        write_to, args = args[1], args[2:]
     item_set, slot, pairs = args[0], args[1], args[2:]
+    created = []
     if bpy.context.object is not None and bpy.context.object.mode != "OBJECT":
         bpy.ops.object.mode_set(mode="OBJECT")
     root = bpy.data.collections.get("Itens")
@@ -92,10 +98,15 @@ def main() -> None:
                 c.objects.unlink(obj)
         if target not in obj.users_collection:
             target.objects.link(obj)
+        created.append(obj)
         print(f"IMPORTADO {name} em {target.name} ({sum(len(p.vertices) - 2 for p in obj.data.polygons)} triângulos)")
     for c in list(bpy.data.collections):
         if c.name.startswith("glTF_not_exported") and not c.all_objects:
             bpy.data.collections.remove(c)
+    if write_to:
+        bpy.data.libraries.write(write_to, set(created), fake_user=True, compress=True)
+        print(f"SALVO {write_to} (Append: File → Append → esse arquivo → Object)")
+        return
     bpy.ops.wm.save_mainfile()
     print("SALVO")
 

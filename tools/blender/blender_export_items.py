@@ -89,8 +89,8 @@ def export(src, itens_dir: str) -> None:
         color = material_color(slot_mat.material if slot_mat else None)
         colors.append(tuple(round(srgb(c), 3) for c in color))
     palette = sorted(set(colors))
-    if len(palette) == 1 and len(src.material_slots) <= 1:
-        print(f"AVISO '{src.name}' tem uma cor só: pinte com materiais (um por cor) no Edit Mode")
+    if not src.material_slots:
+        print(f"AVISO '{src.name}' não tem material: sai branca (pinte com materiais, um por cor)")
     while mesh.uv_layers:
         mesh.uv_layers.remove(mesh.uv_layers[0])
     obj = bpy.data.objects.new(f"{slot}-{name}", mesh)
