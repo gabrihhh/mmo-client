@@ -2,9 +2,12 @@
 """Leva para o jogo as peças sob medida feitas no Blender ([ART-08]): "coloca no jogo o chest-healer-female".
 
 1. Exporta do .blend (padrão: ../workspace-blender/testes.blend) cada peça da coleção "Itens" chamada
-   `<slot>-<nome>-<male|female>` para `assets/itens/<slot>/<nome>/<corpo>/<slot>-<nome>.glb`
+   `<slot>-<nome>-<male|female>` para `assets/itens/<slot>/<nome>/<corpo>/<slot>-<nome>.glb`; sem o corpo no nome
+   (`hand-healer`) vai para a pasta de todos os corpos, no espaço do próprio objeto. Shape keys viram blend shapes.
    (tools/blender/blender_export_items.py, roda dentro do Blender: cores pelos materiais, furos tapados).
-2. Importa no Godot e deixa a paleta (`<slot>-<nome>_palette.png`, N×1 pixels) sem compressão nem filtro: comprimida, as
+2. Apaga o que sobrou da malha antiga na pasta do corpo (a cena `<slot>-<nome>.tscn` e texturas `<slot>-<nome>_*`):
+   com a cena lá o jogo continuaria usando a malha antiga ([ART-08], `ItemModels.is_tailored`).
+3. Importa no Godot e deixa a paleta (`<slot>-<nome>_palette.png`, N×1 pixels) sem compressão nem filtro: comprimida, as
    cores vizinhas se misturam. Apaga paletas antigas de exportações anteriores.
 
 O Blender precisa estar FECHADO? Não: só lê o arquivo salvo (o que não foi salvo não vai). Peça nova de um item
@@ -41,7 +44,7 @@ def fix_palette(glb: str) -> bool:
     """Paleta do .glb glb: sem compressão (mode 0) e sem limite de tamanho; apaga paletas antigas."""
     base = os.path.splitext(glb)[0]
     keep = base + "_palette.png"
-    for old in glob.glob(base + "_*.png"):
+    for old in glob.glob(base + "_*.png") + glob.glob(base + "_*.jpg"):
         if old != keep:
             for f in (old, old + ".import"):
                 if os.path.exists(f):
@@ -85,6 +88,12 @@ def main() -> None:
     if run.returncode != 0 or not exported:
         print(run.stderr[-2000:])
         sys.exit("nada exportado")
+    for glb in exported:
+        # Malha antiga (Meshy) com cena .tscn: sem apagar, o jogo continua usando ela.
+        scene = os.path.splitext(glb)[0] + ".tscn"
+        if os.path.exists(scene):
+            os.remove(scene)
+            print(f"apagado {os.path.relpath(scene, CLIENT)} (malha antiga)")
     godot_import()
     changed = False
     for glb in exported:

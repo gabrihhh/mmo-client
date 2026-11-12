@@ -49,7 +49,6 @@ static var _path_cache: Dictionary[String, String] = {}
 const _GRIP_PITCH: Dictionary[String, float] = {
 	"training_staff": 0.0,
 	"arcane_staff": 0.0,
-	"healer_tome": 0.0,
 }
 ## Pegada padrão (armas de lâmina).
 const DEFAULT_GRIP_PITCH: float = 90.0
@@ -65,7 +64,6 @@ const _HOLD: Dictionary[String, Array] = {
 	"knight_sword": [Vector3(0.0, 0.55, 1.0), 2.0, 2.0, true],
 	"arcane_staff": [Vector3(0.0, 1.0, 0.3), 4.0, 4.0, false],
 	"ranger_crossbow": [Vector3(0.0, 0.15, 1.0), 3.0, 3.0, false],
-	"healer_tome": [Vector3(0.0, 1.0, 0.2), 4.0, 4.0, false],
 }
 ## Posição de carregar (parado/correndo), no espaço do personagem (m; +Z frente, +Y cima, lado direito = −X):
 ## [onde fica a pegada da mão direita, direção do comprimento]. As mãos vão até a arma por IK ([EquipmentView]).
@@ -76,7 +74,6 @@ const _CARRY: Dictionary[String, Array] = {
 	"knight_sword": [Vector3(-0.10, 1.10, 0.30), Vector3(0.0, 0.6, 1.0)],
 	"arcane_staff": [Vector3(-0.24, 1.12, 0.26), Vector3(0.0, 1.0, 0.18)],
 	"ranger_crossbow": [Vector3(-0.12, 1.12, 0.32), Vector3(0.0, 0.1, 1.0)],
-	"healer_tome": [Vector3(-0.2, 1.0, 0.24), Vector3(0.0, 1.0, 0.1)],
 }
 ## Postura parada por arma na mão ([CharacterAnimator.set_idle_animation]); sem linha = "idle".
 const _IDLE: Dictionary[String, String] = {
@@ -90,6 +87,16 @@ const _IDLE: Dictionary[String, String] = {
 const _OFF_HAND_GRIP: Dictionary[String, Vector3] = {
 	"training_sword": Vector3(0.0, -0.11, 0.0),
 	"knight_sword": Vector3(0.0, -0.09, 0.0),
+}
+## Itens de mão que FLUTUAM ao lado do personagem em vez de ficar na mão ([EquipmentView], [ART-09]): a mão fica
+## vazia e o item paira, balançando de leve. Durante um lançamento ([method EquipmentView.set_casting]) a blend shape
+## dele vai a 1 (ex.: o livro abre) e ele vai para a posição de lançamento (o livro aberto se afasta do corpo para
+## não atravessar o braço). Valor: [posição parado, posição lançando,
+## nome da blend shape] — posições no espaço do personagem (m; +Z frente, +Y cima, lado direito = −X), onde fica a
+## origem do modelo (a base do livro). O modelo vira a sua frente (+Z, onde fica quem lê) para o peito do personagem.
+## A malha vem do Blender sem corpo no nome (`hand-healer`), igual para os dois corpos.
+const _FLOATING: Dictionary[String, Array] = {
+	"healer_tome": [Vector3(-0.45, 1.05, 0.05), Vector3(-0.62, 1.2, 0.2), "aberto"],
 }
 ## Armas que vêm em PAR (duas adagas): o mesmo modelo também aparece na mão esquerda, espelhado, seguindo a mão
 ## animada ([EquipmentView]).
@@ -140,7 +147,8 @@ static func model_path(item_id: String, body: String) -> String:
 ## corpo (sem .tscn), modelado em cima dele no Blender, no espaço do personagem (origem nos pés, metros, frente +Z).
 ## O jogo não estica (sem encaixe pela caixa) e, no peito, a roupa segue o braço inteiro. A genérica (Meshy, com
 ## .tscn de escala/origem, ou cópia de outro corpo) é encaixada como antes ([ART-04]). Hoje vale para peito e cabeça
-## (cabeça: peça rígida que segue o osso Head, no lugar em que foi modelada).
+## (cabeça: peça rígida que segue o osso Head, no lugar em que foi modelada) e para os itens de mão que flutuam
+## ([method floats]; esses vêm no espaço do próprio objeto, a posição é a de [member _FLOATING]).
 static func is_tailored(item_id: String, body: String) -> bool:
 	var path: String = model_path(item_id, body)
 	return path.ends_with(".glb") and path.get_base_dir().get_file() == body
@@ -212,6 +220,24 @@ static func idle_animation(item_id: String) -> String:
 ## true se [param item_id] é um par (uma cópia espelhada vai na mão esquerda).
 static func is_paired(item_id: String) -> bool:
 	return item_id in _PAIRED
+
+
+## true se [param item_id] flutua ao lado do personagem em vez de ficar na mão ([member _FLOATING]).
+static func floats(item_id: String) -> bool:
+	return _FLOATING.has(item_id)
+
+
+## Onde o item flutuante [param item_id] fica (espaço do personagem, m): parado ([param casting] false) ou lançando.
+static func float_position(item_id: String, casting: bool) -> Vector3:
+	if not _FLOATING.has(item_id):
+		return Vector3.ZERO
+	var position: Vector3 = _FLOATING[item_id][1 if casting else 0]
+	return position
+
+
+## Blend shape que o item flutuante [param item_id] liga durante o lançamento ("" = nenhuma).
+static func float_blend_shape(item_id: String) -> String:
+	return String(_FLOATING[item_id][2]) if _FLOATING.has(item_id) else ""
 
 
 ## true se [param item_id] é segurado com as duas mãos ([method off_hand_grip]).

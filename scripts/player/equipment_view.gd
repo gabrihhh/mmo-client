@@ -17,6 +17,9 @@ extends Node
 ##   direção de descanso ou para o antebraço ([method ItemModels.hold_direction]); ao terminar, volta suave para a
 ##   posição de carregar.
 ## A arma também escolhe a postura parada do personagem ([method CharacterAnimator.set_idle_animation]).
+## Item de mão que **flutua** ([method ItemModels.floats], ex.: o livro do curandeiro): não vai para a mão (ela fica
+## vazia e aberta); paira ao lado do personagem balançando e, durante um lançamento ([method set_casting]), abre
+## (blend shape [method ItemModels.float_blend_shape] de 0 a 1) e chega um pouco para a frente.
 ## Mãos fechadas ([HandGrip], [ART-07]): com item na mão a direita fecha; a esquerda também em arma de duas mãos ou em
 ## par. Só nos corpos importados com ossos de dedo.
 
@@ -41,6 +44,16 @@ const PULL_BLEND_RATE: float = 20.0
 ## Rapidez da entrada/saída da posição de carregar (fração por segundo): sai rápido ao atacar, volta mais devagar.
 const CARRY_OUT_RATE: float = 10.0
 const CARRY_IN_RATE: float = 4.0
+## Item flutuante: altura (m) e período (s) do balanço para cima e para baixo, e o giro de leve em volta de Y (rad).
+const FLOAT_BOB_HEIGHT: float = 0.035
+const FLOAT_BOB_PERIOD: float = 2.4
+const FLOAT_SWAY: float = 0.12
+## Item flutuante: rapidez com que abre e fecha (fração por segundo; 6 = abre em ~0,17 s, fecha em ~0,33 s).
+const FLOAT_OPEN_RATE: float = 6.0
+const FLOAT_CLOSE_RATE: float = 3.0
+## Item flutuante: fica aberto pelo menos isto (s), mesmo em habilidade instantânea, e mais isto depois do efeito.
+const FLOAT_MIN_OPEN_S: float = 0.6
+const FLOAT_HOLD_AFTER_S: float = 0.35
 
 ## Encaixe automático ([ART-04]): encaixe ("chest") → caixa (m, espaço do encaixe) que o item deve preencher. Vem de
 ## [member CharacterModel.chest_fit_box]. Calçados não usam caixa (encaixe pelo pé do corpo, [BodySkinning]).
@@ -83,6 +96,15 @@ var _covers_key: String = ""
 var _hand_grip: HandGrip = null
 ## Quanto a arma está na posição de carregar (0 = segue a mão animada, 1 = carregada à frente com IK).
 var _carry_weight: float = 0.0
+## Item de mão flutuante (null = nenhum; filho da raiz do personagem, não da mão), o id dele e as malhas com a blend
+## shape de abrir (malha → índice da blend shape).
+var _float_model: Node3D = null
+var _float_id: String = ""
+var _float_shapes: Dictionary[MeshInstance3D, int] = {}
+## Quanto o item flutuante está aberto (0..1, suavizado), quanto falta do lançamento (s) e o relógio do balanço (s).
+var _float_open: float = 0.0
+var _cast_left: float = 0.0
+var _float_clock: float = 0.0
 
 
 func _ready() -> void:
@@ -90,6 +112,7 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	_update_floating(delta)
 	if _held_model == null or not is_instance_valid(_held_model):
 		_set_arm_weight("Right", 0.0)
 		_set_arm_weight("Left", 0.0)
@@ -150,6 +173,58 @@ func _process(delta: float) -> void:
 		_place_arm("Left", off_grip + body_basis * WRIST_FROM_GRIP, 1.0)
 	else:
 		_set_arm_weight("Left", 0.0)
+
+
+## O personagem começou a lançar algo que leva [param seconds] s até o efeito (0 = instantâneo): o item flutuante
+## abre e fica aberto até o efeito (no mínimo [constant FLOAT_MIN_OPEN_S]) e mais [constant FLOAT_HOLD_AFTER_S].
+func set_casting(seconds: float) -> void:
+	_cast_left = maxf(seconds, FLOAT_MIN_OPEN_S) + FLOAT_HOLD_AFTER_S
+
+
+## Lançamento interrompido (andou, o servidor recusou): o item flutuante fecha já.
+func end_casting() -> void:
+	_cast_left = 0.0
+
+
+## Item flutuante: balança no lugar de descanso e, lançando, abre e chega para a frente ([member _FLOATING] de
+## [ItemModels]). A frente do modelo (+Z) olha para o peito do personagem.
+func _update_floating(delta: float) -> void:
+	_cast_left = maxf(_cast_left - delta, 0.0)
+	if _float_model == null or not is_instance_valid(_float_model):
+		return
+	var casting: bool = _cast_left > 0.0
+	_float_open = move_toward(_float_open, 1.0 if casting else 0.0, (FLOAT_OPEN_RATE if casting else FLOAT_CLOSE_RATE) * delta)
+	_float_clock = fmod(_float_clock + delta, FLOAT_BOB_PERIOD)
+	var wave: float = sin(TAU * _float_clock / FLOAT_BOB_PERIOD)
+	var eased: float = smoothstep(0.0, 1.0, _float_open)
+	var position: Vector3 = ItemModels.float_position(_float_id, false).lerp(ItemModels.float_position(_float_id, true), eased)
+	# Aberto, balança menos (o livro "para" para ser lido).
+	position.y += wave * FLOAT_BOB_HEIGHT * (1.0 - 0.6 * eased)
+	var to_chest: Vector3 = Vector3(-position.x, 0.0, -position.z)
+	var yaw: float = atan2(to_chest.x, to_chest.z) + FLOAT_SWAY * wave * (1.0 - eased)
+	_float_model.transform = Transform3D(Basis(Vector3.UP, yaw), position)
+	for mesh: MeshInstance3D in _float_shapes:
+		mesh.set_blend_shape_value(_float_shapes[mesh], eased)
+
+
+## Guarda [param model] como o item flutuante [param item_id] e acha as malhas com a blend shape de abrir.
+func _set_floating(model: Node3D, item_id: String) -> void:
+	_float_model = model
+	_float_id = item_id
+	_float_shapes.clear()
+	var shape: String = ItemModels.float_blend_shape(item_id)
+	var pending: Array[Node] = [model]
+	while not pending.is_empty():
+		var node: Node = pending.pop_back()
+		pending.append_array(node.get_children())
+		if node is MeshInstance3D and not shape.is_empty():
+			var mesh: MeshInstance3D = node as MeshInstance3D
+			var index: int = mesh.find_blend_shape_by_name(StringName(shape))
+			if index >= 0:
+				_float_shapes[mesh] = index
+	if _float_shapes.is_empty() and not shape.is_empty():
+		push_warning("Item flutuante %s sem a blend shape '%s' (exportar de novo do Blender)" % [item_id, shape])
+	_update_floating(0.0)
 
 
 ## Mãos fechadas em volta do cabo ([HandGrip]). [param axis] = eixo da arma (global, do cabo para a ponta),
@@ -290,6 +365,10 @@ func bind(state: PlayerState) -> void:
 ## Recria os modelos de todos os slots a partir do look atual.
 func _refresh() -> void:
 	_held_model = null
+	if _float_model != null and is_instance_valid(_float_model):
+		_float_model.queue_free()
+	_float_model = null
+	_float_shapes.clear()
 	for instance: MeshInstance3D in _skinned:
 		instance.queue_free()
 	_skinned.clear()
@@ -300,7 +379,7 @@ func _refresh() -> void:
 	if animator != null:
 		animator.set_idle_animation(ItemModels.idle_animation(hand_item))
 	if _hand_grip != null:
-		var holding: bool = not hand_item.is_empty() and _mounts.has("hand")
+		var holding: bool = not hand_item.is_empty() and _mounts.has("hand") and not ItemModels.floats(hand_item)
 		_hand_grip.set_grip(holding, holding and (ItemModels.is_two_handed(hand_item) or ItemModels.is_paired(hand_item)))
 	for key: String in _mounts:
 		var mount: Node3D = _mounts[key]
@@ -314,6 +393,11 @@ func _refresh() -> void:
 			continue
 		var model: Node3D = ItemModels.instantiate(item_id, body_id)
 		if model == null:
+			continue
+		if key == "hand" and ItemModels.floats(item_id):
+			# Flutua ao lado do personagem: filho da raiz dele (segue o corpo, não a mão).
+			(get_parent() as Node3D).add_child(model)
+			_set_floating(model, item_id)
 			continue
 		if key == "off_hand":
 			# Cópia da arma em par: segue a mão esquerda animada, sem posição de carregar.

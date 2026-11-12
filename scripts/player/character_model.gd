@@ -106,14 +106,17 @@ func play_action(animation_name: String, duration: float) -> void:
 
 ## Ação da habilidade [param ability_id]: a animação própria do item ("skill_<abilityId>", das pastas
 ## animation-* em res://assets/itens, [ART-08]) se a biblioteca tiver; senão a genérica de [AbilityVisuals].
+## [param duration] = lançamento (s); o item de mão flutuante abre nesse tempo ([method EquipmentView.set_casting]).
 func play_ability(ability_id: String, duration: float) -> void:
+	_equipment.set_casting(duration)
 	var own: String = ItemAnimations.SKILL_PREFIX + ability_id
 	play_action(own if _animator.has_animation(own) else AbilityVisuals.animation(ability_id), duration)
 
 
-## Interrompe a ação em andamento.
+## Interrompe a ação em andamento (e fecha o item flutuante, se houver).
 func stop_action() -> void:
 	_animator.stop_action()
+	_equipment.end_casting()
 
 
 ## Recuo ao apanhar.

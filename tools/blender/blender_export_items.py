@@ -9,6 +9,12 @@ Cores: cada MATERIAL da peça é uma cor (a Base Color dele). Todas viram 1 mate
 (um pixel por cor) e a UV de cada face aponta para o pixel da cor dela: 1 draw call, textura minúscula.
 Furos de até 6 lados são tapados; sombreado flat (low poly).
 
+Peça SEM corpo no nome (`<slot>-<nome>`, ex. `hand-healer`, o livro que flutua ao lado do personagem): a mesma
+malha vai para as pastas de TODOS os corpos, no espaço do próprio objeto (origem do objeto = origem da peça; vale a
+escala do objeto, não a posição nem o giro). Quem decide onde ela fica é o jogo ([ART-09]).
+Shape keys viram blend shapes do glTF com o mesmo nome (ex.: `fechado` = Basis, `aberto`), todas exportadas em 0:
+o jogo liga cada uma ([EquipmentView]).
+
 Argumentos (depois de `--`): <pasta assets/itens> [nomes de objetos...]. Sem nomes = todas as peças.
 Imprime uma linha `EXPORTADO <caminho> <triângulos> <cores>` por peça, `AVISO ...` e `ERRO ...`.
 """
@@ -20,7 +26,9 @@ import bmesh
 import bpy
 import mathutils
 
-NAME = re.compile(r"^(head|chest|boot|hand)-([a-z0-9-]+)-(male|female)$")
+NAME = re.compile(r"^(head|chest|boot|hand)-([a-z0-9-]+?)(?:-(male|female))?$")
+## Corpos do jogo (pastas dentro da pasta do item). ATENÇÃO: = ItemModels.BODIES no cliente.
+BODIES = ("male", "female")
 ## Limite de triângulos de uma peça (orçamento low poly do personagem, [ART-01]).
 MAX_TRIS = 600
 
@@ -63,7 +71,7 @@ def items_objects(names: list) -> list:
     found = [o for o in root.all_objects if o.type == "MESH" and NAME.match(o.name)]
     for o in root.all_objects:
         if o.type == "MESH" and not NAME.match(o.name):
-            print(f"AVISO '{o.name}' ignorado: o nome precisa ser <slot>-<nome>-<male|female> (slot: head, chest, boot, hand)")
+            print(f"AVISO '{o.name}' ignorado: o nome precisa ser <slot>-<nome>[-<male|female>] (slot: head, chest, boot, hand)")
     if names:
         missing = set(names) - {o.name for o in found}
         for n in sorted(missing):
@@ -73,17 +81,29 @@ def items_objects(names: list) -> list:
 
 
 def export(src, itens_dir: str) -> None:
+    """Exporta [src] para a pasta do corpo do nome dele, ou para a de todos os corpos (peça sem corpo no nome)."""
     slot, name, body = NAME.match(src.name).groups()
+    if body is not None:
+        frame = body_frame(body)
+        if frame is None:
+            print(f"AVISO sem objeto '{body}-body': peça exportada como está no .blend")
+            frame = mathutils.Matrix.Identity(4)
+        export_to(src, itens_dir, slot, name, body, frame.inverted() @ src.matrix_world)
+        return
+    # Sem corpo: espaço do próprio objeto (só a escala dele).
+    local = mathutils.Matrix.Diagonal(src.matrix_world.to_scale()).to_4x4()
+    for each in BODIES:
+        export_to(src, itens_dir, slot, name, each, local)
+
+
+def export_to(src, itens_dir: str, slot: str, name: str, body: str, xform) -> None:
+    """Grava [src] em `<itens>/<slot>/<nome>/<body>/<slot>-<nome>.glb`, com os vértices levados por [xform]."""
     folder = f"{itens_dir}/{slot}/{name}/{body}"
     if not os.path.isdir(folder):
         print(f"ERRO pasta {folder} não existe (o item {slot}/{name} existe no jogo?)")
         return
-    frame = body_frame(body)
-    if frame is None:
-        print(f"AVISO sem objeto '{body}-body': peça exportada como está no .blend")
-        frame = mathutils.Matrix.Identity(4)
     mesh = src.data.copy()
-    mesh.transform(frame.inverted() @ src.matrix_world)
+    mesh.transform(xform, shape_keys=True)
     colors = []
     for slot_mat in src.material_slots or [None]:
         color = material_color(slot_mat.material if slot_mat else None)
@@ -94,6 +114,10 @@ def export(src, itens_dir: str) -> None:
     while mesh.uv_layers:
         mesh.uv_layers.remove(mesh.uv_layers[0])
     obj = bpy.data.objects.new(f"{slot}-{name}", mesh)
+    morphs = [k.name for k in mesh.shape_keys.key_blocks[1:]] if mesh.shape_keys else []
+    if mesh.shape_keys:
+        for key in mesh.shape_keys.key_blocks:
+            key.value = 0.0
     bpy.context.scene.collection.objects.link(obj)
     img = bpy.data.images.new("palette", len(palette), 1)
     pixels = []
@@ -135,8 +159,11 @@ def export(src, itens_dir: str) -> None:
     bpy.context.view_layer.objects.active = obj
     path = f"{folder}/{slot}-{name}.glb"
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_animations=False,
-                              export_skins=False, export_apply=True, export_yup=True, export_materials="EXPORT")
+                              export_skins=False, export_apply=not morphs, export_morph=True, export_yup=True,
+                              export_materials="EXPORT")
     print(f"EXPORTADO {path} {tris} {len(palette)}")
+    if morphs:
+        print(f"AVISO '{src.name}': blend shapes {', '.join(morphs)} (o jogo liga pelo nome)")
 
 
 def main() -> None:

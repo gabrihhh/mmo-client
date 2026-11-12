@@ -7,6 +7,7 @@ extends SceneTree
 ##   godot --path . --resolution 1800x720 --script res://tools/placeholders/preview_fit.gd -- saida.png <conjunto> <cena do corpo>
 ## Conjuntos: mago, cavaleiro, atirador, assassino, curandeiro, treino.
 ## Ex. de corpo: res://assets/characters/male/male_character.tscn.
+## 4º argumento opcional `lancando`: todos no meio de um lançamento (o item de mão flutuante aparece aberto).
 
 ## Cada coluna: [animação, instante (s), giro do boneco (graus; 0 = de frente para a câmera)].
 const VIEWS: Array[Array] = [
@@ -67,6 +68,8 @@ func _build() -> void:
 		player.play(String(VIEWS[i][0]))
 		player.seek(float(VIEWS[i][1]), true)
 		player.pause()
+		if args.size() > 3 and args[3] == "lancando":
+			model.play_ability("", 60.0)
 
 	var camera: Camera3D = Camera3D.new()
 	world.add_child(camera)
