@@ -7,7 +7,8 @@ Peça = objeto MESH dentro da coleção "Itens" (em qualquer subcoleção) chama
 
 Cores: cada MATERIAL da peça é uma cor (a Base Color dele). Todas viram 1 material só com uma textura de N×1 pixels
 (um pixel por cor) e a UV de cada face aponta para o pixel da cor dela: 1 draw call, textura minúscula.
-Furos de até 6 lados são tapados; sombreado flat (low poly).
+Furos de até 6 lados são tapados; sombreado flat (low poly). Normais recalculadas para fora (= Shift+N no Blender):
+o jogo não desenha o lado de trás das faces, e face virada para dentro deixava ver o corpo através da roupa.
 
 Peça SEM corpo no nome (`<slot>-<nome>`, ex. `hand-healer`, o livro que flutua ao lado do personagem): a mesma
 malha vai para as pastas de TODOS os corpos, no espaço do próprio objeto (origem do objeto = origem da peça; vale a
@@ -136,6 +137,11 @@ def export_to(src, itens_dir: str, slot: str, name: str, body: str, xform) -> No
     bm.from_mesh(mesh)
     filled = bmesh.ops.holes_fill(bm, edges=bm.edges[:], sides=6)
     bmesh.ops.triangulate(bm, faces=filled["faces"])
+    before = {f: f.normal.copy() for f in bm.faces}
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    flipped = sum(1 for f in bm.faces if f.normal.dot(before[f]) < 0.0)
+    if flipped:
+        print(f"AVISO '{src.name}': {flipped} face(s) virada(s) para dentro corrigida(s) (no Blender: Shift+N)")
     uv = bm.loops.layers.uv.new("UVMap")
     for f in bm.faces:
         index = palette.index(colors[f.material_index]) if f.material_index < len(colors) else 0

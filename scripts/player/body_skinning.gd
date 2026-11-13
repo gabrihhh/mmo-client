@@ -36,6 +36,11 @@ const COVER_INSET_M: float = 0.01
 ## Quanto (m) a pele coberta afunda (pela normal, para dentro): com o braço baixando da pose T a pele do ombro sobe
 ## mais que a roupa e atravessava. Afundar (em vez de apagar) não abre buraco por onde se veja através do corpo.
 const COVER_SINK_M: float = 0.025
+## Além de afundar, a pele coberta encolhe em direção ao osso dela (fração da distância até o eixo do osso). Afundar
+## mais pela normal atravessava membros finos (a pele saía do outro lado do braço); encolher para o osso nunca passa
+## dele. Manga larga não acompanha o braço inteiro quando ele desce da pose T e o ombro saía pela lateral (peito do
+## curandeiro masculino, 2026-11-13).
+const COVER_SHRINK: float = 0.7
 ## Ossos que contam como "pé" (prefixo do lado na frente).
 const FOOT_BONES: Array[String] = ["Foot", "Toes"]
 
@@ -66,6 +71,9 @@ class BodyData:
 	var feet_hidden: ArrayMesh = null
 	## Espaço da malha do corpo → espaço do esqueleto em repouso (para levar as normais junto com as posições).
 	var to_skeleton: Transform3D = Transform3D.IDENTITY
+	## Eixo de cada osso em repouso (espaço do esqueleto): início e fim (média dos filhos; sem filho = o próprio início).
+	var bone_heads: PackedVector3Array = PackedVector3Array()
+	var bone_tails: PackedVector3Array = PackedVector3Array()
 
 
 ## Dados do corpo [param body] (malha com pesos) no esqueleto [param skeleton]; calculados na primeira vez.
@@ -108,6 +116,16 @@ static func sample(body: MeshInstance3D, skeleton: Skeleton3D, original: Mesh = 
 	data.skin = Skin.new()
 	for bone: int in range(skeleton.get_bone_count()):
 		data.skin.add_bind(bone, skeleton.get_bone_global_rest(bone).affine_inverse())
+		var head: Vector3 = skeleton.get_bone_global_rest(bone).origin
+		var children: PackedInt32Array = skeleton.get_bone_children(bone)
+		var tail: Vector3 = head
+		if not children.is_empty():
+			tail = Vector3.ZERO
+			for child: int in children:
+				tail += skeleton.get_bone_global_rest(child).origin
+			tail /= float(children.size())
+		data.bone_heads.append(head)
+		data.bone_tails.append(tail)
 	for side: String in ["Left", "Right"]:
 		var upper: int = skeleton.find_bone(side + "UpperArm")
 		var shoulder: int = skeleton.find_bone(side + "Shoulder")
@@ -158,7 +176,8 @@ static func feet_hidden_mesh(body: MeshInstance3D, skeleton: Skeleton3D, origina
 
 
 ## Malha do corpo ([param base]: a original ou a de pés escondidos, mesma ordem de vértices da [param original]) com a
-## pele que fica embaixo das roupas sob medida [param covers] afundada [constant COVER_SINK_M] para dentro. [param covers]
+## pele que fica embaixo das roupas sob medida [param covers] afundada [constant COVER_SINK_M] para dentro e encolhida
+## [constant COVER_SHRINK] em direção ao eixo do osso dominante (sem passar dele). [param covers]
 ## = malhas já vestidas ([method skin]: vértices no espaço do esqueleto em repouso). Pele coberta = o segmento pela
 ## normal dela, de [constant COVER_INSET_M] para dentro até [constant COVER_REACH_M] para fora, cruza um triângulo da
 ## roupa. Calculado uma vez por [param key] e compartilhado.
@@ -208,7 +227,13 @@ static func covered_mesh(original: Mesh, base: Mesh, covers: Array[Mesh], key: S
 			var end: Vector3 = point + normal * COVER_REACH_M
 			for t: int in grid[cell]:
 				if Geometry3D.segment_intersects_triangle(start, end, tris[t * 3], tris[t * 3 + 1], tris[t * 3 + 2]) != null:
-					vertices[v] -= to_mesh * (normal * COVER_SINK_M)
+					var bone: int = _dominant_bone(data, offset + v)
+					var axis: Vector3 = Geometry3D.get_closest_point_to_segment(point, data.bone_heads[bone], data.bone_tails[bone])
+					var moved: Vector3 = point.lerp(axis, COVER_SHRINK) - normal * COVER_SINK_M
+					# Não passa do eixo do osso (afundar pela normal num membro fino atravessava).
+					if (moved - axis).dot(point - axis) < 0.0:
+						moved = axis
+					vertices[v] += to_mesh * (moved - point)
 					break
 		offset += vertices.size()
 		arrays[Mesh.ARRAY_VERTEX] = vertices
