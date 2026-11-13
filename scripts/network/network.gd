@@ -81,7 +81,7 @@ var pvp: bool = false
 var mana: float = 0.0
 var max_mana: float = 0.0
 var respawn_in: float = 0.0
-## Nível do personagem, XP juntada dentro dele e XP que o nível pede para subir (0 = nível máximo), [JOGO-12].
+## Nível do personagem, XP juntada dentro dele e XP que o nível pede para subir (o jogo não tem nível máximo; 0 só se um dia tiver), [JOGO-12].
 ## ATENÇÃO: vem do `me` do snapshot (OwnStatus em mmo-server/src/net/protocol.ts); o cliente não calcula.
 var level: int = 0
 var xp: float = 0.0

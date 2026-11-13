@@ -218,7 +218,7 @@ func set_mana(current: float, maximum: float) -> void:
 
 
 ## Atualiza a linha de XP e o quadrado do nível ([JOGO-12]): [param xp] juntada dentro do [param level] de
-## [param xp_next] que ele pede (0 = nível máximo: linha cheia). Valores prontos do servidor.
+## [param xp_next] que ele pede (0 = linha cheia; hoje não acontece: sem nível máximo). Valores prontos do servidor.
 func set_experience(level: int, xp: float, xp_next: float) -> void:
 	_level_label.text = str(level)
 	if xp_next <= 0.0:

@@ -17,8 +17,6 @@ const KIND_IDS: Array[String] = ["fighter", "shooter"]
 const KIND_NAMES: Array[String] = ["Zumbi lutador", "Zumbi atirador"]
 ## Cor da cápsula de cada [enum Kind] (só no editor).
 const KIND_COLORS: Array[Color] = [Color(0.85, 0.25, 0.2), Color(0.95, 0.6, 0.15)]
-## Maior nível aceito. ATENÇÃO: = MONSTER_MAX_LEVEL do servidor (nível máximo dos jogadores, [JOGO-12]).
-const MAX_LEVEL: int = 50
 ## Raio (m) em que o zumbi percebe o jogador e vai atrás. ATENÇÃO: = ZOMBIE_AGGRO_RADIUS em mmo-server/src/zones/zones.ts.
 const AGGRO_RADIUS: float = 8.0
 
@@ -27,10 +25,10 @@ const AGGRO_RADIUS: float = 8.0
 	set(value):
 		kind = value
 		_refresh_visual()
-## Nível ([JOGO-12]): vida, dano e a XP que dá crescem 1% por nível, acumulando.
-@export_range(0, MAX_LEVEL) var level: int = 0:
+## Nível ([JOGO-12]): vida, dano e a XP que dá crescem 1% por nível, acumulando. Sem nível máximo.
+@export_range(0, 50, 1, "or_greater") var level: int = 0:
 	set(value):
-		level = clampi(value, 0, MAX_LEVEL)
+		level = maxi(value, 0)
 		_refresh_visual()
 
 var _label: Label3D = null
