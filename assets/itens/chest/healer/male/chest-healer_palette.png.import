@@ -2,25 +2,23 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d32yxi171cokq"
-path.s3tc="res://.godot/imported/head-healer_0.jpg-4cfb6a2946f4819087af318a420618ea.s3tc.ctex"
-path.etc2="res://.godot/imported/head-healer_0.jpg-4cfb6a2946f4819087af318a420618ea.etc2.ctex"
+uid="uid://ct62ijpqt0vdk"
+path="res://.godot/imported/chest-healer_palette.png-6200aab1475d3aefea7ab1902ea08e8b.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
-"vram_texture": true
+"vram_texture": false
 }
 generator_parameters={
-"md5": "d4257ffe29ee2800bf83ca4fac8d5df4"
+"md5": "0a5d4d83eb9220e18430614f68f94424"
 }
 
 [deps]
 
-source_file="res://assets/itens/head/healer/male/head-healer_0.jpg"
-dest_files=["res://.godot/imported/head-healer_0.jpg-4cfb6a2946f4819087af318a420618ea.s3tc.ctex", "res://.godot/imported/head-healer_0.jpg-4cfb6a2946f4819087af318a420618ea.etc2.ctex"]
+source_file="res://assets/itens/chest/healer/male/chest-healer_palette.png"
+dest_files=["res://.godot/imported/chest-healer_palette.png-6200aab1475d3aefea7ab1902ea08e8b.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -28,7 +26,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -41,5 +39,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=256
+process/size_limit=0
 detect_3d/compress_to=1

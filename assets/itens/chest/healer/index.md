@@ -12,7 +12,7 @@
 
 | Corpo | Arquivo | Escala na cena | Situação |
 |---|---|---|---|
-| Masculino | `male/chest-healer.tscn` | ×1, origem do modelo em (0; 0; 0) m | ✅ própria |
+| Masculino | `male/chest-healer.glb` | ×1 (o .glb direto, no espaço do personagem) | ✅ **sob medida** (modelada em cima do corpo no Blender: entra sem esticar e segue o braço inteiro) |
 | Feminino | `female/chest-healer.glb` | ×1 (o .glb direto, no espaço do personagem) | ✅ **sob medida** (modelada em cima do corpo no Blender: entra sem esticar e segue o braço inteiro) |
 
 ## Habilidades

@@ -12,7 +12,7 @@
 
 | Corpo | Arquivo | Escala na cena | Situação |
 |---|---|---|---|
-| Masculino | `male/head-healer.tscn` | ×0,235, origem do modelo em (0; 0,25; 0) m | ✅ própria |
+| Masculino | `male/head-healer.glb` | ×1 (o .glb direto, no espaço do personagem) | ✅ **sob medida** (modelada em cima do corpo no Blender: fica onde foi modelada e segue a cabeça) |
 | Feminino | `female/head-healer.glb` | ×1 (o .glb direto, no espaço do personagem) | ✅ **sob medida** (modelada em cima do corpo no Blender: fica onde foi modelada e segue a cabeça) |
 
 ## Habilidades
