@@ -10,6 +10,13 @@ extends RefCounted
 ## Quantos snapshots guardar (~2 s a 20 Hz). Mais que o atraso de interpolação com folga.
 const _HISTORY_SIZE: int = 40
 
+## Ticks sem aparecer no snapshot a partir dos quais o histórico recomeça (voltou de longe: não desliza do lugar antigo).
+const _GAP_TICKS: int = 10
+
+## Está na área de interesse (veio no último snapshot; o servidor só manda quem está perto, [INFRA-04]). Fora dela o
+## nó fica escondido e congelado ([RemotePlayer]) e não serve de alvo.
+var in_view: bool = true
+
 ## Id do jogador (playerId, estável).
 var id: String = ""
 ## Nome exibido acima do personagem: o username exatamente como foi cadastrado.
@@ -120,6 +127,10 @@ func apply_snapshot(data: Dictionary, at_tick: int) -> void:
 		var is_dead: bool = dead_value
 		dead = is_dead
 	tick = at_tick
+	if not _ticks.is_empty() and at_tick - _ticks[-1] > _GAP_TICKS:
+		_ticks.clear()
+		_positions.clear()
+		_rotations.clear()
 	if not _ticks.is_empty() and at_tick <= _ticks[-1]:
 		return
 	_ticks.append(at_tick)

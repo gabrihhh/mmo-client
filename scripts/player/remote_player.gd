@@ -81,6 +81,8 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if _state == null or Network.instance == null:
 		return
+	if not _sync_view():
+		return
 	var render_tick: float = Network.instance.render_tick()
 	position = _state.sample_position(render_tick)
 	# Altura do chão (só visual, [MUN-03]), suavizada nos degraus.
@@ -164,6 +166,21 @@ func react_to_hit() -> void:
 		_wobble = 1.0
 
 
-## true se está vivo (pode ser alvo).
+## true se está vivo e por perto (pode ser alvo). Fora da área de interesse não conta ([INFRA-04]).
 func is_alive() -> bool:
-	return _state != null and not _state.dead
+	return _state != null and not _state.dead and _state.in_view
+
+
+## Área de interesse ([INFRA-04]): fora dela o nó some e o modelo para de animar (não gasta GPU nem CPU); ao voltar,
+## reaparece já no lugar certo (sem deslizar de onde estava). Devolve true se está à vista.
+func _sync_view() -> bool:
+	if _state.in_view == visible:
+		return visible
+	visible = _state.in_view
+	if model != null:
+		model.process_mode = Node.PROCESS_MODE_INHERIT if visible else Node.PROCESS_MODE_DISABLED
+	if visible:
+		_ground_y = ZoneTerrain.height_at(_state.x, _state.z)
+		position = _state.position + Vector3.UP * _ground_y
+		_last_position = position
+	return visible

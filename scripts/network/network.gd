@@ -407,16 +407,23 @@ func _apply_snapshot(data: Dictionary) -> void:
 	var server_tick: int = Protocol.read_int(data, "tick", -1)
 	if server_tick < 0:
 		return
+	# Área de interesse ([INFRA-04]): só vem quem está perto; quem não veio fica fora de vista até voltar.
+	for state: PlayerState in _players.values():
+		state.in_view = state.id == player_id
+	for state: PlayerState in _npcs.values():
+		state.in_view = false
 	for snapshot: Dictionary in Protocol.read_dict_array(data, "players"):
 		if not Protocol.is_player_snapshot(snapshot):
 			continue
 		var id: String = Protocol.read_string(snapshot, "id")
 		if _players.has(id):
 			_players[id].apply_snapshot(snapshot, server_tick)
+			_players[id].in_view = true
 	for npc: Dictionary in Protocol.read_dict_array(data, "npcs"):
 		var npc_id: String = Protocol.read_string(npc, "id")
 		if _npcs.has(npc_id) and Protocol.is_player_snapshot(npc):
 			_npcs[npc_id].apply_snapshot(npc, server_tick)
+			_npcs[npc_id].in_view = true
 	var me: Dictionary = Protocol.read_dict(data, "me")
 	mana = Protocol.read_float(me, "mana", mana)
 	max_mana = Protocol.read_float(me, "maxMana", max_mana)

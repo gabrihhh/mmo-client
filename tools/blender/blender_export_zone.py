@@ -6,7 +6,7 @@ Eixos: X do Blender = X do jogo, Z do Blender = altura (Y do jogo), −Y do Blen
 O que sai (argumentos depois de `--`: <pasta do cliente> <pasta do servidor> <zona>):
 1. `assets/zones/<zona>/<zona>.glb` (cliente): o que se VÊ. Toda malha da coleção `Jogo hoje` (direto nela; as
    subcoleções de NPCs/anéis ficam de fora) e da coleção `Terreno` com as subcoleções (`Objetos`, `Objetos sem colisão`),
-   menos objetos `*_colisao`. Cada malha vai com a posição/giro/escala já aplicados (espaço do mundo), faces flat
+   menos objetos `*_colisao`. Malha maior que CHUNK_SIZE é cortada em blocos (a câmera só desenha os que vê). Cada malha vai com a posição/giro/escala já aplicados (espaço do mundo), faces flat
    (low poly) e as cores numa cor por vértice: cor do vértice (as malhas vindas do jogo) × Base Color do material da
    face (o que o dono pintar). No jogo tudo usa um material só de cor por vértice (LowPolyShapes.material).
 2. `assets/zones/<zona>/<zona>_height.png` (cliente): altura do chão numa grade de HEIGHT_STEP m de −HEIGHT_HALF a
@@ -54,6 +54,9 @@ WALK_HALF = 150.0
 ## Tipos e ataques aceitos nas Custom Properties do mob → kind do servidor.
 MOB_TYPES = ("zumbi",)
 ATTACK_KINDS = {"melee": "fighter", "ranged": "shooter"}
+## Malha maior que isto (m, em X ou no Y do Blender) é cortada em blocos deste lado, pela posição do centro de cada
+## face: a câmera do jogo só desenha os blocos que aparecem na tela (frustum culling por bloco). ATENÇÃO: [ART-10].
+CHUNK_SIZE = 40.0
 NPC_ID = re.compile(r"\(([a-z0-9_]+)\)\s*$")
 SKY = 10000.0
 
@@ -133,8 +136,36 @@ def face_colors(mesh: bpy.types.Mesh) -> list:
     return colors
 
 
-def bake_for_export(obj, depsgraph, material) -> bpy.types.Object:
-    """Objeto temporário: malha no mundo, faces flat, uma cor por canto ("Col"), um material só."""
+def split_chunks(mesh: bpy.types.Mesh, name: str) -> list:
+    """Corta [mesh] em blocos de CHUNK_SIZE m (pela posição do centro de cada face). Malha pequena: ela mesma.
+    Devolve [(nome, malha)]."""
+    xs = [v.co.x for v in mesh.vertices] or [0.0]
+    ys = [v.co.y for v in mesh.vertices] or [0.0]
+    if max(xs) - min(xs) <= CHUNK_SIZE and max(ys) - min(ys) <= CHUNK_SIZE:
+        return [(name, mesh)]
+    groups = {}
+    for poly in mesh.polygons:
+        key = (math.floor(poly.center.x / CHUNK_SIZE), math.floor(-poly.center.y / CHUNK_SIZE))
+        groups.setdefault(key, set()).add(poly.index)
+    result = []
+    for (i, j), keep in sorted(groups.items()):
+        bm = bmesh.new()
+        bm.from_mesh(mesh)
+        bm.faces.ensure_lookup_table()
+        bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.index not in keep], context="FACES")
+        part = bpy.data.meshes.new(f"{name}_{i}_{j}")
+        bm.to_mesh(part)
+        bm.free()
+        for mat in mesh.materials:
+            part.materials.append(mat)
+        result.append((part.name, part))
+    bpy.data.meshes.remove(mesh)
+    return result
+
+
+def bake_for_export(obj, depsgraph, material) -> list:
+    """Objetos temporários: malha no mundo, faces flat, uma cor por canto ("Col"), um material só; cortada em blocos
+    de CHUNK_SIZE se for grande."""
     mesh = world_mesh(obj, depsgraph)
     colors = face_colors(mesh)
     for name in [a.name for a in mesh.color_attributes]:
@@ -148,26 +179,29 @@ def bake_for_export(obj, depsgraph, material) -> bpy.types.Object:
         poly.use_smooth = False
     mesh.materials.clear()
     mesh.materials.append(material)
-    temp = bpy.data.objects.new("zona_" + obj.name, mesh)
-    bpy.context.scene.collection.objects.link(temp)
-    return temp
+    temps = []
+    for name, part in split_chunks(mesh, "zona_" + obj.name):
+        temp = bpy.data.objects.new(name, part)
+        bpy.context.scene.collection.objects.link(temp)
+        temps.append(temp)
+    return temps
 
 
-def export_glb(objects: list, path: str) -> int:
+def export_glb(objects: list, path: str) -> tuple:
     depsgraph = bpy.context.evaluated_depsgraph_get()
     material = bpy.data.materials.new("zona_cor_por_vertice")
     if bpy.context.object is not None and bpy.context.object.mode != "OBJECT":
         bpy.ops.object.mode_set(mode="OBJECT")
     for o in bpy.context.selected_objects:
         o.select_set(False)
-    temps = [bake_for_export(o, depsgraph, material) for o in objects]
+    temps = [t for o in objects for t in bake_for_export(o, depsgraph, material)]
     for t in temps:
         t.select_set(True)
     tris = sum(sum(len(p.vertices) - 2 for p in t.data.polygons) for t in temps)
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=True,
                               export_yup=True, export_normals=True, export_vertex_color="ACTIVE",
                               export_materials="EXPORT", export_texcoords=False, export_animations=False)
-    return tris
+    return tris, len(temps)
 
 
 class Caster:
@@ -326,8 +360,9 @@ def main() -> None:
     os.makedirs(out, exist_ok=True)
     objects = visual_objects()
     glb = os.path.join(out, f"{zone}.glb")
-    tris = export_glb(objects, glb)
-    print(f"EXPORTADO {glb} {len(objects)} malhas, {tris} triângulos: {', '.join(o.name for o in objects)}")
+    tris, parts = export_glb(objects, glb)
+    print(f"EXPORTADO {glb} {len(objects)} malhas em {parts} blocos de até {CHUNK_SIZE:.0f} m, {tris} triângulos: "
+          f"{', '.join(o.name for o in objects)}")
     height = os.path.join(out, f"{zone}_height.png")
     side, low, high = export_height(height)
     print(f"EXPORTADO {height} {side}x{side}, chão de {low:.2f} a {high:.2f} m")

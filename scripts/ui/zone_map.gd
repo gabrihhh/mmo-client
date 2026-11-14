@@ -3,7 +3,8 @@ extends Control
 ## Mapa da zona no Menu ([CLI-11]): a zona inteira em pixel art, vista de cima do mapa feito no Blender
 ## ([ART-10], imagem gerada pelo exportador) e **girada como a câmera** ([CLI-02], 45°): o que está para cima/direita
 ## no mapa está para cima/direita no joystick. Por cima, ao vivo: você (seta azul virada para onde você olha), monstros
-## (vermelho), bonecos de treino e NPCs de teste (amarelo) e outros jogadores (verde). Mortos não aparecem.
+## (vermelho), bonecos de treino e NPCs de teste (amarelo) e outros jogadores (verde). Mortos não aparecem, nem quem
+## está fora da área de interesse (o servidor só manda quem está perto, [INFRA-04]).
 ##
 ## Só desenha: lê as posições do [Network] (último snapshot) a cada quadro enquanto está visível.
 
@@ -88,13 +89,13 @@ func _draw_markers() -> void:
 	if network == null:
 		return
 	for npc: PlayerState in network.get_npcs():
-		if not npc.dead:
+		if not npc.dead and npc.in_view:
 			_draw_square(world_to_map(npc.x, npc.z), COLOR_MONSTER if npc.monster else COLOR_NPC)
 	var me: PlayerState = null
 	for player: PlayerState in network.get_players():
 		if player.id == network.player_id:
 			me = player
-		elif not player.dead:
+		elif not player.dead and player.in_view:
 			_draw_square(world_to_map(player.x, player.z), COLOR_PLAYER)
 	# Você por cima de todos.
 	if me != null:
