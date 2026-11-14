@@ -583,9 +583,9 @@ func _on_player_option(option_id: String) -> void:
 			inspect_requested.emit(target)
 		PlayerActionsPanel.OPTION_GROUP_INVITE:
 			# A resposta ("X aceitou/recusou") chega depois como aviso.
+			# Continua nas opções da MESMA pessoa (voltar para a lista parecia perguntar "qual pessoa?").
 			group_invite_requested.emit(target)
 			show_toast("Convite enviado.")
-			_open_panel(_actions_origin)
 		PlayerActionsPanel.OPTION_GROUP_KICK:
 			group_kick_requested.emit(target)
 			_open_panel(_group_panel)
@@ -593,7 +593,6 @@ func _on_player_option(option_id: String) -> void:
 			# A resposta ("X aceitou/recusou") chega depois como aviso.
 			friend_request_requested.emit(target)
 			show_toast("Pedido de amizade enviado.")
-			_open_panel(_actions_origin)
 		PlayerActionsPanel.OPTION_FRIEND_REMOVE:
 			# Volta à lista; ela se atualiza quando o servidor confirmar (e o aviso "X foi removido" aparece).
 			friend_remove_requested.emit(target)
