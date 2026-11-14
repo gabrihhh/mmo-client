@@ -52,6 +52,13 @@ const _CLOCK_CORRECTION: float = 0.1
 const _INBOUND_BUFFER_BYTES: int = 4 * 1024 * 1024
 ## Mensagens na fila de entrada do socket antes de ler (padrão do Godot: 4096 = ~3 min de snapshots; folga igual).
 const _MAX_QUEUED_PACKETS: int = 8192
+
+## Diagnóstico de queda (vai junto da mensagem "Conexão perdida"): quando chegou o último dado (ms desde o início,
+## Time.get_ticks_msec) e o quadro mais demorado desde que a conexão abriu (ms). Quadro longo = o aparelho travou e
+## não respondeu ao heartbeat do servidor; último dado antigo = a rede parou de entregar.
+var _last_packet_ms: int = 0
+var _worst_frame_ms: int = 0
+var _worst_frame_at_ms: int = 0
 ## Autenticou, mas a conta ainda não escolheu o corpo do personagem: mostrar a tela de escolha e chamar
 ## [method choose_body]. O [code]join[/code] só vai depois da escolha ([signal body_chosen]).
 signal body_choice_needed
@@ -288,6 +295,8 @@ func _request_auth(type: String, data: Dictionary) -> void:
 
 func _open_socket() -> void:
 	_socket = WebSocketPeer.new()
+	_worst_frame_ms = 0
+	_last_packet_ms = Time.get_ticks_msec()
 	_socket.inbound_buffer_size = _INBOUND_BUFFER_BYTES
 	_socket.max_queued_packets = _MAX_QUEUED_PACKETS
 	var url: String = NetworkConfig.server_url()
@@ -302,6 +311,10 @@ func _open_socket() -> void:
 
 func _process(delta: float) -> void:
 	_clock_tick += delta * tick_rate
+	var frame_ms: int = int(delta * 1000.0)
+	if frame_ms > _worst_frame_ms:
+		_worst_frame_ms = frame_ms
+		_worst_frame_at_ms = Time.get_ticks_msec()
 	_socket.poll()
 	var state: WebSocketPeer.State = _socket.get_ready_state()
 
@@ -313,6 +326,7 @@ func _process(delta: float) -> void:
 
 	# Lê também depois de fechado: o "error" que precede uma recusa pode ainda estar na fila.
 	while _socket.get_available_packet_count() > 0:
+		_last_packet_ms = Time.get_ticks_msec()
 		_handle_message(_socket.get_packet().get_string_from_utf8())
 
 	if state == WebSocketPeer.STATE_CLOSED:
@@ -487,7 +501,10 @@ func _on_closed() -> void:
 	if code == Protocol.CLOSE_REPLACED:
 		last_error = "Sua conta entrou em outro aparelho."
 	elif last_error.is_empty() and code != 1000:
-		last_error = "Conexão perdida (código %d)." % code
+		var now: int = Time.get_ticks_msec()
+		last_error = "Conexão perdida (código %d). Último dado há %.1f s; pior quadro %d ms (há %.0f s)." % [
+			code, (now - _last_packet_ms) / 1000.0, _worst_frame_ms, (now - _worst_frame_at_ms) / 1000.0]
+		print("[rede] ", last_error)
 	left_zone.emit(code, reason)
 
 
