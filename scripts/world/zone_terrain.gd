@@ -1,66 +1,64 @@
 class_name ZoneTerrain
 extends RefCounted
-## Forma do chão da zona 1 ([MUN-03]): praça de pedra elevada no centro (círculo onde se nasce + piso quadrado),
-## uma escada no meio de cada lado, campo em volta ondulando de leve e subindo na borda até as montanhas.
+## Altura do chão da zona 1 ([MUN-03]), vinda do mapa feito no Blender ([ART-10]): a imagem
+## `assets/zones/zone_1/zone_1_height.png` é uma grade de [constant HEIGHT_STEP] m de −[constant HEIGHT_HALF] a
+## +[constant HEIGHT_HALF] nos dois eixos, com a altura do chão (`jogo_chao`, `jogo_praca` e malhas soltas na coleção
+## `Terreno`) em cada ponto. Refazer: `python3 tools/blender/export_zone.py`.
 ##
-## [method height_at] é a ÚNICA fonte da altura: o cenário ([Zone1Scenery]) é desenhado com ela e os personagens
-## são postos em cima dela. Por enquanto a altura é só VISUAL: o servidor simula em X/Z (y fixo) e não sabe de
-## degraus nem morros ([INFRA-09]). Quando o servidor precisar (colisão, quedas), esta conta vira compartilhada.
+## [method height_at] é a ÚNICA fonte da altura: os personagens, avisos no chão, impactos e projéteis ficam em cima
+## dela. Por enquanto a altura é só VISUAL: o servidor simula em X/Z (y fixo) e não sabe de degraus nem morros
+## ([INFRA-09]). Quando o servidor precisar (quedas, linha de visão), lê a mesma imagem.
 
-## Praça: metade do lado do piso quadrado (m) e altura dele acima do campo (m).
-const PLAZA_HALF: float = 10.0
-const PLAZA_HEIGHT: float = 0.6
-## Círculo de pedra no centro, onde os jogadores nascem (m). ATENÇÃO: o spawnRadius da zona no servidor
+## Metade do lado da grade de alturas (m) e distância entre pontos (m). ATENÇÃO: = HEIGHT_HALF / HEIGHT_STEP em
+## tools/blender/blender_export_zone.py.
+const HEIGHT_HALF: float = 160.0
+const HEIGHT_STEP: float = 0.5
+## A altura vai em centímetros + este valor (para caber altura negativa) em 16 bits: vermelho = byte alto, verde =
+## byte baixo. ATENÇÃO: = HEIGHT_OFFSET_CM do exportador.
+const HEIGHT_OFFSET_CM: int = 10000
+## Imagem das alturas (importada como Image, sem compressão).
+const HEIGHT_IMAGE: String = "res://assets/zones/zone_1/zone_1_height.png"
+## Círculo de pedra no centro da praça, onde os jogadores nascem (m). ATENÇÃO: o spawnRadius da zona no servidor
 ## (mmo-server/src/zones/zones.ts) fica dentro dele.
 const SPAWN_CIRCLE_RADIUS: float = 4.5
-## Escadas: uma no meio de cada lado da praça, descendo para o campo. Degraus com o topo em 0,45 / 0,30 / 0,15 m
-## (STEP_COUNT × STEP_RISE + o último pulo para o chão = PLAZA_HEIGHT).
-const STEP_COUNT: int = 3
-const STEP_RISE: float = 0.15
-const STEP_RUN: float = 0.5
-const STAIR_HALF_WIDTH: float = 2.5
-## Campo plano até este raio (m); depois ondula de leve.
-const FLAT_RADIUS: float = 22.0
-## Borda: o chão começa a subir aqui (m, em X ou Z) e chega a [constant EDGE_RISE] m no limite da zona.
-const EDGE_START: float = 120.0
-const EDGE_RISE: float = 8.0
 ## Metade do lado da área andável (o servidor limita aqui). ATENÇÃO: = ZONE_HALF_SIZE do servidor.
 const WALK_HALF: float = WorldConstants.ZONE_HALF_SIZE
 
+## Alturas (m) da grade, linha a linha (z), carregadas na primeira consulta.
+static var _heights: PackedFloat32Array = PackedFloat32Array()
+static var _side: int = 0
 
-## Altura do chão (m) em ([param x], [param z]).
+
+## Altura do chão (m) em ([param x], [param z]): interpolada entre os 4 pontos da grade em volta; fora da grade,
+## a da borda.
 static func height_at(x: float, z: float) -> float:
-	var ax: float = absf(x)
-	var az: float = absf(z)
-	if ax <= PLAZA_HALF and az <= PLAZA_HALF:
-		return PLAZA_HEIGHT
-	var stair: float = _stair_height(ax, az)
-	if stair >= 0.0:
-		return stair
-	return field_height(x, z)
+	if _side == 0:
+		_load()
+		if _side == 0:
+			return 0.0
+	var gx: float = clampf((x + HEIGHT_HALF) / HEIGHT_STEP, 0.0, _side - 1.0)
+	var gz: float = clampf((z + HEIGHT_HALF) / HEIGHT_STEP, 0.0, _side - 1.0)
+	var i: int = mini(int(gx), _side - 2)
+	var j: int = mini(int(gz), _side - 2)
+	var fx: float = gx - i
+	var fz: float = gz - j
+	var top: float = lerpf(_heights[j * _side + i], _heights[j * _side + i + 1], fx)
+	var bottom: float = lerpf(_heights[(j + 1) * _side + i], _heights[(j + 1) * _side + i + 1], fx)
+	return lerpf(top, bottom, fz)
 
 
-## true se ([param x], [param z]) está na praça (piso ou escadas).
-static func is_plaza(x: float, z: float) -> bool:
-	var ax: float = absf(x)
-	var az: float = absf(z)
-	return (ax <= PLAZA_HALF and az <= PLAZA_HALF) or _stair_height(ax, az) >= 0.0
-
-
-## Altura do campo (sem a praça): plano perto do centro, morros suaves mais longe, subida na borda.
-static func field_height(x: float, z: float) -> float:
-	var hills: float = sin(x * 0.045) * 1.1 + cos(z * 0.038 + x * 0.02) * 1.3 + sin((x + z) * 0.09) * 0.4 + 0.2
-	var away: float = smoothstep(FLAT_RADIUS, FLAT_RADIUS + 25.0, Vector2(x, z).length())
-	var edge: float = smoothstep(EDGE_START, WALK_HALF, maxf(absf(x), absf(z)))
-	return away * hills + edge * edge * EDGE_RISE
-
-
-## Altura do degrau em (|x|, |z|), ou −1 fora das escadas.
-static func _stair_height(ax: float, az: float) -> float:
-	var depth: float = STEP_COUNT * STEP_RUN
-	for pair: Vector2 in [Vector2(ax, az), Vector2(az, ax)]:
-		# pair.x = distância no eixo da escada; pair.y = deslocamento lateral.
-		if pair.y <= STAIR_HALF_WIDTH and pair.x > PLAZA_HALF and pair.x <= PLAZA_HALF + depth:
-			var step: int = mini(STEP_COUNT - 1, int((pair.x - PLAZA_HALF) / STEP_RUN))
-			return PLAZA_HEIGHT - STEP_RISE * (step + 1)
-	return -1.0
+static func _load() -> void:
+	var image: Image = load(HEIGHT_IMAGE) as Image
+	if image == null or image.get_width() != image.get_height() or image.get_width() < 2:
+		push_error("ZoneTerrain: não li a altura do chão em %s (rodar tools/blender/export_zone.py)" % HEIGHT_IMAGE)
+		return
+	image.convert(Image.FORMAT_RGB8)
+	var side: int = image.get_width()
+	var data: PackedByteArray = image.get_data()
+	var heights: PackedFloat32Array = PackedFloat32Array()
+	heights.resize(side * side)
+	for k: int in range(side * side):
+		var raw: int = data[k * 3] * 256 + data[k * 3 + 1]
+		heights[k] = (raw - HEIGHT_OFFSET_CM) / 100.0
+	_heights = heights
+	_side = side

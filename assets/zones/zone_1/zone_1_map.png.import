@@ -1,0 +1,14 @@
+[remap]
+
+importer="image"
+type="Image"
+uid="uid://dscgfk8l0bm16"
+path="res://.godot/imported/zone_1_map.png-30d2dd4cb3b0bc20b9d919ce388717fc.image"
+
+[deps]
+
+source_file="res://assets/zones/zone_1/zone_1_map.png"
+dest_files=["res://.godot/imported/zone_1_map.png-30d2dd4cb3b0bc20b9d919ce388717fc.image"]
+
+[params]
+

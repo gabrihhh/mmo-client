@@ -1,15 +1,17 @@
 class_name ZoneMap
 extends Control
-## Mapa da zona no Menu ([CLI-11]): a zona inteira em pixel art, gerada por código a partir do próprio terreno
-## ([ZoneTerrain], bosques de [Zone1Scenery]) e **girada como a câmera** ([CLI-02], 45°): o que está para cima/direita
+## Mapa da zona no Menu ([CLI-11]): a zona inteira em pixel art, vista de cima do mapa feito no Blender
+## ([ART-10], imagem gerada pelo exportador) e **girada como a câmera** ([CLI-02], 45°): o que está para cima/direita
 ## no mapa está para cima/direita no joystick. Por cima, ao vivo: você (seta azul virada para onde você olha), monstros
 ## (vermelho), bonecos de treino e NPCs de teste (amarelo) e outros jogadores (verde). Mortos não aparecem.
 ##
 ## Só desenha: lê as posições do [Network] (último snapshot) a cada quadro enquanto está visível.
 
-## Metros por pixel da imagem do mapa.
+## Imagem do mapa (importada como Image, sem compressão).
+const MAP_IMAGE: String = "res://assets/zones/zone_1/zone_1_map.png"
+## Metros por pixel da imagem do mapa. ATENÇÃO: = MAP_STEP em tools/blender/blender_export_zone.py.
 const METERS_PER_PIXEL: float = 2.0
-## Metade do lado mostrado (m): a área andável (±150) e um pouco das montanhas.
+## Metade do lado mostrado (m): a área andável (±150) e um pouco das montanhas. ATENÇÃO: = MAP_HALF do exportador.
 const SHOW_HALF: float = 160.0
 ## Giro do mapa, igual ao da câmera em Y (rad). ATENÇÃO: IsometricCamera (45°, [CLI-02]).
 const MAP_YAW: float = PI / 4.0
@@ -39,59 +41,16 @@ func _process(_delta: float) -> void:
 		queue_redraw()
 
 
-## Imagem pixel art da zona: 1 pixel = [constant METERS_PER_PIXEL] m, de −[constant SHOW_HALF] a +; pixel (i, j)
-## é o ponto x = −SHOW_HALF + (i + 0,5) × m, z = idem com j (sem girar: o giro é no desenho).
+## Imagem pixel art da zona, exportada do Blender junto com o mapa ([ART-10], `zone_1_map.png`): 1 pixel =
+## [constant METERS_PER_PIXEL] m, de −[constant SHOW_HALF] a +; pixel (i, j) é o ponto x = −SHOW_HALF + (i + 0,5) × m,
+## z = idem com j (sem girar: o giro é no desenho). Cor = a da face mais alta vista de cima naquele ponto.
 static func build_image() -> Image:
-	var side: int = int(SHOW_HALF * 2.0 / METERS_PER_PIXEL)
-	var image: Image = Image.create_empty(side, side, false, Image.FORMAT_RGBA8)
-	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
-	rng.seed = 11
-	for j: int in range(side):
-		for i: int in range(side):
-			var x: float = -SHOW_HALF + (i + 0.5) * METERS_PER_PIXEL
-			var z: float = -SHOW_HALF + (j + 0.5) * METERS_PER_PIXEL
-			image.set_pixel(i, j, _ground_color(x, z, rng.randf()))
-	# Bosques: copas em pixels soltos em volta de cada centro (mais densas no meio).
-	for grove: Vector2 in Zone1Scenery.GROVES:
-		for k: int in range(26):
-			var offset: Vector2 = Vector2(rng.randf_range(-1.0, 1.0), rng.randf_range(-1.0, 1.0)) * Zone1Scenery.GROVE_SPREAD
-			var p: Vector2i = _pixel_of(grove + offset, side)
-			var dark: Color = Color(0.13, 0.33, 0.16)
-			image.set_pixelv(p, dark)
-			if p.x + 1 < side:
-				image.set_pixel(p.x + 1, p.y, Color(0.2, 0.44, 0.22))
+	var image: Image = load(MAP_IMAGE) as Image
+	if image == null:
+		push_error("ZoneMap: não li %s (rodar tools/blender/export_zone.py)" % MAP_IMAGE)
+		var side: int = int(SHOW_HALF * 2.0 / METERS_PER_PIXEL)
+		return Image.create_empty(side, side, false, Image.FORMAT_RGBA8)
 	return image
-
-
-## Cor do chão em (x, z): montanhas fora da área andável, praça de pedra (com o círculo de nascer e as escadas) e
-## campo verde mais escuro nos morros e no pé da montanha. [param noise] (0..1) varia um pouco cada pixel.
-static func _ground_color(x: float, z: float, noise: float) -> Color:
-	var outside: float = maxf(absf(x), absf(z)) - ZoneTerrain.WALK_HALF
-	if outside > 0.0:
-		if outside > 7.0:
-			return Color(0.86, 0.88, 0.92) if noise > 0.35 else Color(0.62, 0.66, 0.74)
-		return Color(0.42, 0.46, 0.5).lerp(Color(0.3, 0.42, 0.3), noise * 0.5)
-	if ZoneTerrain.is_plaza(x, z):
-		var r: float = Vector2(x, z).length()
-		if r <= ZoneTerrain.SPAWN_CIRCLE_RADIUS and r >= ZoneTerrain.SPAWN_CIRCLE_RADIUS - 2.0:
-			return Color(0.33, 0.31, 0.3)
-		var checker: bool = (int(floorf(x / 2.0)) + int(floorf(z / 2.0))) % 2 == 0
-		return Color(0.62, 0.59, 0.55) if checker else Color(0.55, 0.52, 0.48)
-	if ZoneTerrain.height_at(x, z) > 0.01 and Vector2(absf(x), absf(z)).length() < ZoneTerrain.PLAZA_HALF + 3.0:
-		return Color(0.5, 0.48, 0.45)  # escadas
-	var height: float = ZoneTerrain.field_height(x, z)
-	var grass: Color = Color(0.42, 0.66, 0.34).lerp(Color(0.3, 0.5, 0.26), clampf(height / 3.0, 0.0, 1.0))
-	if height > 3.0:
-		grass = grass.lerp(Color(0.5, 0.46, 0.34), clampf((height - 3.0) / 5.0, 0.0, 0.8))
-	if noise > 0.985:
-		return Color(0.95, 0.85, 0.5)  # flores
-	return grass.lightened(0.04) if noise > 0.6 else grass
-
-
-static func _pixel_of(world: Vector2, side: int) -> Vector2i:
-	var i: int = clampi(int((world.x + SHOW_HALF) / METERS_PER_PIXEL), 0, side - 1)
-	var j: int = clampi(int((world.y + SHOW_HALF) / METERS_PER_PIXEL), 0, side - 1)
-	return Vector2i(i, j)
 
 
 ## Ponto da tela (local deste Control) para o ponto (x, z) do mundo, com o giro da câmera.

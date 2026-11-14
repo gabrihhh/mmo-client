@@ -10,3 +10,4 @@
 
 # Pode conter senhas de keystore/certificados
 export_credentials.cfg
+__pycache__/
