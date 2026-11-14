@@ -10,9 +10,15 @@ extends Node
 const SCENE: String = "res://scenes/boot/game_boot.tscn"
 ## Primeira tela do jogo.
 const LOGIN_SCENE: String = "res://scenes/ui/login.tscn"
+## Script do [LiveUpdater] (atualização com o jogo aberto, [INFRA-08]).
+const LIVE_UPDATER_SCRIPT: String = "res://scripts/boot/live_updater.gd"
 
 
 func _ready() -> void:
+	# Depois de uma atualização com o jogo aberto, o LiveUpdater relê todo o código do pacote novo, menos ele mesmo
+	# (não dá para recompilar o script que está rodando): faz isso agora, para a próxima atualização usar o novo.
+	if ResourceLoader.has_cached(LIVE_UPDATER_SCRIPT):
+		ResourceLoader.load(LIVE_UPDATER_SCRIPT, "", ResourceLoader.CACHE_MODE_IGNORE)
 	if Network.instance == null:
 		var network: Network = Network.new()
 		network.name = "Network"

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Publica uma atualização do jogo para UMA plataforma: exporta o .pck, coloca na pasta de updates do
-# servidor e atualiza o manifesto (versão + 1). Os aparelhos baixam na próxima vez que abrirem o app.
+# servidor e atualiza o manifesto (versão + 1). O servidor percebe o manifesto novo e manda quem está jogando
+# naquela plataforma atualizar sozinho (LiveUpdater); quem abrir o app baixa no atualizador.
 # Ver mmo-docs [INFRA-08].
 #
 # Uso: tools/publish_update.sh <android|desktop> [pasta_de_updates]   (padrão: ../mmo-server/updates)

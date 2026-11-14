@@ -10,6 +10,8 @@ extends Node
 ## Fluxo: [method login] / [method register] / [method resume_session] abrem a conexão e autenticam
 ## ([signal authenticated]); em seguida o Network entra sozinho na zona ([signal joined_zone]).
 ## Contas: mmo-docs [INFRA-07]. Protocolo: [INFRA-04]. Modelo autoritativo: [INFRA-09].
+## Pacote do jogo velho ([constant Protocol.MSG_UPDATE_REQUIRED], ou version_mismatch fora do dev): quando a conexão
+## fecha, abre o [LiveUpdater] (baixa a versão nova e reabre o jogo no mesmo processo), [INFRA-08].
 
 ## Autenticação aceita. [member username] é o nome exatamente como foi cadastrado.
 signal authenticated(username: String)
@@ -88,6 +90,15 @@ const _AUTH_ERROR_CODES: Array[String] = [
 	"invalid_username", "invalid_email", "invalid_password", "username_taken", "email_taken",
 	"invalid_credentials", "invalid_session", "too_many_attempts", "version_mismatch",
 ]
+
+## Tela que baixa e carrega o pacote novo com o jogo aberto. ATENÇÃO: igual a LiveUpdater.SCENE.
+const LIVE_UPDATER_SCENE: String = "res://scenes/boot/live_updater.tscn"
+## Versão do pacote do jogo que o servidor mandou instalar ([constant Protocol.MSG_UPDATE_REQUIRED]); 0 = nenhuma.
+## [constant UPDATE_UNKNOWN] = recusado por versão de protocolo (version_mismatch) fora do dev: tenta atualizar também.
+## Quando a conexão fecha com isso marcado, abre o [LiveUpdater] em vez de voltar ao login ([INFRA-08]).
+var _update_version: int = 0
+## Valor de [member _update_version] quando a versão nova não é conhecida (version_mismatch).
+const UPDATE_UNKNOWN: int = -1
 
 ## A instância viva (criada pelo [GameBoot]); null antes do boot.
 static var instance: Network = null
@@ -173,18 +184,21 @@ func has_saved_session() -> bool:
 func resume_session() -> void:
 	var token: String = AccountStorage.load_session_token()
 	if not token.is_empty():
-		_request_auth(Protocol.MSG_RESUME, {"version": Protocol.VERSION, "sessionToken": token})
+		_request_auth(Protocol.MSG_RESUME, {"version": Protocol.VERSION, "client": PackInfo.client_build(), "sessionToken": token})
 
 
 ## Entra com username OU e-mail + senha.
 func login(login_name: String, password: String) -> void:
-	_request_auth(Protocol.MSG_LOGIN, {"version": Protocol.VERSION, "login": login_name.strip_edges(), "password": password})
+	_request_auth(Protocol.MSG_LOGIN, {
+		"version": Protocol.VERSION, "client": PackInfo.client_build(), "login": login_name.strip_edges(), "password": password,
+	})
 
 
 ## Cria a conta e já entra nela. O username fica exatamente como foi digitado (sem espaços nas pontas).
 func register(new_username: String, email: String, password: String) -> void:
 	_request_auth(Protocol.MSG_REGISTER, {
 		"version": Protocol.VERSION,
+		"client": PackInfo.client_build(),
 		"username": new_username.strip_edges(),
 		"email": email.strip_edges(),
 		"password": password,
@@ -446,7 +460,8 @@ func _process(delta: float) -> void:
 			_send(Protocol.read_string(_pending_auth, "type"), Protocol.read_dict(_pending_auth, "data"))
 			_pending_auth = {}
 
-	# Lê também depois de fechado: o "error" que precede uma recusa pode ainda estar na fila.
+	# Atenção: o WebSocketPeer DESCARTA o que chega junto com o close (testado em 2026-11-14); por isso o servidor espera
+	# CLOSE_DELAY_MS (mmo-server/src/GameServer.ts) entre o "error"/"update_required" e o fechamento.
 	while _socket.get_available_packet_count() > 0:
 		_last_packet_ms = Time.get_ticks_msec()
 		_handle_message(_socket.get_packet().get_string_from_utf8())
@@ -534,6 +549,11 @@ func _handle_message(text: String) -> void:
 			friend_notice.emit(Protocol.read_string(data, "code"), Protocol.read_string(data, "message"))
 		Protocol.MSG_SOCIAL_SETTINGS:
 			_apply_social_settings(data)
+		Protocol.MSG_UPDATE_REQUIRED:
+			# Fecha já (o servidor também fecharia, com 4003, um pouco depois); no fechamento abre o LiveUpdater ([INFRA-08]).
+			_update_version = maxi(Protocol.read_int(data, "version"), 1)
+			print("[rede] pacote novo publicado (versão %d): atualizando" % _update_version)
+			_socket.close(1000, "update")
 		Protocol.MSG_ERROR:
 			_handle_error(Protocol.read_string(data, "code"), Protocol.read_string(data, "message"))
 		_:
@@ -552,6 +572,12 @@ func _apply_social_settings(data: Dictionary) -> void:
 func _handle_error(code: String, message: String) -> void:
 	push_warning("Network: servidor recusou (%s): %s" % [code, message])
 	last_error = message
+	if code == Protocol.ERR_VERSION_MISMATCH and not PackInfo.is_dev():
+		# Servidor com outro protocolo: quase sempre há pacote novo. O LiveUpdater confere o manifesto e, se não houver
+		# versão nova, mostra a mensagem e "Tentar de novo" (sem laço de atualização).
+		_update_version = UPDATE_UNKNOWN
+		_socket.close(1000, "update")
+		return
 	if code in _AUTH_ERROR_CODES:
 		if code == Protocol.ERR_INVALID_SESSION:
 			AccountStorage.clear_session_token()
@@ -651,6 +677,13 @@ func _on_closed() -> void:
 	for id: String in _players.keys():
 		_remove_player(id)
 
+	if _update_version != 0:
+		# Pacote novo: nada de voltar ao login. O LiveUpdater tira este Network da árvore, baixa o pacote, carrega e
+		# reabre o jogo (que entra direto com a sessão salva).
+		_update_version = 0
+		last_error = ""
+		get_tree().change_scene_to_file(LIVE_UPDATER_SCENE)
+		return
 	if not was_open:
 		_fail_connection(code, "Não foi possível conectar ao servidor.")
 		return

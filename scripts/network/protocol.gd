@@ -10,10 +10,11 @@ extends RefCounted
 ## mmo-server/src/accounts/credentials.ts). Mudou lá → mude aqui e atualize mmo-docs [INFRA-04], [INFRA-07].
 
 ## Versão do protocolo enviada ao autenticar. Precisa ser igual a PROTOCOL_VERSION do servidor.
-const VERSION: int = 15
+const VERSION: int = 16
 
 # --- Cliente → servidor ---
-## Cria conta. data: { version, username, email, password }.
+## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
+## [code]client: { platform, pack }[/code] = o pacote do jogo em uso ([PackInfo]; pack 0 = dev), v16, [INFRA-08].
 const MSG_REGISTER: String = "register"
 ## Entra com username OU e-mail + senha. data: { version, login, password }.
 const MSG_LOGIN: String = "login"
@@ -123,6 +124,11 @@ const MSG_FRIEND_REQUESTED: String = "friend_requested"
 ## Aviso pequeno de amizade, pronto para mostrar. data: { code ("accepted" | "rejected" | "expired" | "added" |
 ## "removed"), name, message }.
 const MSG_FRIEND_NOTICE: String = "friend_notice"
+## Há pacote do jogo mais novo para esta plataforma (no lugar do auth_ok, ou com o jogo aberto quando sai versão
+## nova). data: { version: int }. Logo depois o servidor fecha com [constant CLOSE_UPDATE_REQUIRED] e o [Network] abre
+## o [LiveUpdater], que baixa e entra de novo sozinho. Ver mmo-docs [INFRA-08].
+## ATENÇÃO: contrato ESTÁVEL entre versões do protocolo (UpdateRequired em mmo-server/src/net/protocol.ts).
+const MSG_UPDATE_REQUIRED: String = "update_required"
 ## Pedido recusado ou mensagem inválida. data: { code: String, message: String }.
 const MSG_ERROR: String = "error"
 
@@ -132,7 +138,12 @@ const CLOSE_REJECTED: int = 4000
 const CLOSE_TIMEOUT: int = 4001
 ## Close code quando a mesma conta entrou por outra conexão (outro aparelho/janela).
 const CLOSE_REPLACED: int = 4002
+## Close code depois do [constant MSG_UPDATE_REQUIRED] (pacote do jogo desatualizado).
+const CLOSE_UPDATE_REQUIRED: int = 4003
 
+## Erro: versão do protocolo diferente da do servidor (fecha a conexão). Fora do dev, o [Network] tenta atualizar
+## sozinho ([LiveUpdater]): servidor com protocolo novo quase sempre quer dizer pacote novo publicado.
+const ERR_VERSION_MISMATCH: String = "version_mismatch"
 ## Erro: token de sessão não vale mais (o cliente apaga o token e mostra o formulário).
 const ERR_INVALID_SESSION: String = "invalid_session"
 ## Erro: [constant MSG_INSPECT] de quem não está (mais) na zona.
