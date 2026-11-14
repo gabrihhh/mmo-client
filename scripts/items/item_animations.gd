@@ -32,7 +32,7 @@ const FOLDERS: Dictionary[String, String] = {
 	"knight_attack": "res://assets/itens/hand/knight/animation-attack",
 	"line_cleave": "res://assets/itens/hand/knight/animation-skill-1",
 	"heroic_charge": "res://assets/itens/hand/knight/animation-skill-2",
-	"ground_slam": "res://assets/itens/hand/knight/animation-skill-3",
+	"challenge": "res://assets/itens/hand/knight/animation-skill-3",
 	"rallying_cry": "res://assets/itens/head/knight/animation-skill-1",
 	"steel_wall": "res://assets/itens/chest/knight/animation-skill-1",
 	"iron_stance": "res://assets/itens/boot/knight/animation-skill-1",

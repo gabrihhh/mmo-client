@@ -63,19 +63,19 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
   - Hoje usa a genérica `dash`: dura 1,8 s (quadro 54), sem momento de golpe (toca na velocidade normal).
   - Toca sempre na velocidade normal (×1): a duração é livre, mas curta (o personagem já pode agir).
 
-### Habilidade 3: Terremoto — pasta `animation-skill-3/`
+### Habilidade 3: Desafio — pasta `animation-skill-3/`
 
-- `ground_slam` · mira ao redor de você. Crava a espada no chão e acerta todos em volta.
-- Números: **Dano 12** · raio 3,5 m · lançamento **0,8 s** · recarga **12 s** · mana **20**.
-- Como funciona: Toque e sai (não precisa mirar): depois de 0,8 s de lançamento (andar nesse tempo cancela), todos os inimigos em volta num raio de 3,5 m: tira 12 de vida.
-- Ao segurar (prévia): círculo dourado translúcido de raio 3,5 m em volta do personagem.
-- Os outros veem: **sem aviso no chão** (o servidor não manda o ponto do "ao redor"); clarão do golpe em anel de 3,5 m no momento do efeito. Animação: `heavy_strike` (Meshy; genérica, também em 3 outras).
-- Desenho da carta: ✅ `assets/icons/abilities/ground_slam.png`.
+- `challenge` · mira ao redor de você. Desafia os monstros em volta: eles atacam só você por um tempo.
+- Números: **Provoca** por 4 s · raio 6 m · lançamento **0,5 s** · recarga **12 s** · mana **20**.
+- Como funciona: Toque e sai (não precisa mirar): depois de 0,5 s de lançamento (andar nesse tempo cancela), todos os monstros inimigos em volta num raio de 6 m: provoca: atacam só você por 4 s e sua ameaça neles vira 110% da maior ([JOGO-14]).
+- Ao segurar (prévia): círculo dourado translúcido de raio 6 m em volta do personagem.
+- Os outros veem: **sem aviso no chão** (o servidor não manda o ponto do "ao redor"); clarão do golpe em anel de 6 m no momento do efeito. Animação: `heavy_strike` (Meshy; genérica, também em 3 outras).
+- Desenho da carta: ✅ `assets/icons/abilities/challenge.png`.
 - **Tempo da animação (Blender, 30 fps):**
-  - **Momento do efeito** (golpe acerta / magia sai): **0,8 s = quadro 24** contando do início — é quando o servidor aplica o efeito (fim do lançamento).
+  - **Momento do efeito** (golpe acerta / magia sai): **0,5 s = quadro 15** contando do início — é quando o servidor aplica o efeito (fim do lançamento).
   - Recarga 12 s (não repete em seguida): depois do efeito, uma volta curta ao repouso (~0,3–0,6 s) basta.
-  - Hoje usa a genérica `heavy_strike`: dura 1,53 s (quadro 46), golpe em 1,23 s (quadro 37) → o jogo toca a **×1,54** para o golpe cair em 0,8 s.
-  - Fazendo o golpe exatamente no quadro acima, ela toca na velocidade normal (×1). Se ficar em outro quadro, o jogo acelera ou desacelera (entre ×0,25 e ×4) desde que o golpe seja medido em `CharacterAnimator.HIT_TIMES` (`skill_ground_slam`).
+  - Hoje usa a genérica `heavy_strike`: dura 1,53 s (quadro 46), golpe em 1,23 s (quadro 37) → o jogo toca a **×2,46** para o golpe cair em 0,5 s.
+  - Fazendo o golpe exatamente no quadro acima, ela toca na velocidade normal (×1). Se ficar em outro quadro, o jogo acelera ou desacelera (entre ×0,25 e ×4) desde que o golpe seja medido em `CharacterAnimator.HIT_TIMES` (`skill_challenge`).
 
 ## Anotações
 

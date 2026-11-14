@@ -20,7 +20,7 @@ const MODES: Dictionary[String, Array] = {
 	"": [["training_staff", "training_hood", "training_vest", "training_boots"], ["fireball", "meteor", "bolt", "heal", "shield"], false],
 	"espada": [["training_sword", "training_hood", "training_vest", "training_boots"], ["heavy_strike", "spin"], true],
 	"mago": [["arcane_staff", "mage_hat", "mage_tunic", "mage_shoes"], ["ice_lance", "arcane_nova", "starfall", "meditation", "arcane_barrier"], false],
-	"cavaleiro": [["knight_sword", "knight_helm", "knight_plate", "knight_greaves"], ["line_cleave", "ground_slam", "rallying_cry", "steel_wall", "iron_stance"], true],
+	"cavaleiro": [["knight_sword", "knight_helm", "knight_plate", "knight_greaves"], ["line_cleave", "challenge", "rallying_cry", "steel_wall", "iron_stance"], true],
 	"atirador": [["ranger_crossbow", "ranger_hood", "ranger_jerkin", "ranger_boots"], ["piercing_bolt", "bolt_rain", "quick_shot", "bandage", "leather_guard"], false],
 	"assassino": [["assassin_daggers", "assassin_hood", "assassin_vest", "assassin_boots"], ["backstab", "blade_flurry", "evasion", "smoke_veil"], true],
 	# Curandeiro não dá dano ([JOGO-09]): o ataque simples não pega o boneco; as cartas curam/protegem o próprio bot.

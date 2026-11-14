@@ -57,6 +57,8 @@ var projectile_speed: float = 0.0
 ## Redução de dano (0..1) e duração (s) ([JOGO-09]); só exibição.
 var damage_reduction: float = 0.0
 var reduction_seconds: float = 0.0
+## Provocar (Desafio, [JOGO-14]): por quantos segundos os monstros em volta atacam só você; 0 = não provoca. Só exibição.
+var taunt_seconds: float = 0.0
 
 
 func _init(ability_id: String, ability_title: String, slot: String, aim: AimType, range_meters: float = 0.0, radius_meters: float = 0.0, cooldown_seconds: float = 0.0) -> void:
@@ -112,6 +114,7 @@ func with_display(data: Dictionary) -> AbilityView:
 	projectile_speed = Protocol.read_float(data, "projectileSpeed")
 	damage_reduction = Protocol.read_float(data, "damageReduction")
 	reduction_seconds = Protocol.read_float(data, "reductionSeconds")
+	taunt_seconds = Protocol.read_float(data, "tauntSeconds")
 	return self
 
 
@@ -141,6 +144,8 @@ func stats() -> Array[Array]:
 		out.append(["Escudo %s · dura %s s" % [number(shield), number(shield_seconds)], StatKind.SHIELD])
 	if damage_reduction > 0.0:
 		out.append(["Recebe −%s%% de dano · dura %s s" % [number(damage_reduction * 100.0), number(reduction_seconds)], StatKind.SHIELD])
+	if taunt_seconds > 0.0:
+		out.append(["Provoca os monstros em volta · dura %s s" % number(taunt_seconds), StatKind.OTHER])
 	if speed_multiplier > 0.0:
 		out.append(["Velocidade +%s%% · dura %s s" % [number((speed_multiplier - 1.0) * 100.0), number(speed_seconds)], StatKind.OTHER])
 	if dash_distance > 0.0:

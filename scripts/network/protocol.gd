@@ -11,7 +11,8 @@ extends RefCounted
 
 ## Versão do protocolo enviada ao autenticar. Precisa ser igual a PROTOCOL_VERSION do servidor.
 ## v17: [constant MSG_GROUP_POSITIONS] (membros do grupo longe, para o mapa, [SOC-03]).
-const VERSION: int = 17
+## v18: [code]tauntSeconds[/code] no AbilityView do inventário (Desafio do cavaleiro provoca os monstros, [JOGO-14]).
+const VERSION: int = 18
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
