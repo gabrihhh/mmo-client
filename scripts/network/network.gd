@@ -46,6 +46,12 @@ const INTERPOLATION_DELAY_TICKS: float = 2.0
 const _CLOCK_SNAP_TICKS: float = 10.0
 ## Fração do erro do relógio corrigida a cada snapshot (ajuste suave, sem trancos).
 const _CLOCK_CORRECTION: float = 0.1
+## Buffer de entrada do socket (bytes). O padrão do Godot (64 KB) enche em ~0,5 s com a zona cheia de NPCs (snapshot
+## de ~7 KB a 20 Hz); um quadro travado no celular (ex.: carregar o mapa ao entrar) estourava e a conexão caía
+## (código 1006). 4 MB dão dezenas de segundos de folga.
+const _INBOUND_BUFFER_BYTES: int = 4 * 1024 * 1024
+## Mensagens na fila de entrada do socket antes de ler (padrão do Godot: 4096 = ~3 min de snapshots; folga igual).
+const _MAX_QUEUED_PACKETS: int = 8192
 ## Autenticou, mas a conta ainda não escolheu o corpo do personagem: mostrar a tela de escolha e chamar
 ## [method choose_body]. O [code]join[/code] só vai depois da escolha ([signal body_chosen]).
 signal body_choice_needed
@@ -282,6 +288,8 @@ func _request_auth(type: String, data: Dictionary) -> void:
 
 func _open_socket() -> void:
 	_socket = WebSocketPeer.new()
+	_socket.inbound_buffer_size = _INBOUND_BUFFER_BYTES
+	_socket.max_queued_packets = _MAX_QUEUED_PACKETS
 	var url: String = NetworkConfig.server_url()
 	var error: Error = _socket.connect_to_url(url)
 	if error != OK:

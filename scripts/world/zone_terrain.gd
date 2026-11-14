@@ -24,8 +24,9 @@ const SPAWN_CIRCLE_RADIUS: float = 4.5
 ## Metade do lado da área andável (o servidor limita aqui). ATENÇÃO: = ZONE_HALF_SIZE do servidor.
 const WALK_HALF: float = WorldConstants.ZONE_HALF_SIZE
 
-## Alturas (m) da grade, linha a linha (z), carregadas na primeira consulta.
-static var _heights: PackedFloat32Array = PackedFloat32Array()
+## Bytes da imagem (RGB, linha a linha em z), carregados na primeira consulta e lidos direto (sem converter os
+## 410 mil pontos de uma vez: no celular isso travava o quadro ao entrar na zona).
+static var _data: PackedByteArray = PackedByteArray()
 static var _side: int = 0
 
 
@@ -42,9 +43,21 @@ static func height_at(x: float, z: float) -> float:
 	var j: int = mini(int(gz), _side - 2)
 	var fx: float = gx - i
 	var fz: float = gz - j
-	var top: float = lerpf(_heights[j * _side + i], _heights[j * _side + i + 1], fx)
-	var bottom: float = lerpf(_heights[(j + 1) * _side + i], _heights[(j + 1) * _side + i + 1], fx)
+	var top: float = lerpf(_point(i, j), _point(i + 1, j), fx)
+	var bottom: float = lerpf(_point(i, j + 1), _point(i + 1, j + 1), fx)
 	return lerpf(top, bottom, fz)
+
+
+## Carrega a imagem das alturas (chamado sozinho na primeira consulta; o [Zone1Scenery] chama ao montar o cenário).
+static func preload_heights() -> void:
+	if _side == 0:
+		_load()
+
+
+## Altura (m) do ponto (i, j) da grade.
+static func _point(i: int, j: int) -> float:
+	var k: int = (j * _side + i) * 3
+	return (_data[k] * 256 + _data[k + 1] - HEIGHT_OFFSET_CM) / 100.0
 
 
 static func _load() -> void:
@@ -52,13 +65,7 @@ static func _load() -> void:
 	if image == null or image.get_width() != image.get_height() or image.get_width() < 2:
 		push_error("ZoneTerrain: não li a altura do chão em %s (rodar tools/blender/export_zone.py)" % HEIGHT_IMAGE)
 		return
-	image.convert(Image.FORMAT_RGB8)
-	var side: int = image.get_width()
-	var data: PackedByteArray = image.get_data()
-	var heights: PackedFloat32Array = PackedFloat32Array()
-	heights.resize(side * side)
-	for k: int in range(side * side):
-		var raw: int = data[k * 3] * 256 + data[k * 3 + 1]
-		heights[k] = (raw - HEIGHT_OFFSET_CM) / 100.0
-	_heights = heights
-	_side = side
+	if image.get_format() != Image.FORMAT_RGB8:
+		image.convert(Image.FORMAT_RGB8)
+	_data = image.get_data()
+	_side = image.get_width()
