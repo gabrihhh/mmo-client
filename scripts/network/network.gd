@@ -132,6 +132,15 @@ var xp_next: float = 0.0
 ## Meu grupo segundo o servidor ([SOC-03]); null = sem grupo. Membros do grupo não se atingem e aparecem com a cor
 ## de aliado ([RemotePlayer]).
 var group: GroupState = null
+## Depois de quanto tempo (s) sem [constant Protocol.MSG_GROUP_POSITIONS] a posição de um membro longe deixa de valer
+## (3 mensagens perdidas; o mapa volta à última posição conhecida pelo snapshot).
+const GROUP_POSITIONS_STALE_SECONDS: float = 3.0 / Protocol.GROUP_POSITIONS_HZ
+## Posição no chão (x, z em m) dos membros do grupo LONGE de mim (fora do snapshot), da última
+## [constant Protocol.MSG_GROUP_POSITIONS] ([SOC-03], mapa [CLI-11]). Quem volta para a área de interesse sai daqui
+## (o snapshot passa a valer).
+var _group_far: Dictionary[String, Vector2] = {}
+## Quando (Time.get_ticks_msec) chegou a última [constant Protocol.MSG_GROUP_POSITIONS].
+var _group_far_ms: int = 0
 ## Meus amigos segundo o servidor ([SOC-04]); lista vazia antes da primeira mensagem.
 var friends: FriendList = FriendList.new()
 ## Configuração social salva na conta ([SOC-04]): "Solicitações de amizade" e "Convites de grupo"
@@ -344,6 +353,17 @@ func is_group_leader() -> bool:
 	return group != null and group.leader_id == player_id
 
 
+## true se há posição recente (de [constant Protocol.MSG_GROUP_POSITIONS]) do membro [param id], que está LONGE de mim
+## (fora da área de interesse). Perto, a posição vem no snapshot ([method get_players]).
+func has_group_far_position(id: String) -> bool:
+	return _group_far.has(id) and is_group_member(id) and Time.get_ticks_msec() - _group_far_ms <= int(GROUP_POSITIONS_STALE_SECONDS * 1000.0)
+
+
+## Posição no chão (x, z em m) do membro longe [param id] (ver [method has_group_far_position]); Vector2.ZERO se não há.
+func group_far_position(id: String) -> Vector2:
+	return _group_far.get(id, Vector2.ZERO)
+
+
 ## Convida [param target_id] para o grupo ([SOC-03]). Resposta: [signal group_notice] (aceitou/recusou/expirou) ou erro.
 func send_group_invite(target_id: String) -> void:
 	if is_in_zone() and not target_id.is_empty():
@@ -535,7 +555,11 @@ func _handle_message(text: String) -> void:
 				attributes_received.emit(attributes)
 		Protocol.MSG_GROUP:
 			group = GroupState.from_dict(Protocol.read_dict(data, "group"))
+			if group == null:
+				_group_far.clear()
 			group_changed.emit(group)
+		Protocol.MSG_GROUP_POSITIONS:
+			_apply_group_positions(data)
 		Protocol.MSG_GROUP_INVITED:
 			group_invited.emit(Protocol.read_string(data, "fromId"), Protocol.read_string(data, "fromName"), Protocol.read_float(data, "expiresIn", 30.0))
 		Protocol.MSG_GROUP_NOTICE:
@@ -594,6 +618,17 @@ func _add_player(info: Dictionary) -> void:
 	player_added.emit(state.id, state)
 
 
+## Guarda as posições dos membros do grupo longe ([constant Protocol.MSG_GROUP_POSITIONS]): a lista substitui a anterior
+## (quem não veio está perto, no snapshot, ou saiu do grupo).
+func _apply_group_positions(data: Dictionary) -> void:
+	_group_far.clear()
+	_group_far_ms = Time.get_ticks_msec()
+	for entry: Dictionary in Protocol.read_dict_array(data, "members"):
+		var id: String = Protocol.read_string(entry, "id")
+		if not id.is_empty():
+			_group_far[id] = Vector2(Protocol.read_float(entry, "x"), Protocol.read_float(entry, "z"))
+
+
 ## Aplica um snapshot: guarda o estado de cada jogador naquele tick, ajusta o relógio e avisa.
 func _apply_snapshot(data: Dictionary) -> void:
 	var server_tick: int = Protocol.read_int(data, "tick", -1)
@@ -611,6 +646,8 @@ func _apply_snapshot(data: Dictionary) -> void:
 		if _players.has(id):
 			_players[id].apply_snapshot(snapshot, server_tick)
 			_players[id].in_view = true
+			# Membro do grupo voltou para perto: vale o snapshot, não a posição de longe (velha).
+			_group_far.erase(id)
 	for npc: Dictionary in Protocol.read_dict_array(data, "npcs"):
 		var npc_id: String = Protocol.read_string(npc, "id")
 		if _npcs.has(npc_id) and Protocol.is_player_snapshot(npc):
@@ -667,6 +704,7 @@ func _on_closed() -> void:
 	body = ""
 	inventory = null
 	group = null
+	_group_far.clear()
 	friends = FriendList.new()
 	social_friend_requests = Protocol.SOCIAL_ALWAYS
 	social_group_invites = Protocol.SOCIAL_ALWAYS

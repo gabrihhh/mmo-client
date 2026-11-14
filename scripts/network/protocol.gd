@@ -10,7 +10,8 @@ extends RefCounted
 ## mmo-server/src/accounts/credentials.ts). Mudou lá → mude aqui e atualize mmo-docs [INFRA-04], [INFRA-07].
 
 ## Versão do protocolo enviada ao autenticar. Precisa ser igual a PROTOCOL_VERSION do servidor.
-const VERSION: int = 16
+## v17: [constant MSG_GROUP_POSITIONS] (membros do grupo longe, para o mapa, [SOC-03]).
+const VERSION: int = 17
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
@@ -115,6 +116,13 @@ const MSG_GROUP_INVITED: String = "group_invited"
 ## Aviso pequeno do grupo, pronto para mostrar. data: { code ("accepted" | "rejected" | "expired" | "in_group" |
 ## "joined" | "left" | "kicked" | "leader" | "disbanded"), name, message }.
 const MSG_GROUP_NOTICE: String = "group_notice"
+## Onde estão os membros do MEU grupo que ficaram FORA da minha área de interesse (não vêm no snapshot), para o mapa do
+## Menu ([CLI-11]). data: { members: Array[{ id, x, z }] } (m, 1 casa decimal). Só para quem está em grupo, a
+## [constant GROUP_POSITIONS_HZ] Hz, e só quando há membro longe (v17). ATENÇÃO: GroupPositionsData em
+## mmo-server/src/net/protocol.ts. Ver mmo-docs [SOC-03].
+const MSG_GROUP_POSITIONS: String = "group_positions"
+## Frequência (Hz) de [constant MSG_GROUP_POSITIONS]. ATENÇÃO: GROUP_POSITIONS_HZ em mmo-server/src/net/protocol.ts.
+const GROUP_POSITIONS_HZ: float = 2.0
 ## Minha lista de amigos com online/offline (após o auth_ok, no join e a cada mudança). data: { friends: Array[{ id,
 ## name, online: bool }] } (online primeiro). ATENÇÃO: FriendView em mmo-server/src/net/protocol.ts; lido por
 ## [FriendList]. Ver mmo-docs [SOC-04].

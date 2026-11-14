@@ -5,6 +5,9 @@ extends Control
 ## no mapa está para cima/direita no joystick. Por cima, ao vivo: você (seta azul virada para onde você olha), monstros
 ## (vermelho), bonecos de treino e NPCs de teste (amarelo) e outros jogadores (verde). Mortos não aparecem, nem quem
 ## está fora da área de interesse (o servidor só manda quem está perto, [INFRA-04]).
+## **Grupo** ([SOC-03]): os membros do meu grupo aparecem em rosa com o nome ao lado (o líder com uma coroa) MESMO
+## LONGE: perto, a posição vem do snapshot; longe, de [constant Protocol.MSG_GROUP_POSITIONS] (2 Hz). Membro aparece
+## também morto (é o lugar onde ele caiu).
 ##
 ## Só desenha: lê as posições do [Network] (último snapshot) a cada quadro enquanto está visível.
 
@@ -24,6 +27,13 @@ const COLOR_SELF: Color = Color(0.35, 0.65, 1.0)
 const COLOR_MONSTER: Color = Color(0.92, 0.25, 0.2)
 const COLOR_NPC: Color = Color(0.98, 0.82, 0.3)
 const COLOR_PLAYER: Color = Color(0.4, 0.9, 0.4)
+## Membros do meu grupo ([SOC-03]): rosa, diferente de todas as outras cores da legenda (no mundo o aliado é verde, mas
+## no mapa o verde já é "jogadores").
+const COLOR_GROUP: Color = Color(1.0, 0.42, 0.85)
+## Coroa em cima do marcador do líder do grupo.
+const COLOR_CROWN: Color = Color(1.0, 0.86, 0.35)
+## Tamanho da fonte (px) do nome dos membros do grupo no mapa.
+const GROUP_NAME_FONT: int = 22
 const OUTLINE: Color = Color8(24, 16, 12)
 ## Lado (px) do marcador quadrado e da seta (você).
 const MARKER_PX: float = 14.0
@@ -95,11 +105,55 @@ func _draw_markers() -> void:
 	for player: PlayerState in network.get_players():
 		if player.id == network.player_id:
 			me = player
-		elif not player.dead and player.in_view:
+		elif not player.dead and player.in_view and not network.is_group_member(player.id):
 			_draw_square(world_to_map(player.x, player.z), COLOR_PLAYER)
+	_draw_group(network)
 	# Você por cima de todos.
 	if me != null:
 		_draw_arrow(world_to_map(me.x, me.z), me.rot_y)
+
+
+## Membros do meu grupo (menos eu): quadrado rosa + nome; o líder com coroa. Posição: snapshot se está perto
+## ([member PlayerState.in_view]), senão a de [method Network.group_far_position] (recente), senão a última conhecida.
+func _draw_group(network: Network) -> void:
+	var group: GroupState = network.group
+	if group == null:
+		return
+	var font: Font = get_theme_default_font()
+	for member: GroupState.Member in group.members:
+		if member.id == network.player_id:
+			continue
+		var state: PlayerState = network.get_player(member.id)
+		var at: Vector2
+		if state != null and state.in_view:
+			at = Vector2(state.x, state.z)
+		elif network.has_group_far_position(member.id):
+			at = network.group_far_position(member.id)
+		elif state != null:
+			at = Vector2(state.x, state.z)
+		else:
+			continue
+		var point: Vector2 = world_to_map(at.x, at.y)
+		_draw_square(point, COLOR_GROUP)
+		if member.id == group.leader_id:
+			_draw_crown(point + Vector2(0.0, -MARKER_PX / 2.0 - 5.0))
+		var text_at: Vector2 = point + Vector2(MARKER_PX / 2.0 + 8.0, GROUP_NAME_FONT * 0.35)
+		draw_string_outline(font, text_at, member.name, HORIZONTAL_ALIGNMENT_LEFT, -1, GROUP_NAME_FONT, 6, OUTLINE)
+		draw_string(font, text_at, member.name, HORIZONTAL_ALIGNMENT_LEFT, -1, GROUP_NAME_FONT, COLOR_GROUP)
+
+
+## Coroa pixel art (3 pontas) com a base em [param base], centrada: marca o líder do grupo.
+func _draw_crown(base: Vector2) -> void:
+	var w: float = MARKER_PX * 0.75
+	var h: float = MARKER_PX * 0.7
+	var points: PackedVector2Array = PackedVector2Array([
+		base + Vector2(-w, 0.0), base + Vector2(-w, -h), base + Vector2(-w * 0.5, -h * 0.45), base + Vector2(0.0, -h * 1.15),
+		base + Vector2(w * 0.5, -h * 0.45), base + Vector2(w, -h), base + Vector2(w, 0.0),
+	])
+	var outline: PackedVector2Array = points.duplicate()
+	outline.append(points[0])
+	draw_colored_polygon(points, COLOR_CROWN)
+	draw_polyline(outline, OUTLINE, 3.0)
 
 
 func _draw_square(at: Vector2, color: Color) -> void:
@@ -122,15 +176,25 @@ func _draw_arrow(at: Vector2, rot_y: float) -> void:
 ## Legenda embaixo: quadradinho colorido + texto de cada tipo de marcador.
 func _draw_legend() -> void:
 	var font: Font = get_theme_default_font()
-	var font_size: int = 24
 	var entries: Array[Array] = [["Você", COLOR_SELF], ["Monstros", COLOR_MONSTER], ["Treino/NPCs", COLOR_NPC], ["Jogadores", COLOR_PLAYER]]
+	# "Grupo" só quando estou num grupo ([SOC-03]).
+	if Network.instance != null and Network.instance.group != null:
+		entries.append(["Grupo", COLOR_GROUP])
+	# Fonte de 24 px, diminuindo (até 16) se a legenda não couber na largura (celular em retrato).
+	var font_size: int = 24
 	var widths: Array[float] = []
 	var total: float = 0.0
-	for entry: Array in entries:
-		var label: String = entry[0]
-		var width: float = MARKER_PX + 10.0 + font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
-		widths.append(width)
-		total += width
+	while true:
+		widths.clear()
+		total = 0.0
+		for entry: Array in entries:
+			var label: String = entry[0]
+			var width: float = MARKER_PX + 10.0 + font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+			widths.append(width)
+			total += width
+		if font_size <= 16 or total + 12.0 * float(entries.size() + 1) <= size.x:
+			break
+		font_size -= 2
 	var gap: float = maxf(12.0, (size.x - total) / float(entries.size() + 1))
 	var x: float = gap
 	var y: float = size.y - LEGEND_HEIGHT / 2.0
