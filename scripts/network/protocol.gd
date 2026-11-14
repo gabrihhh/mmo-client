@@ -10,7 +10,7 @@ extends RefCounted
 ## mmo-server/src/accounts/credentials.ts). Mudou lá → mude aqui e atualize mmo-docs [INFRA-04], [INFRA-07].
 
 ## Versão do protocolo enviada ao autenticar. Precisa ser igual a PROTOCOL_VERSION do servidor.
-const VERSION: int = 14
+const VERSION: int = 15
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, username, email, password }.
@@ -56,10 +56,25 @@ const MSG_GROUP_ANSWER: String = "group_answer"
 const MSG_GROUP_KICK: String = "group_kick"
 ## Sai do grupo. data: {}.
 const MSG_GROUP_LEAVE: String = "group_leave"
+## Pede amizade a um jogador online (ou fake de teste). data: { playerId }. Resposta: aviso [constant MSG_FRIEND_NOTICE]
+## (aceitou/recusou/expirou) ou erro. Ver mmo-docs [SOC-04].
+const MSG_FRIEND_REQUEST: String = "friend_request"
+## Responde a um pedido de amizade recebido ([constant MSG_FRIEND_REQUESTED]). data: { fromId, accept: bool }.
+const MSG_FRIEND_ANSWER: String = "friend_answer"
+## Desfaz uma amizade (dos dois lados). data: { playerId }.
+const MSG_FRIEND_REMOVE: String = "friend_remove"
+## Configuração social, nos DOIS sentidos: o cliente manda a mudança, o servidor salva na conta e responde com a
+## mesma mensagem (confirmação). data: { friendRequests, groupInvites: [constant SOCIAL_ALWAYS] | [constant SOCIAL_HIDE] }.
+const MSG_SOCIAL_SETTINGS: String = "social_settings"
+## Opções da Configuração social: mostrar os pedidos/convites, ou recusar sozinho sem mostrar nada.
+## ATENÇÃO: espelho de SOCIAL_VISIBILITIES em mmo-server/src/net/protocol.ts.
+const SOCIAL_ALWAYS: String = "always"
+const SOCIAL_HIDE: String = "hide"
 
 # --- Servidor → cliente ---
 ## Autenticação aceita. data: { playerId, username (como foi cadastrado), sessionToken, body ("male" | "female" |
-## null = ainda não escolheu: mostrar a escolha antes do join) }.
+## null = ainda não escolheu: mostrar a escolha antes do join), social: { friendRequests, groupInvites } (Configuração
+## social salva na conta, [SOC-04]) }.
 const MSG_AUTH_OK: String = "auth_ok"
 ## Corpo escolhido e salvo (resposta ao [constant MSG_CHOOSE_BODY]). data: { body }.
 const MSG_BODY_CHOSEN: String = "body_chosen"
@@ -99,6 +114,15 @@ const MSG_GROUP_INVITED: String = "group_invited"
 ## Aviso pequeno do grupo, pronto para mostrar. data: { code ("accepted" | "rejected" | "expired" | "in_group" |
 ## "joined" | "left" | "kicked" | "leader" | "disbanded"), name, message }.
 const MSG_GROUP_NOTICE: String = "group_notice"
+## Minha lista de amigos com online/offline (após o auth_ok, no join e a cada mudança). data: { friends: Array[{ id,
+## name, online: bool }] } (online primeiro). ATENÇÃO: FriendView em mmo-server/src/net/protocol.ts; lido por
+## [FriendList]. Ver mmo-docs [SOC-04].
+const MSG_FRIENDS: String = "friends"
+## Alguém pediu minha amizade (janela Aceitar/Recusar). data: { fromId, fromName, expiresIn (s) }.
+const MSG_FRIEND_REQUESTED: String = "friend_requested"
+## Aviso pequeno de amizade, pronto para mostrar. data: { code ("accepted" | "rejected" | "expired" | "added" |
+## "removed"), name, message }.
+const MSG_FRIEND_NOTICE: String = "friend_notice"
 ## Pedido recusado ou mensagem inválida. data: { code: String, message: String }.
 const MSG_ERROR: String = "error"
 
@@ -120,6 +144,13 @@ const ERR_INVALID_INVITE: String = "invalid_invite"
 const ERR_INVITE_NOT_FOUND: String = "invite_not_found"
 const ERR_ALREADY_IN_GROUP: String = "already_in_group"
 const ERR_NOT_IN_GROUP: String = "not_in_group"
+## Erros dos pedidos de amizade ([SOC-04]); viram aviso na tela (a mensagem vem pronta do servidor).
+const ERR_INVALID_FRIEND_REQUEST: String = "invalid_friend_request"
+const ERR_ALREADY_FRIENDS: String = "already_friends"
+const ERR_FRIEND_REQUEST_PENDING: String = "friend_request_pending"
+const ERR_FRIEND_REQUEST_NOT_FOUND: String = "friend_request_not_found"
+const ERR_FRIEND_LIST_FULL: String = "friend_list_full"
+const ERR_NOT_FRIENDS: String = "not_friends"
 
 # --- Regras de conta (só para avisar na hora; quem decide é o servidor) ---
 ## Username: 3 a 16 caracteres, letras sem acento, números e _. Único sem diferenciar maiúsculas,

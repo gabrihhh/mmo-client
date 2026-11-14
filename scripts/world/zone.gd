@@ -63,6 +63,16 @@ func _ready() -> void:
 	Network.instance.group_changed.connect(_on_group_changed)
 	Network.instance.group_invited.connect(_hud.show_group_invite)
 	Network.instance.group_notice.connect(_on_group_notice)
+	# Amizade e Configuração social ([SOC-04]): pedir/responder/remover/configurar vão ao servidor; lista, pedidos,
+	# avisos e a Configuração salva voltam para a HUD.
+	_hud.friend_request_requested.connect(Network.instance.send_friend_request)
+	_hud.friend_answered.connect(Network.instance.send_friend_answer)
+	_hud.friend_remove_requested.connect(Network.instance.send_friend_remove)
+	_hud.social_settings_requested.connect(Network.instance.send_social_settings)
+	Network.instance.friends_changed.connect(_hud.set_friends)
+	Network.instance.friend_requested.connect(_hud.show_friend_request)
+	Network.instance.friend_notice.connect(_on_group_notice)
+	Network.instance.social_settings_changed.connect(_hud.set_social_settings)
 	# Recusas que não são de login (ex.: mochila cheia) viram aviso na tela.
 	Network.instance.server_error.connect(_on_server_error)
 
@@ -73,6 +83,8 @@ func _ready() -> void:
 	for state: PlayerState in Network.instance.get_players():
 		_on_player_added(state.id, state)
 	_on_group_changed(Network.instance.group)
+	_hud.set_friends(Network.instance.friends)
+	_hud.set_social_settings(Network.instance.social_friend_requests, Network.instance.social_group_invites)
 	for npc: PlayerState in Network.instance.get_npcs():
 		_spawn_npc(npc)
 	Network.instance.combat_event.connect(_on_combat_event)
@@ -333,7 +345,7 @@ func _on_group_changed(group: GroupState) -> void:
 		remote.set_ally(Network.instance.is_group_member(remote.session_id))
 
 
-## Aviso do grupo ("X aceitou o convite", "X saiu do grupo"...): o aviso pequeno do topo.
+## Aviso do grupo ou da amizade ("X aceitou o convite", "X recusou o pedido de amizade"...): o aviso pequeno do topo.
 func _on_group_notice(_code: String, message: String) -> void:
 	_hud.show_toast(message)
 

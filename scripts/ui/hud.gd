@@ -8,12 +8,15 @@ extends CanvasLayer
 ## inteira em pixel art, girada como a câmera, com você, monstros, bonecos/NPCs e jogadores ao vivo (tela inteira). Inventário ([CLI-10]), em tela
 ## inteira: boneco com o que está vestido ([PaperDoll]) + mochila em grade de ícones que rola; tocar num item abre
 ## a ficha dele ([ItemDetailPanel], também em tela inteira). Jogadores Próximos ([SOC-02], [NearbyPlayersPanel]):
-## quem está a até 45 m; tocar num nome abre as opções sobre ele ([PlayerActionsPanel]: Atributos, Solicitar amizade,
-## Convidar para o grupo) e Atributos abre a tela dele ([AttributesPanel]). Grupo ([SOC-03], [GroupPanel]): botão
-## no Menu só quando estou num grupo; lista os membros (líder marcado), tocar num membro abre as opções (Atributos,
-## Solicitar amizade, Expulsar se sou o líder) e "Sair do grupo". Convite recebido: janela Aceitar/Recusar no alto
-## ([GroupInvitePanel]), sem pausar o jogo. Esses painéis são feitos por código ([PixelMenuPanel]) e criados no
-## [method _ready].
+## quem está a até 45 m; tocar num nome abre as opções sobre ele ([PlayerActionsPanel]: Atributos, Solicitar amizade
+## se ainda não é amigo, Convidar para o grupo) e Atributos abre a tela dele ([AttributesPanel]). Grupo ([SOC-03],
+## [GroupPanel]): botão no Menu só quando estou num grupo; lista os membros (líder marcado), tocar num membro abre as
+## opções (Atributos, Solicitar amizade, Expulsar se sou o líder) e "Sair do grupo". Amigos ([SOC-04],
+## [FriendsPanel]): botão sempre no Menu; lista com online/offline, tocar num amigo abre as opções (Atributos e
+## Convidar para o grupo se ele está na minha zona; Remover amigo). Convite de grupo e pedido de amizade recebidos:
+## janela Aceitar/Recusar no alto ([RequestPanel]), sem pausar o jogo. Configuração: "Solicitações de amizade" e
+## "Convites de grupo", cada um Sempre/Ocultar (salvo na conta pelo servidor). Esses painéis são feitos por código
+## ([PixelMenuPanel]) e criados no [method _ready].
 ##
 ## Só mostra e repassa toques: quem decide o que fazer com ataque/cartas é o [CombatController].
 
@@ -35,6 +38,14 @@ signal group_answered(from_id: String, accept: bool)
 signal group_kick_requested(player_id: String)
 ## Tocou em "Sair do grupo".
 signal group_leave_requested
+## Pedir a amizade de [param player_id] ([SOC-04]).
+signal friend_request_requested(player_id: String)
+## Respondeu ao pedido de amizade de [param from_id] ([param accept] = Aceitar).
+signal friend_answered(from_id: String, accept: bool)
+## Remover [param player_id] dos amigos.
+signal friend_remove_requested(player_id: String)
+## Mudou a Configuração social ([constant Protocol.SOCIAL_ALWAYS] / [constant Protocol.SOCIAL_HIDE]); o servidor salva.
+signal social_settings_requested(friend_requests: String, group_invites: String)
 
 ## Quantas cartas de habilidade a HUD mostra ([JOGO-01]: 3 da arma + cabeça + peito + pés).
 const CARD_COUNT: int = 6
@@ -46,6 +57,11 @@ const _TOAST_SECONDS: float = 1.8
 const XP_BACK_COLOR: Color = Color(0.35, 0.35, 0.38)
 const XP_FILL_COLOR: Color = Color(0.0, 0.9, 1.0)
 const LEVEL_BOX_COLOR: Color = Color(0.0, 0.0, 0.0)
+## Linhas da Configuração social ([SOC-04]): campo do protocolo → texto, na ordem da tela.
+const _SOCIAL_ROWS: Dictionary[String, String] = {
+	"friendRequests": "Solicitações de amizade",
+	"groupInvites": "Convites de grupo",
+}
 
 @onready var _health_bar: ProgressBar = %HealthBar
 @onready var _health_label: Label = %HealthLabel
@@ -98,15 +114,25 @@ var _actions_panel: PlayerActionsPanel = null
 var _attributes_panel: AttributesPanel = null
 ## Grupo ([SOC-03]): painel do Menu → Grupo, janela do convite recebido e o botão "Grupo" do Menu (só com grupo).
 var _group_panel: GroupPanel = null
-var _invite_panel: GroupInvitePanel = null
+## Janela dos pedidos recebidos (convite de grupo e pedido de amizade, [RequestPanel]).
+var _invite_panel: RequestPanel = null
 var _group_button: Button = null
 ## Meu grupo (null = sem grupo) e meu id, vindos da [Zone] por [method set_group].
 var _group: GroupState = null
 var _own_id: String = ""
 ## De onde as opções do jogador foram abertas (Jogadores Próximos ou Grupo): é para lá que o "Voltar" leva.
 var _actions_origin: PanelContainer = null
-## Altura do Menu com os 5 botões fixos (px); com o botão "Grupo" ele cresce uma linha.
+## Altura do Menu com os botões da cena (px); os botões criados por código ("Amigos" e, com grupo, "Grupo") somam
+## uma linha cada ([method _refresh_menu_height]).
 var _menu_base_height: float = 0.0
+## Amizade ([SOC-04]): painel do Menu → Amigos, o botão "Amigos" do Menu e a lista atual (vinda da [Zone]).
+var _friends_panel: FriendsPanel = null
+var _friends_button: Button = null
+var _friends: FriendList = FriendList.new()
+## Configuração social ([SOC-04]): opção atual de cada linha ("friendRequests"/"groupInvites" → SOCIAL_*) e os
+## botões Sempre/Ocultar de cada uma (chave "linha|opção").
+var _social: Dictionary[String, String] = {"friendRequests": Protocol.SOCIAL_ALWAYS, "groupInvites": Protocol.SOCIAL_ALWAYS}
+var _social_buttons: Dictionary[String, Button] = {}
 
 
 func _ready() -> void:
@@ -333,6 +359,8 @@ func _build_social_panels() -> void:
 	_actions_panel.option_chosen.connect(_on_player_option)
 	_actions_origin = _nearby_panel
 	_build_group_ui()
+	_build_friends_ui()
+	_build_social_settings()
 
 
 ## Grupo ([SOC-03]): painel do Menu → Grupo, botão "Grupo" no Menu (cópia do de Jogadores Próximos, logo depois dele;
@@ -354,9 +382,130 @@ func _build_group_ui() -> void:
 	players_button.add_sibling(_group_button)
 	_group_button.pressed.connect(_open_panel.bind(_group_panel))
 	_menu_base_height = _menu_panel.offset_bottom - _menu_panel.offset_top
-	_invite_panel = GroupInvitePanel.new()
+	_invite_panel = RequestPanel.new()
 	root.add_child(_invite_panel)
-	_invite_panel.answered.connect(group_answered.emit)
+	_invite_panel.answered.connect(_on_request_answered)
+
+
+## Amizade ([SOC-04]): painel do Menu → Amigos e o botão "Amigos" (sempre visível, logo depois do "Grupo").
+func _build_friends_ui() -> void:
+	var root: Control = $Root
+	_friends_panel = FriendsPanel.new()
+	root.add_child(_friends_panel)
+	_friends_panel.close_pressed.connect(_open_panel.bind(null))
+	_friends_panel.back_pressed.connect(_open_panel.bind(_menu_panel))
+	_friends_panel.friend_chosen.connect(_on_friend_chosen)
+	_friends_panel.show_friends(_friends)
+	var players_button: Button = %PlayersButton
+	_friends_button = players_button.duplicate() as Button
+	_friends_button.name = "FriendsButton"
+	_friends_button.unique_name_in_owner = false
+	_friends_button.text = "Amigos"
+	_friends_button.visible = true
+	_group_button.add_sibling(_friends_button)
+	_friends_button.pressed.connect(_open_panel.bind(_friends_panel))
+	_refresh_menu_height()
+
+
+## Configuração ([SOC-04]): "Solicitações de amizade" e "Convites de grupo", cada uma com os botões Sempre/Ocultar
+## (o escolhido aceso com ✓, o outro apagado), acima do "Voltar" do painel da cena.
+func _build_social_settings() -> void:
+	var back: Button = %SettingsBackButton
+	var column: VBoxContainer = back.get_parent() as VBoxContainer
+	for key: String in _SOCIAL_ROWS.keys():
+		var label: Label = PixelMenuPanel.make_label(_SOCIAL_ROWS[key])
+		column.add_child(label)
+		column.move_child(label, back.get_index())
+		var buttons: HBoxContainer = HBoxContainer.new()
+		buttons.add_theme_constant_override("separation", 16)
+		column.add_child(buttons)
+		column.move_child(buttons, back.get_index())
+		for value: String in [Protocol.SOCIAL_ALWAYS, Protocol.SOCIAL_HIDE]:
+			var button: Button = PixelMenuPanel.make_button("")
+			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			button.pressed.connect(_on_social_option.bind(key, value))
+			buttons.add_child(button)
+			_social_buttons["%s|%s" % [key, value]] = button
+	_refresh_social_buttons()
+
+
+## Tocou em Sempre/Ocultar: manda a Configuração nova ao servidor (a tela muda quando ele confirmar).
+func _on_social_option(key: String, value: String) -> void:
+	if _social[key] == value:
+		return
+	var changed: Dictionary[String, String] = _social.duplicate()
+	changed[key] = value
+	social_settings_requested.emit(changed["friendRequests"], changed["groupInvites"])
+
+
+## A Configuração social salva na conta mudou (auth_ok ou confirmação do servidor): acende a opção de cada linha.
+func set_social_settings(friend_requests: String, group_invites: String) -> void:
+	_social["friendRequests"] = friend_requests
+	_social["groupInvites"] = group_invites
+	_refresh_social_buttons()
+
+
+func _refresh_social_buttons() -> void:
+	for key: String in _social_buttons.keys():
+		var parts: PackedStringArray = key.split("|")
+		var selected: bool = _social.get(parts[0], Protocol.SOCIAL_ALWAYS) == parts[1]
+		var text: String = "Sempre" if parts[1] == Protocol.SOCIAL_ALWAYS else "Ocultar"
+		var button: Button = _social_buttons[key]
+		button.text = ("✓ " + text) if selected else text
+		button.modulate = Color(1, 1, 1) if selected else Color(1, 1, 1, 0.5)
+
+
+## Altura do Menu: os botões da cena + "Amigos" + "Grupo" (só com grupo), centralizado.
+func _refresh_menu_height() -> void:
+	var extra_rows: int = (1 if _friends_button != null else 0) + (1 if _group != null else 0)
+	var height: float = _menu_base_height + extra_rows * (PixelMenuPanel.BUTTON_HEIGHT_PX + 20.0)
+	_menu_panel.offset_top = -height / 2.0
+	_menu_panel.offset_bottom = height / 2.0
+
+
+## Resposta na janela de pedidos: vai para o grupo ou para a amizade, conforme o tipo.
+func _on_request_answered(kind: String, from_id: String, accept: bool) -> void:
+	if kind == RequestPanel.KIND_FRIEND:
+		friend_answered.emit(from_id, accept)
+	else:
+		group_answered.emit(from_id, accept)
+
+
+## Chegou um pedido de amizade: janela Aceitar/Recusar no alto da tela ([RequestPanel]).
+func show_friend_request(from_id: String, from_name: String, expires_in: float) -> void:
+	_invite_panel.add_request(RequestPanel.KIND_FRIEND, from_id, from_name, expires_in)
+
+
+## Minha lista de amigos mudou ([SOC-04]): atualiza o painel; se as opções abertas eram de um amigo que deixou de ser,
+## volta para a lista. As opções de Jogadores Próximos/Grupo leem [member _friends] ao abrir.
+func set_friends(list: FriendList) -> void:
+	_friends = list
+	_friends_panel.show_friends(list)
+	if _actions_panel.visible and _actions_origin == _friends_panel and not list.has(_actions_panel.player_id):
+		_open_panel(_friends_panel)
+
+
+## Tocou num amigo: Atributos e Convidar para o grupo só se ele está na minha zona (o servidor só responde a quem
+## está nela); Remover amigo sempre.
+func _on_friend_chosen(player_id: String, title: String) -> void:
+	var options: Array[PlayerActionsPanel.Option] = []
+	var here: bool = Network.instance != null and Network.instance.get_player(player_id) != null
+	if here:
+		options.append(PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_ATTRIBUTES, "Atributos"))
+		if _can_invite(player_id):
+			options.append(PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_GROUP_INVITE, "Convidar para o grupo"))
+	options.append(PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_FRIEND_REMOVE, "Remover amigo"))
+	_actions_origin = _friends_panel
+	_actions_panel.show_options(player_id, title, options)
+	_open_panel(_actions_panel)
+
+
+## "Solicitar amizade" nas opções (Jogadores Próximos e Grupo), ou nada se ele já é meu amigo.
+func _friend_request_options(player_id: String) -> Array[PlayerActionsPanel.Option]:
+	var options: Array[PlayerActionsPanel.Option] = []
+	if not _friends.has(player_id):
+		options.append(PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_FRIEND, "Solicitar amizade"))
+	return options
 
 
 ## Meu grupo mudou ([param group] null = sem grupo; [param own_id] = meu id): mostra/esconde o botão "Grupo" do Menu,
@@ -367,12 +516,10 @@ func set_group(group: GroupState, own_id: String) -> void:
 	_group = group
 	_own_id = own_id
 	_group_button.visible = group != null
-	var height: float = _menu_base_height + (PixelMenuPanel.BUTTON_HEIGHT_PX + 20.0 if group != null else 0.0)
-	_menu_panel.offset_top = -height / 2.0
-	_menu_panel.offset_bottom = height / 2.0
+	_refresh_menu_height()
 	_group_panel.show_group(group, own_id)
 	if joined:
-		_invite_panel.clear()
+		_invite_panel.clear_kind(RequestPanel.KIND_GROUP)
 	var from_group: bool = _actions_panel.visible and _actions_origin == _group_panel
 	if group == null and (_group_panel.visible or from_group):
 		_open_panel(_menu_panel)
@@ -381,9 +528,9 @@ func set_group(group: GroupState, own_id: String) -> void:
 		_open_panel(_group_panel)
 
 
-## Chegou um convite de grupo: janela Aceitar/Recusar no alto da tela ([GroupInvitePanel]).
+## Chegou um convite de grupo: janela Aceitar/Recusar no alto da tela ([RequestPanel]).
 func show_group_invite(from_id: String, from_name: String, expires_in: float) -> void:
-	_invite_panel.add_invite(from_id, from_name, expires_in)
+	_invite_panel.add_request(RequestPanel.KIND_GROUP, from_id, from_name, expires_in)
 
 
 ## true se posso convidar [param player_id]: sem grupo, ou sou o líder com vaga e ele não é do grupo ([SOC-03]).
@@ -395,12 +542,13 @@ func _can_invite(player_id: String) -> bool:
 	return _group.leader_id == _own_id and not _group.has(player_id) and not _group.is_full()
 
 
-## Tocou num membro no painel do Grupo: Atributos, Solicitar amizade e, se sou o líder, Expulsar.
+## Tocou num membro no painel do Grupo: Atributos, Solicitar amizade (se ainda não é amigo) e, se sou o líder,
+## Expulsar.
 func _on_group_member_chosen(player_id: String, title: String) -> void:
 	var options: Array[PlayerActionsPanel.Option] = [
 		PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_ATTRIBUTES, "Atributos"),
-		PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_FRIEND, "Solicitar amizade", false, "em breve"),
 	]
+	options.append_array(_friend_request_options(player_id))
 	if _group != null and _group.leader_id == _own_id:
 		options.append(PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_GROUP_KICK, "Expulsar do grupo"))
 	_actions_origin = _group_panel
@@ -413,12 +561,12 @@ func _on_leave_group_pressed() -> void:
 
 
 ## Tocou num jogador da lista: as opções sobre ele. "Convidar para o grupo" só aparece se posso convidar (sem grupo,
-## ou líder com vaga) e ele não é do meu grupo ([SOC-03]); a amizade entra na etapa 3 ([SOC-02]).
+## ou líder com vaga) e ele não é do meu grupo ([SOC-03]); "Solicitar amizade" só se ainda não é amigo ([SOC-04]).
 func _on_nearby_player_chosen(player_id: String, title: String) -> void:
 	var options: Array[PlayerActionsPanel.Option] = [
 		PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_ATTRIBUTES, "Atributos"),
-		PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_FRIEND, "Solicitar amizade", false, "em breve"),
 	]
+	options.append_array(_friend_request_options(player_id))
 	if _can_invite(player_id):
 		options.append(PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_GROUP_INVITE, "Convidar para o grupo"))
 	_actions_origin = _nearby_panel
@@ -441,11 +589,20 @@ func _on_player_option(option_id: String) -> void:
 		PlayerActionsPanel.OPTION_GROUP_KICK:
 			group_kick_requested.emit(target)
 			_open_panel(_group_panel)
+		PlayerActionsPanel.OPTION_FRIEND:
+			# A resposta ("X aceitou/recusou") chega depois como aviso.
+			friend_request_requested.emit(target)
+			show_toast("Pedido de amizade enviado.")
+			_open_panel(_actions_origin)
+		PlayerActionsPanel.OPTION_FRIEND_REMOVE:
+			# Volta à lista; ela se atualiza quando o servidor confirmar (e o aviso "X foi removido" aparece).
+			friend_remove_requested.emit(target)
+			_open_panel(_friends_panel)
 
 
 ## Todos os painéis do menu (um aberto por vez).
 func _all_panels() -> Array[PanelContainer]:
-	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel]
+	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel]
 
 
 ## Abre [param panel] e fecha os outros; null fecha tudo. Com menu aberto, os controles do jogo param.
