@@ -7,7 +7,10 @@ extends CanvasLayer
 ## à esquerda) fecha pelo X no canto ou tocando fora dele (no fundo escurecido). Mapa ([CLI-11], [ZoneMap]): a zona
 ## inteira em pixel art, girada como a câmera, com você, monstros, bonecos/NPCs e jogadores ao vivo (tela inteira). Inventário ([CLI-10]), em tela
 ## inteira: boneco com o que está vestido ([PaperDoll]) + mochila em grade de ícones que rola; tocar num item abre
-## a ficha dele ([ItemDetailPanel], também em tela inteira).
+## a ficha dele ([ItemDetailPanel], também em tela inteira). Jogadores Próximos ([SOC-02], [NearbyPlayersPanel]):
+## quem está a até 45 m; tocar num nome abre as opções sobre ele ([PlayerActionsPanel]: Atributos, Solicitar amizade,
+## Convidar para o grupo) e Atributos abre a tela dele ([AttributesPanel]). Esses três são feitos por código
+## ([PixelMenuPanel]) e criados no [method _ready].
 ##
 ## Só mostra e repassa toques: quem decide o que fazer com ataque/cartas é o [CombatController].
 
@@ -19,6 +22,8 @@ signal equip_requested(uid: String)
 signal play_area_changed
 ## Apertou "Tirar" na ficha de um item vestido: tirar para a mochila ([param slot] = "hand", "head", "chest", "feet").
 signal unequip_requested(slot: String)
+## Pediu os Atributos do jogador [param player_id] ([SOC-02]); a resposta volta por [method show_attributes].
+signal inspect_requested(player_id: String)
 
 ## Quantas cartas de habilidade a HUD mostra ([JOGO-01]: 3 da arma + cabeça + peito + pés).
 const CARD_COUNT: int = 6
@@ -76,6 +81,10 @@ var _toast_left: float = 0.0
 var _shield_fill: ColorRect = null
 ## Há alvo fixo agora (liga o "Desfocar"); ver [method set_target_active].
 var _has_target: bool = false
+## Painéis sociais ([SOC-02]), criados no [method _ready].
+var _nearby_panel: NearbyPlayersPanel = null
+var _actions_panel: PlayerActionsPanel = null
+var _attributes_panel: AttributesPanel = null
 
 
 func _ready() -> void:
@@ -87,7 +96,9 @@ func _ready() -> void:
 	_set_bar_color(_mana_bar, Color(0.25, 0.45, 0.9))
 	_style_experience()
 
+	_build_social_panels()
 	_menu_button.tapped.connect(_open_panel.bind(_menu_panel))
+	(%PlayersButton as Button).pressed.connect(_open_panel.bind(_nearby_panel))
 	(%InventoryButton as Button).pressed.connect(_open_panel.bind(_inventory_panel))
 	(%SettingsButton as Button).pressed.connect(_open_panel.bind(_settings_panel))
 	(%MapButton as Button).pressed.connect(_open_panel.bind(_map_panel))
@@ -257,12 +268,75 @@ func _refresh_clear_target() -> void:
 
 ## true com algum painel do menu aberto.
 func is_menu_open() -> bool:
-	return _menu_panel.visible or _inventory_panel.visible or _settings_panel.visible or _item_detail.visible or _map_panel.visible
+	for panel: PanelContainer in _all_panels():
+		if panel.visible:
+			return true
+	return false
+
+
+## true com "Jogadores Próximos" aberto: a [Zone] manda a lista a cada snapshot ([method set_nearby_players]).
+func is_nearby_open() -> bool:
+	return _nearby_panel.visible
+
+
+## Atualiza a lista de Jogadores Próximos ([param players] já em ordem de distância, [SOC-02]).
+func set_nearby_players(players: Array[PlayerState]) -> void:
+	_nearby_panel.show_players(players)
+
+
+## Chegaram os Atributos pedidos: mostra se a tela deles ainda está esperando por esse jogador.
+func show_attributes(attributes: PlayerAttributes) -> void:
+	_attributes_panel.show_attributes(attributes)
+
+
+## O pedido de Atributos falhou (ex.: o jogador saiu da zona): mostra [param message] na tela deles, se aberta.
+func show_attributes_error(message: String) -> void:
+	if _attributes_panel.visible:
+		_attributes_panel.show_error(message)
+
+
+## Cria os painéis sociais ([SOC-02]) por cima do fundo escurecido e liga X/"Voltar"/opções.
+func _build_social_panels() -> void:
+	var root: Control = $Root
+	_nearby_panel = NearbyPlayersPanel.new()
+	_actions_panel = PlayerActionsPanel.new()
+	_attributes_panel = AttributesPanel.new()
+	for panel: PixelMenuPanel in [_nearby_panel, _actions_panel, _attributes_panel]:
+		root.add_child(panel)
+		panel.close_pressed.connect(_open_panel.bind(null))
+	_nearby_panel.back_pressed.connect(_open_panel.bind(_menu_panel))
+	_actions_panel.back_pressed.connect(_open_panel.bind(_nearby_panel))
+	_attributes_panel.back_pressed.connect(_open_panel.bind(_actions_panel))
+	_nearby_panel.player_chosen.connect(_on_nearby_player_chosen)
+	_actions_panel.option_chosen.connect(_on_player_option)
+
+
+## Tocou num jogador da lista: as opções sobre ele. Amizade e grupo entram nas próximas etapas ([SOC-02]).
+func _on_nearby_player_chosen(player_id: String, title: String) -> void:
+	var options: Array[PlayerActionsPanel.Option] = [
+		PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_ATTRIBUTES, "Atributos"),
+		PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_FRIEND, "Solicitar amizade", false, "em breve"),
+		PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_GROUP_INVITE, "Convidar para o grupo", false, "em breve"),
+	]
+	_actions_panel.show_options(player_id, title, options)
+	_open_panel(_actions_panel)
+
+
+func _on_player_option(option_id: String) -> void:
+	if option_id == PlayerActionsPanel.OPTION_ATTRIBUTES:
+		_attributes_panel.show_loading(_actions_panel.player_id, _actions_panel.player_title)
+		_open_panel(_attributes_panel)
+		inspect_requested.emit(_actions_panel.player_id)
+
+
+## Todos os painéis do menu (um aberto por vez).
+func _all_panels() -> Array[PanelContainer]:
+	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel]
 
 
 ## Abre [param panel] e fecha os outros; null fecha tudo. Com menu aberto, os controles do jogo param.
 func _open_panel(panel: PanelContainer) -> void:
-	for candidate: PanelContainer in [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel]:
+	for candidate: PanelContainer in _all_panels():
 		candidate.visible = candidate == panel
 	var playing: bool = panel == null
 	_menu_dimmer.visible = not playing

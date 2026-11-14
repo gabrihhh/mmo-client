@@ -38,6 +38,8 @@ signal inventory_changed(inventory: InventoryState)
 signal npc_added(npc_id: String, state: PlayerState)
 ## Evento de combate do tick (dano, morte, renascimento). Ver [constant Protocol.MSG_SNAPSHOT].
 signal combat_event(event: Dictionary)
+## Chegaram os atributos pedidos por [method send_inspect] (tela de Atributos, mmo-docs [SOC-02]).
+signal attributes_received(attributes: PlayerAttributes)
 
 ## Os jogadores remotos são desenhados este número de ticks no passado (2 ticks = 100 ms a 20 Hz),
 ## para sempre haver dois snapshots reais para interpolar mesmo se um atrasar.
@@ -262,6 +264,36 @@ func send_input(seq: int, direction_x: float, direction_z: float) -> void:
 	_send(Protocol.MSG_INPUT, {"seq": seq, "x": direction_x, "z": direction_z})
 
 
+## Distância máxima (m) da lista "Jogadores Próximos" ([SOC-02]): a mesma da área de interesse do servidor
+## (VIEW_RADIUS em mmo-server/src/zones/Zone.ts): quem está mais longe não vem no snapshot.
+const NEARBY_RADIUS: float = 45.0
+
+
+## Outros jogadores (sem você) a até [param radius] m de você, vivos ou mortos, do mais perto ao mais longe
+## (Menu → Jogadores Próximos, [SOC-02]). Só quem está na área de interesse ([member PlayerState.in_view]).
+func get_nearby_players(radius: float = NEARBY_RADIUS) -> Array[PlayerState]:
+	var result: Array[PlayerState] = []
+	var own: PlayerState = get_player(player_id)
+	if own == null:
+		return result
+	var origin: Vector3 = own.position
+	for state: PlayerState in _players.values():
+		if state.id == player_id or not state.in_view:
+			continue
+		if Vector2(state.x - origin.x, state.z - origin.z).length() <= radius:
+			result.append(state)
+	result.sort_custom(func(a: PlayerState, b: PlayerState) -> bool:
+		return Vector2(a.x - origin.x, a.z - origin.z).length_squared() < Vector2(b.x - origin.x, b.z - origin.z).length_squared())
+	return result
+
+
+## Pede os atributos do jogador [param target_id] ([SOC-02]). A resposta vem em [signal attributes_received]
+## (ou erro [constant Protocol.ERR_PLAYER_NOT_FOUND] em [signal server_error]).
+func send_inspect(target_id: String) -> void:
+	if is_in_zone() and not target_id.is_empty():
+		_send(Protocol.MSG_INSPECT, {"playerId": target_id})
+
+
 ## Pede para vestir o item [param uid] da mochila. A resposta vem em [signal inventory_changed] (ou erro).
 func send_equip(uid: String) -> void:
 	if _authenticated:
@@ -391,6 +423,10 @@ func _handle_message(text: String) -> void:
 		Protocol.MSG_INVENTORY:
 			inventory = InventoryState.from_dict(data)
 			inventory_changed.emit(inventory)
+		Protocol.MSG_ATTRIBUTES:
+			var attributes: PlayerAttributes = PlayerAttributes.from_dict(data)
+			if attributes != null:
+				attributes_received.emit(attributes)
 		Protocol.MSG_ERROR:
 			_handle_error(Protocol.read_string(data, "code"), Protocol.read_string(data, "message"))
 		_:

@@ -10,7 +10,7 @@ extends RefCounted
 ## mmo-server/src/accounts/credentials.ts). Mudou lá → mude aqui e atualize mmo-docs [INFRA-04], [INFRA-07].
 
 ## Versão do protocolo enviada ao autenticar. Precisa ser igual a PROTOCOL_VERSION do servidor.
-const VERSION: int = 12
+const VERSION: int = 13
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, username, email, password }.
@@ -44,6 +44,9 @@ const MSG_ATTACK: String = "attack"
 ## Lança uma habilidade vestida. data: { abilityId, targetId?, x?, z?, seq? } (x/z = direção ou ponto, conforme a
 ## mira; seq = só Investida/Disparada, na MESMA sequência dos inputs). Ver mmo-docs [JOGO-06], [JOGO-07].
 const MSG_CAST: String = "cast"
+## Pede os atributos de um jogador da zona (Menu → Jogadores Próximos → Atributos). data: { playerId }.
+## Resposta: [constant MSG_ATTRIBUTES] ou erro [constant ERR_PLAYER_NOT_FOUND]. Ver mmo-docs [SOC-02].
+const MSG_INSPECT: String = "inspect"
 
 # --- Servidor → cliente ---
 ## Autenticação aceita. data: { playerId, username (como foi cadastrado), sessionToken, body ("male" | "female" |
@@ -73,6 +76,11 @@ const MSG_SNAPSHOT: String = "snapshot"
 ## Inventário completo. data: { equipped: { hand, head, chest, feet: ItemView ou null }, bag: Array[ItemView],
 ## bagCapacity, unarmedAttack: AbilityView }. ItemView = { uid, itemId, name, slot, basicAttack, abilities }.
 const MSG_INVENTORY: String = "inventory"
+## Atributos de um jogador (resposta ao [constant MSG_INSPECT]). data: { id, name, level, maxHp, maxMana,
+## power: { damage, healing, shield } (multiplicadores pelo nível, 1 = nível 0), equipped: { hand, head, chest, feet:
+## { itemId, name, set } ou null } }. ATENÇÃO: AttributesView em mmo-server/src/net/protocol.ts; lido por
+## [PlayerAttributes]. Ver mmo-docs [SOC-02].
+const MSG_ATTRIBUTES: String = "attributes"
 ## Pedido recusado ou mensagem inválida. data: { code: String, message: String }.
 const MSG_ERROR: String = "error"
 
@@ -85,6 +93,8 @@ const CLOSE_REPLACED: int = 4002
 
 ## Erro: token de sessão não vale mais (o cliente apaga o token e mostra o formulário).
 const ERR_INVALID_SESSION: String = "invalid_session"
+## Erro: [constant MSG_INSPECT] de quem não está (mais) na zona.
+const ERR_PLAYER_NOT_FOUND: String = "player_not_found"
 
 # --- Regras de conta (só para avisar na hora; quem decide é o servidor) ---
 ## Username: 3 a 16 caracteres, letras sem acento, números e _. Único sem diferenciar maiúsculas,

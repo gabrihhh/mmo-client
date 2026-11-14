@@ -182,6 +182,26 @@ const ICON_EXIT: Array[String] = [
 ]
 
 
+## Duas pessoas (Jogadores Próximos, [SOC-02]): a da frente de túnica vermelha, a de trás de cinza (x = pele).
+const ICON_PLAYERS: Array[String] = [
+	"................",
+	"................",
+	"..........xxx...",
+	"....xxx..xxxxx..",
+	"...xxxxx.xxxxx..",
+	"...xxxxx.xxxxx..",
+	"...xxxxx..xxx...",
+	"....xxx.........",
+	"...rrrrr..SSSS..",
+	"..rrrrrrr.SSSSS.",
+	"..rrrrrrr.SSSSS.",
+	"..rrrrrrr.SSSSS.",
+	"..rrrrrrr.SSSSS.",
+	"..rrrrrrr.......",
+	"................",
+	"................",
+]
+
 func _init() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
 	_save(_outlined(_from_map(SWORD)), "sword")
@@ -193,6 +213,7 @@ func _init() -> void:
 	_save(_outlined(_from_map(ICON_MAP)), "icon_map")
 	_save(_outlined(_from_map(ICON_GEAR)), "icon_gear")
 	_save(_outlined(_from_map(ICON_EXIT)), "icon_exit")
+	_save(_outlined(_from_map(ICON_PLAYERS)), "icon_players")
 	_save(_round_button(32, false), "round_button")
 	_save(_round_button(32, true), "round_button_pressed")
 	for pressed: bool in [false, true]:

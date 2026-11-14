@@ -52,6 +52,9 @@ func _ready() -> void:
 	_hud.logout_requested.connect(_on_logout_requested)
 	_hud.equip_requested.connect(Network.instance.send_equip)
 	_hud.unequip_requested.connect(Network.instance.send_unequip)
+	# Atributos de outro jogador (Menu → Jogadores Próximos, [SOC-02]).
+	_hud.inspect_requested.connect(Network.instance.send_inspect)
+	Network.instance.attributes_received.connect(_hud.show_attributes)
 	# Recusas que não são de login (ex.: mochila cheia) viram aviso na tela.
 	Network.instance.server_error.connect(_on_server_error)
 
@@ -313,8 +316,10 @@ func _on_projectile(event: Dictionary) -> void:
 
 
 ## Recusa do servidor (ex.: mochila cheia, recarga): aviso na tela; se era uma carta animada no toque, para.
-func _on_server_error(_code: String, message: String) -> void:
+func _on_server_error(code: String, message: String) -> void:
 	_hud.show_toast(message)
+	if code == Protocol.ERR_PLAYER_NOT_FOUND:
+		_hud.show_attributes_error(message)
 	if _local_player != null:
 		_local_player.cancel_prediction()
 
@@ -343,6 +348,9 @@ func _on_snapshot(_tick: int, _ack: int) -> void:
 			"+%s XP" % _format_xp(network.xp - _last_xp), Color(0.0, 0.9, 1.0))
 	_last_level = network.level
 	_last_xp = network.xp
+	# Jogadores Próximos aberto: a lista acompanha quem chega, sai ou sobe de nível ([SOC-02]).
+	if _hud.is_nearby_open():
+		_hud.set_nearby_players(network.get_nearby_players())
 	if own.dead:
 		_hud.show_toast("Você morreu · renasce em %d s" % ceili(network.respawn_in))
 

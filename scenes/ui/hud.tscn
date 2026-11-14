@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=3]
+[gd_scene load_steps=21 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/hud.gd" id="1_hud"]
 [ext_resource type="Theme" path="res://assets/ui/theme.tres" id="2_theme"]
@@ -19,6 +19,7 @@
 [ext_resource type="Script" path="res://scripts/ui/item_detail_panel.gd" id="7_detail"]
 [ext_resource type="Texture2D" path="res://assets/ui/pixel/icon_map.png" id="19_icon_map"]
 [ext_resource type="Script" path="res://scripts/ui/zone_map.gd" id="20_zone_map"]
+[ext_resource type="Texture2D" path="res://assets/ui/pixel/icon_players.png" id="21_icon_players"]
 
 [node name="Hud" type="CanvasLayer"]
 script = ExtResource("1_hud")
@@ -366,9 +367,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -320.0
-offset_top = -308.0
+offset_top = -366.0
 offset_right = 320.0
-offset_bottom = 308.0
+offset_bottom = 366.0
 grow_horizontal = 2
 grow_vertical = 2
 texture_filter = 1
@@ -416,6 +417,19 @@ theme_override_constants/icon_max_width = 64
 theme_override_font_sizes/font_size = 34
 text = "Inventário"
 icon = ExtResource("13_icon_bag")
+alignment = 0
+expand_icon = true
+theme_type_variation = &"PixelButton"
+
+[node name="PlayersButton" type="Button" parent="Root/MenuPanel/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 96)
+layout_mode = 2
+theme_override_constants/h_separation = 24
+theme_override_constants/icon_max_width = 64
+theme_override_font_sizes/font_size = 34
+text = "Jogadores Próximos"
+icon = ExtResource("21_icon_players")
 alignment = 0
 expand_icon = true
 theme_type_variation = &"PixelButton"
