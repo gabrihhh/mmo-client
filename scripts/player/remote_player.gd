@@ -3,7 +3,8 @@ extends Node3D
 ## Outro jogador (ou boneco/monstro), desenhado a partir dos snapshots do servidor. Ver mmo-docs [INFRA-09].
 ## Mostra "[nível] nome", barra de vida e os itens vestidos ([ART-02]); morto, o corpo cai e some até renascer ([JOGO-05]).
 ## Monstro ([JOGO-13]): só vida, o quadrado do nível ao lado dela e, acima, a barra de lançamento (enche enquanto ele
-## carrega um golpe/habilidade: [method show_cast]); sem nome.
+## carrega um golpe/habilidade: [method show_cast]); sem nome. Membro do meu grupo ([SOC-03], [method set_ally]):
+## nome e barra de vida em verde (cor de aliado).
 ##
 ## Não simula nada: a cada frame pede ao [PlayerState] a posição no tick
 ## [method Network.render_tick] (alguns ticks no PASSADO), interpolando entre dois snapshots reais.
@@ -46,6 +47,17 @@ const SHIRT_COLOR: Color = Color(0.9, 0.3, 0.25)
 ## Cor da camisa dos monstros (zumbi: verde apagado), para não confundir com jogadores sem nome.
 const MONSTER_SHIRT_COLOR: Color = Color(0.35, 0.45, 0.3)
 
+## Cor de aliado ([SOC-03]): nome e barra de vida de quem é do meu grupo.
+const ALLY_NAME_COLOR: Color = Color(0.45, 1.0, 0.5)
+const ALLY_HEALTH_COLOR: Color = Color(0.25, 0.8, 0.3)
+## Cor normal da vida (a da cena) e do nome, para voltar quando sai do grupo.
+const _DEFAULT_NAME_COLOR: Color = Color(1, 1, 1)
+
+## É do meu grupo agora (ver [method set_ally]).
+var _ally: bool = false
+## Cor da vida antes de virar aliado (a da cena).
+var _health_color: Color = Color(0.85, 0.2, 0.2)
+
 ## Lançamento em andamento (monstros): segundos que já passaram e o total; total 0 = nenhum.
 var _cast_elapsed: float = 0.0
 var _cast_duration: float = 0.0
@@ -71,6 +83,9 @@ func _ready() -> void:
 	# Username exatamente como foi cadastrado (o id é interno). Monstro: sem nome ([JOGO-13]).
 	_name_label.text = display_name
 	_name_label.visible = not is_monster()
+	_health_color = _health_bar.fill_color
+	if _ally:
+		_apply_ally_color()
 	if _state != null:
 		_ground_y = ZoneTerrain.height_at(_state.position.x, _state.position.z)
 		position = _state.position + Vector3.UP * _ground_y
@@ -113,6 +128,20 @@ func _process(delta: float) -> void:
 		_wobble_time = 0.0
 		if not _death.is_dead():
 			_body.rotation.x = 0.0
+
+
+## Liga/desliga a cor de aliado ([param ally] = é do meu grupo, [SOC-03]): nome e barra de vida em verde.
+func set_ally(ally: bool) -> void:
+	if ally == _ally:
+		return
+	_ally = ally
+	if is_node_ready():
+		_apply_ally_color()
+
+
+func _apply_ally_color() -> void:
+	_name_label.modulate = ALLY_NAME_COLOR if _ally else _DEFAULT_NAME_COLOR
+	_health_bar.set_fill_color(ALLY_HEALTH_COLOR if _ally else _health_color)
 
 
 ## true se é monstro (zumbi, [JOGO-13]).

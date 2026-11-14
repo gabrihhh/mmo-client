@@ -10,7 +10,7 @@ extends RefCounted
 ## mmo-server/src/accounts/credentials.ts). Mudou lá → mude aqui e atualize mmo-docs [INFRA-04], [INFRA-07].
 
 ## Versão do protocolo enviada ao autenticar. Precisa ser igual a PROTOCOL_VERSION do servidor.
-const VERSION: int = 13
+const VERSION: int = 14
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, username, email, password }.
@@ -47,6 +47,15 @@ const MSG_CAST: String = "cast"
 ## Pede os atributos de um jogador da zona (Menu → Jogadores Próximos → Atributos). data: { playerId }.
 ## Resposta: [constant MSG_ATTRIBUTES] ou erro [constant ERR_PLAYER_NOT_FOUND]. Ver mmo-docs [SOC-02].
 const MSG_INSPECT: String = "inspect"
+## Convida um jogador da zona para o seu grupo (sem grupo, ele nasce quando o outro aceitar; com grupo, só o líder
+## convida). data: { playerId }. Ver mmo-docs [SOC-03].
+const MSG_GROUP_INVITE: String = "group_invite"
+## Responde a um convite recebido ([constant MSG_GROUP_INVITED]). data: { fromId, accept: bool }.
+const MSG_GROUP_ANSWER: String = "group_answer"
+## Líder expulsa um membro. data: { playerId }.
+const MSG_GROUP_KICK: String = "group_kick"
+## Sai do grupo. data: {}.
+const MSG_GROUP_LEAVE: String = "group_leave"
 
 # --- Servidor → cliente ---
 ## Autenticação aceita. data: { playerId, username (como foi cadastrado), sessionToken, body ("male" | "female" |
@@ -81,6 +90,15 @@ const MSG_INVENTORY: String = "inventory"
 ## { itemId, name, set } ou null } }. ATENÇÃO: AttributesView em mmo-server/src/net/protocol.ts; lido por
 ## [PlayerAttributes]. Ver mmo-docs [SOC-02].
 const MSG_ATTRIBUTES: String = "attributes"
+## Estado do MEU grupo, a cada mudança. data: { group: { leaderId, members: Array[{ id, name, level }] } ou null (sem
+## grupo) }. Membros na ordem em que entraram (o líder é o primeiro). ATENÇÃO: GroupView em
+## mmo-server/src/net/protocol.ts; lido por [GroupState]. Ver mmo-docs [SOC-03].
+const MSG_GROUP: String = "group"
+## Alguém me convidou para o grupo dele (janela Aceitar/Recusar). data: { fromId, fromName, expiresIn (s) }.
+const MSG_GROUP_INVITED: String = "group_invited"
+## Aviso pequeno do grupo, pronto para mostrar. data: { code ("accepted" | "rejected" | "expired" | "in_group" |
+## "joined" | "left" | "kicked" | "leader" | "disbanded"), name, message }.
+const MSG_GROUP_NOTICE: String = "group_notice"
 ## Pedido recusado ou mensagem inválida. data: { code: String, message: String }.
 const MSG_ERROR: String = "error"
 
@@ -95,6 +113,13 @@ const CLOSE_REPLACED: int = 4002
 const ERR_INVALID_SESSION: String = "invalid_session"
 ## Erro: [constant MSG_INSPECT] de quem não está (mais) na zona.
 const ERR_PLAYER_NOT_FOUND: String = "player_not_found"
+## Erros dos pedidos de grupo ([SOC-03]); viram aviso na tela (a mensagem vem pronta do servidor).
+const ERR_NOT_GROUP_LEADER: String = "not_group_leader"
+const ERR_GROUP_FULL: String = "group_full"
+const ERR_INVALID_INVITE: String = "invalid_invite"
+const ERR_INVITE_NOT_FOUND: String = "invite_not_found"
+const ERR_ALREADY_IN_GROUP: String = "already_in_group"
+const ERR_NOT_IN_GROUP: String = "not_in_group"
 
 # --- Regras de conta (só para avisar na hora; quem decide é o servidor) ---
 ## Username: 3 a 16 caracteres, letras sem acento, números e _. Único sem diferenciar maiúsculas,

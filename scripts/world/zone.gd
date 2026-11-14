@@ -55,6 +55,14 @@ func _ready() -> void:
 	# Atributos de outro jogador (Menu → Jogadores Próximos, [SOC-02]).
 	_hud.inspect_requested.connect(Network.instance.send_inspect)
 	Network.instance.attributes_received.connect(_hud.show_attributes)
+	# Grupo ([SOC-03]): convidar/responder/expulsar/sair vão ao servidor; estado, convites e avisos voltam para a HUD.
+	_hud.group_invite_requested.connect(Network.instance.send_group_invite)
+	_hud.group_answered.connect(Network.instance.send_group_answer)
+	_hud.group_kick_requested.connect(Network.instance.send_group_kick)
+	_hud.group_leave_requested.connect(Network.instance.send_group_leave)
+	Network.instance.group_changed.connect(_on_group_changed)
+	Network.instance.group_invited.connect(_hud.show_group_invite)
+	Network.instance.group_notice.connect(_on_group_notice)
 	# Recusas que não são de login (ex.: mochila cheia) viram aviso na tela.
 	Network.instance.server_error.connect(_on_server_error)
 
@@ -64,6 +72,7 @@ func _ready() -> void:
 
 	for state: PlayerState in Network.instance.get_players():
 		_on_player_added(state.id, state)
+	_on_group_changed(Network.instance.group)
 	for npc: PlayerState in Network.instance.get_npcs():
 		_spawn_npc(npc)
 	Network.instance.combat_event.connect(_on_combat_event)
@@ -72,7 +81,8 @@ func _ready() -> void:
 
 
 ## Quem pode ser alvo agora: bonecos/monstros vivos (menos os que o servidor marca como não-alvo: atirador de teste
-## invulnerável e o saco de pancadas, que é aliado, [JOGO-11]) e, se a zona tem PvP ([JOGO-02]), jogadores vivos.
+## invulnerável e o saco de pancadas, que é aliado, [JOGO-11]) e, se a zona tem PvP ([JOGO-02]), jogadores vivos que
+## não são do meu grupo ([SOC-03]: o servidor recusa membro como alvo).
 func get_targetables() -> Array[RemotePlayer]:
 	var result: Array[RemotePlayer] = []
 	for npc_id: String in _npcs:
@@ -82,12 +92,12 @@ func get_targetables() -> Array[RemotePlayer]:
 			result.append(npc)
 	if Network.instance.pvp:
 		for remote: RemotePlayer in _remote_players.values():
-			if remote.is_alive():
+			if remote.is_alive() and not Network.instance.is_group_member(remote.session_id):
 				result.append(remote)
 	return result
 
 
-## Aliados que dá para curar/proteger ([JOGO-09]): outros jogadores vivos (sem grupos ainda, todo jogador é
+## Aliados que dá para curar/proteger ([JOGO-09]): outros jogadores vivos (do meu grupo ou não, todo jogador é
 ## aliado, mesmo com PvP) e NPCs aliados (saco de pancadas, [JOGO-11]). ATENÇÃO: mesma regra de Zone.isAlly em
 ## mmo-server/src/zones/Zone.ts.
 func get_allies() -> Array[RemotePlayer]:
@@ -128,6 +138,7 @@ func _on_player_added(player_id: String, state: PlayerState) -> void:
 		remote.name = "Remote_%s" % player_id
 		_players_root.add_child(remote)
 		_remote_players[player_id] = remote
+		remote.set_ally(Network.instance.is_group_member(player_id))
 	_update_online_status()
 
 
@@ -313,6 +324,18 @@ func _on_projectile(event: Dictionary) -> void:
 	for old: int in _projectiles.keys():
 		if not is_instance_valid(_projectiles[old]):
 			_projectiles.erase(old)
+
+
+## Meu grupo mudou ([SOC-03]): a HUD (botão/painel "Grupo") e a cor de aliado de cada jogador.
+func _on_group_changed(group: GroupState) -> void:
+	_hud.set_group(group, Network.instance.player_id)
+	for remote: RemotePlayer in _remote_players.values():
+		remote.set_ally(Network.instance.is_group_member(remote.session_id))
+
+
+## Aviso do grupo ("X aceitou o convite", "X saiu do grupo"...): o aviso pequeno do topo.
+func _on_group_notice(_code: String, message: String) -> void:
+	_hud.show_toast(message)
 
 
 ## Recusa do servidor (ex.: mochila cheia, recarga): aviso na tela; se era uma carta animada no toque, para.

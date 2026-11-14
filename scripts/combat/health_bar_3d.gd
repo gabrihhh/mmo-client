@@ -53,6 +53,13 @@ func set_ratio(ratio: float) -> void:
 		_fill.scale.x = maxf(0.001, clampf(ratio, 0.0, 1.0))
 
 
+## Troca a cor do preenchimento (ex.: vida verde de quem é do meu grupo, [SOC-03]).
+func set_fill_color(color: Color) -> void:
+	fill_color = color
+	if _fill != null:
+		(_fill.material_override as StandardMaterial3D).albedo_color = color
+
+
 ## Vida ([param hp_ratio]) e escudo ([param shield_ratio], fração da vida máxima): o azul começa onde a vida acaba,
 ## mas nunca passa da borda — com vida cheia ele cobre o final da barra. Sem escudo, some.
 func set_values(hp_ratio: float, shield_ratio: float) -> void:

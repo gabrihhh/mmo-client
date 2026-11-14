@@ -9,8 +9,11 @@ extends CanvasLayer
 ## inteira: boneco com o que está vestido ([PaperDoll]) + mochila em grade de ícones que rola; tocar num item abre
 ## a ficha dele ([ItemDetailPanel], também em tela inteira). Jogadores Próximos ([SOC-02], [NearbyPlayersPanel]):
 ## quem está a até 45 m; tocar num nome abre as opções sobre ele ([PlayerActionsPanel]: Atributos, Solicitar amizade,
-## Convidar para o grupo) e Atributos abre a tela dele ([AttributesPanel]). Esses três são feitos por código
-## ([PixelMenuPanel]) e criados no [method _ready].
+## Convidar para o grupo) e Atributos abre a tela dele ([AttributesPanel]). Grupo ([SOC-03], [GroupPanel]): botão
+## no Menu só quando estou num grupo; lista os membros (líder marcado), tocar num membro abre as opções (Atributos,
+## Solicitar amizade, Expulsar se sou o líder) e "Sair do grupo". Convite recebido: janela Aceitar/Recusar no alto
+## ([GroupInvitePanel]), sem pausar o jogo. Esses painéis são feitos por código ([PixelMenuPanel]) e criados no
+## [method _ready].
 ##
 ## Só mostra e repassa toques: quem decide o que fazer com ataque/cartas é o [CombatController].
 
@@ -24,6 +27,14 @@ signal play_area_changed
 signal unequip_requested(slot: String)
 ## Pediu os Atributos do jogador [param player_id] ([SOC-02]); a resposta volta por [method show_attributes].
 signal inspect_requested(player_id: String)
+## Convidar [param player_id] para o grupo ([SOC-03]).
+signal group_invite_requested(player_id: String)
+## Respondeu ao convite de grupo de [param from_id] ([param accept] = Aceitar).
+signal group_answered(from_id: String, accept: bool)
+## Líder pediu para expulsar [param player_id] do grupo.
+signal group_kick_requested(player_id: String)
+## Tocou em "Sair do grupo".
+signal group_leave_requested
 
 ## Quantas cartas de habilidade a HUD mostra ([JOGO-01]: 3 da arma + cabeça + peito + pés).
 const CARD_COUNT: int = 6
@@ -85,6 +96,17 @@ var _has_target: bool = false
 var _nearby_panel: NearbyPlayersPanel = null
 var _actions_panel: PlayerActionsPanel = null
 var _attributes_panel: AttributesPanel = null
+## Grupo ([SOC-03]): painel do Menu → Grupo, janela do convite recebido e o botão "Grupo" do Menu (só com grupo).
+var _group_panel: GroupPanel = null
+var _invite_panel: GroupInvitePanel = null
+var _group_button: Button = null
+## Meu grupo (null = sem grupo) e meu id, vindos da [Zone] por [method set_group].
+var _group: GroupState = null
+var _own_id: String = ""
+## De onde as opções do jogador foram abertas (Jogadores Próximos ou Grupo): é para lá que o "Voltar" leva.
+var _actions_origin: PanelContainer = null
+## Altura do Menu com os 5 botões fixos (px); com o botão "Grupo" ele cresce uma linha.
+var _menu_base_height: float = 0.0
 
 
 func _ready() -> void:
@@ -305,33 +327,125 @@ func _build_social_panels() -> void:
 		root.add_child(panel)
 		panel.close_pressed.connect(_open_panel.bind(null))
 	_nearby_panel.back_pressed.connect(_open_panel.bind(_menu_panel))
-	_actions_panel.back_pressed.connect(_open_panel.bind(_nearby_panel))
+	_actions_panel.back_pressed.connect(func() -> void: _open_panel(_actions_origin))
 	_attributes_panel.back_pressed.connect(_open_panel.bind(_actions_panel))
 	_nearby_panel.player_chosen.connect(_on_nearby_player_chosen)
 	_actions_panel.option_chosen.connect(_on_player_option)
+	_actions_origin = _nearby_panel
+	_build_group_ui()
 
 
-## Tocou num jogador da lista: as opções sobre ele. Amizade e grupo entram nas próximas etapas ([SOC-02]).
+## Grupo ([SOC-03]): painel do Menu → Grupo, botão "Grupo" no Menu (cópia do de Jogadores Próximos, logo depois dele;
+## escondido sem grupo) e a janela do convite (acima de tudo, fora do ciclo do Menu: não pausa o jogo).
+func _build_group_ui() -> void:
+	var root: Control = $Root
+	_group_panel = GroupPanel.new()
+	root.add_child(_group_panel)
+	_group_panel.close_pressed.connect(_open_panel.bind(null))
+	_group_panel.back_pressed.connect(_open_panel.bind(_menu_panel))
+	_group_panel.member_chosen.connect(_on_group_member_chosen)
+	_group_panel.leave_pressed.connect(_on_leave_group_pressed)
+	var players_button: Button = %PlayersButton
+	_group_button = players_button.duplicate() as Button
+	_group_button.name = "GroupButton"
+	_group_button.unique_name_in_owner = false
+	_group_button.text = "Grupo"
+	_group_button.visible = false
+	players_button.add_sibling(_group_button)
+	_group_button.pressed.connect(_open_panel.bind(_group_panel))
+	_menu_base_height = _menu_panel.offset_bottom - _menu_panel.offset_top
+	_invite_panel = GroupInvitePanel.new()
+	root.add_child(_invite_panel)
+	_invite_panel.answered.connect(group_answered.emit)
+
+
+## Meu grupo mudou ([param group] null = sem grupo; [param own_id] = meu id): mostra/esconde o botão "Grupo" do Menu,
+## atualiza o painel e, se saí do grupo com o painel dele aberto, volta ao Menu. Entrar num grupo descarta os outros
+## convites pendentes (aceitar seria recusado).
+func set_group(group: GroupState, own_id: String) -> void:
+	var joined: bool = _group == null and group != null
+	_group = group
+	_own_id = own_id
+	_group_button.visible = group != null
+	var height: float = _menu_base_height + (PixelMenuPanel.BUTTON_HEIGHT_PX + 20.0 if group != null else 0.0)
+	_menu_panel.offset_top = -height / 2.0
+	_menu_panel.offset_bottom = height / 2.0
+	_group_panel.show_group(group, own_id)
+	if joined:
+		_invite_panel.clear()
+	var from_group: bool = _actions_panel.visible and _actions_origin == _group_panel
+	if group == null and (_group_panel.visible or from_group):
+		_open_panel(_menu_panel)
+	elif from_group and not group.has(_actions_panel.player_id):
+		# O membro das opções abertas saiu do grupo: volta para a lista.
+		_open_panel(_group_panel)
+
+
+## Chegou um convite de grupo: janela Aceitar/Recusar no alto da tela ([GroupInvitePanel]).
+func show_group_invite(from_id: String, from_name: String, expires_in: float) -> void:
+	_invite_panel.add_invite(from_id, from_name, expires_in)
+
+
+## true se posso convidar [param player_id]: sem grupo, ou sou o líder com vaga e ele não é do grupo ([SOC-03]).
+func _can_invite(player_id: String) -> bool:
+	if player_id == _own_id:
+		return false
+	if _group == null:
+		return true
+	return _group.leader_id == _own_id and not _group.has(player_id) and not _group.is_full()
+
+
+## Tocou num membro no painel do Grupo: Atributos, Solicitar amizade e, se sou o líder, Expulsar.
+func _on_group_member_chosen(player_id: String, title: String) -> void:
+	var options: Array[PlayerActionsPanel.Option] = [
+		PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_ATTRIBUTES, "Atributos"),
+		PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_FRIEND, "Solicitar amizade", false, "em breve"),
+	]
+	if _group != null and _group.leader_id == _own_id:
+		options.append(PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_GROUP_KICK, "Expulsar do grupo"))
+	_actions_origin = _group_panel
+	_actions_panel.show_options(player_id, title, options)
+	_open_panel(_actions_panel)
+
+
+func _on_leave_group_pressed() -> void:
+	group_leave_requested.emit()
+
+
+## Tocou num jogador da lista: as opções sobre ele. "Convidar para o grupo" só aparece se posso convidar (sem grupo,
+## ou líder com vaga) e ele não é do meu grupo ([SOC-03]); a amizade entra na etapa 3 ([SOC-02]).
 func _on_nearby_player_chosen(player_id: String, title: String) -> void:
 	var options: Array[PlayerActionsPanel.Option] = [
 		PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_ATTRIBUTES, "Atributos"),
 		PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_FRIEND, "Solicitar amizade", false, "em breve"),
-		PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_GROUP_INVITE, "Convidar para o grupo", false, "em breve"),
 	]
+	if _can_invite(player_id):
+		options.append(PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_GROUP_INVITE, "Convidar para o grupo"))
+	_actions_origin = _nearby_panel
 	_actions_panel.show_options(player_id, title, options)
 	_open_panel(_actions_panel)
 
 
 func _on_player_option(option_id: String) -> void:
-	if option_id == PlayerActionsPanel.OPTION_ATTRIBUTES:
-		_attributes_panel.show_loading(_actions_panel.player_id, _actions_panel.player_title)
-		_open_panel(_attributes_panel)
-		inspect_requested.emit(_actions_panel.player_id)
+	var target: String = _actions_panel.player_id
+	match option_id:
+		PlayerActionsPanel.OPTION_ATTRIBUTES:
+			_attributes_panel.show_loading(target, _actions_panel.player_title)
+			_open_panel(_attributes_panel)
+			inspect_requested.emit(target)
+		PlayerActionsPanel.OPTION_GROUP_INVITE:
+			# A resposta ("X aceitou/recusou") chega depois como aviso.
+			group_invite_requested.emit(target)
+			show_toast("Convite enviado.")
+			_open_panel(_actions_origin)
+		PlayerActionsPanel.OPTION_GROUP_KICK:
+			group_kick_requested.emit(target)
+			_open_panel(_group_panel)
 
 
 ## Todos os painéis do menu (um aberto por vez).
 func _all_panels() -> Array[PanelContainer]:
-	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel]
+	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel]
 
 
 ## Abre [param panel] e fecha os outros; null fecha tudo. Com menu aberto, os controles do jogo param.

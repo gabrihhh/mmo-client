@@ -40,6 +40,13 @@ signal npc_added(npc_id: String, state: PlayerState)
 signal combat_event(event: Dictionary)
 ## Chegaram os atributos pedidos por [method send_inspect] (tela de Atributos, mmo-docs [SOC-02]).
 signal attributes_received(attributes: PlayerAttributes)
+## O MEU grupo mudou ([member group]; null = saí/sem grupo). Ver mmo-docs [SOC-03].
+signal group_changed(group: GroupState)
+## Alguém me convidou para o grupo ([param from_name]); responder com [method send_group_answer] em até
+## [param expires_in] s.
+signal group_invited(from_id: String, from_name: String, expires_in: float)
+## Aviso pequeno do grupo ([param code]: ver [constant Protocol.MSG_GROUP_NOTICE]); [param message] vem pronta.
+signal group_notice(code: String, message: String)
 
 ## Os jogadores remotos são desenhados este número de ticks no passado (2 ticks = 100 ms a 20 Hz),
 ## para sempre haver dois snapshots reais para interpolar mesmo se um atrasar.
@@ -101,6 +108,9 @@ var respawn_in: float = 0.0
 var level: int = 0
 var xp: float = 0.0
 var xp_next: float = 0.0
+## Meu grupo segundo o servidor ([SOC-03]); null = sem grupo. Membros do grupo não se atingem e aparecem com a cor
+## de aliado ([RemotePlayer]).
+var group: GroupState = null
 ## Alvo fixo do ataque simples segundo o SERVIDOR ("" = nenhum).
 var attack_target: String = ""
 ## Golpe em andamento segundo o servidor: alvo ("" = nenhum) e segundos que faltam.
@@ -294,6 +304,40 @@ func send_inspect(target_id: String) -> void:
 		_send(Protocol.MSG_INSPECT, {"playerId": target_id})
 
 
+## true se [param id] é OUTRO jogador do meu grupo (aliado: não é alvo de ataque, cor de aliado, [SOC-03]).
+func is_group_member(id: String) -> bool:
+	return group != null and id != player_id and group.has(id)
+
+
+## true se sou o líder do meu grupo.
+func is_group_leader() -> bool:
+	return group != null and group.leader_id == player_id
+
+
+## Convida [param target_id] para o grupo ([SOC-03]). Resposta: [signal group_notice] (aceitou/recusou/expirou) ou erro.
+func send_group_invite(target_id: String) -> void:
+	if is_in_zone() and not target_id.is_empty():
+		_send(Protocol.MSG_GROUP_INVITE, {"playerId": target_id})
+
+
+## Responde ao convite de [param from_id] ([param accept] = aceitar).
+func send_group_answer(from_id: String, accept: bool) -> void:
+	if is_in_zone() and not from_id.is_empty():
+		_send(Protocol.MSG_GROUP_ANSWER, {"fromId": from_id, "accept": accept})
+
+
+## Líder expulsa [param target_id] do grupo.
+func send_group_kick(target_id: String) -> void:
+	if is_in_zone() and not target_id.is_empty():
+		_send(Protocol.MSG_GROUP_KICK, {"playerId": target_id})
+
+
+## Sai do grupo.
+func send_group_leave() -> void:
+	if is_in_zone():
+		_send(Protocol.MSG_GROUP_LEAVE, {})
+
+
 ## Pede para vestir o item [param uid] da mochila. A resposta vem em [signal inventory_changed] (ou erro).
 func send_equip(uid: String) -> void:
 	if _authenticated:
@@ -427,6 +471,13 @@ func _handle_message(text: String) -> void:
 			var attributes: PlayerAttributes = PlayerAttributes.from_dict(data)
 			if attributes != null:
 				attributes_received.emit(attributes)
+		Protocol.MSG_GROUP:
+			group = GroupState.from_dict(Protocol.read_dict(data, "group"))
+			group_changed.emit(group)
+		Protocol.MSG_GROUP_INVITED:
+			group_invited.emit(Protocol.read_string(data, "fromId"), Protocol.read_string(data, "fromName"), Protocol.read_float(data, "expiresIn", 30.0))
+		Protocol.MSG_GROUP_NOTICE:
+			group_notice.emit(Protocol.read_string(data, "code"), Protocol.read_string(data, "message"))
 		Protocol.MSG_ERROR:
 			_handle_error(Protocol.read_string(data, "code"), Protocol.read_string(data, "message"))
 		_:
@@ -524,6 +575,7 @@ func _on_closed() -> void:
 	username = ""
 	body = ""
 	inventory = null
+	group = null
 	_npcs.clear()
 	attack_target = ""
 	set_process(false)
