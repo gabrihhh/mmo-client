@@ -44,6 +44,14 @@ const MESHY_TWO_HANDED: Dictionary[String, Array] = {"Attack2H": ["attack_sword"
 ## Golpe de espadão do Mixamo ("Great Sword Slash", FBX sem pele, 30 fps, sem redução de quadros): ataque simples
 ## da espada do Cavaleiro ([JOGO-08]). Mesmo arquivo para os dois corpos (o rig do Mixamo é reconvertido em cada um).
 const MIXAMO_GREAT_SWORD: Dictionary[String, Array] = {"mixamo_com": ["attack_greatsword", 0.0, -1.0]}
+## Animações do Mixamo por tipo de arma ([ART-11], 2026-11-15; mesmas opções de download do [ART-06]). A pegada da
+## arma sai da própria animação. Besta = as de rifle (parado = 1º quadro do tiro, mirando; mixamo_rifle_idle.fbx é uma
+## cópia do mixamo_firing_rifle.fbx porque cada arquivo dá um nome só por clipe).
+const MIXAMO_RIFLE_RUN: Dictionary[String, Array] = {"mixamo_com": ["run_rifle", 0.0, -1.0]}
+const MIXAMO_FIRING_RIFLE: Dictionary[String, Array] = {"mixamo_com": ["shoot_rifle", 0.0, -1.0]}
+const MIXAMO_RIFLE_IDLE: Dictionary[String, Array] = {"mixamo_com": ["idle_rifle", 0.0, 0.04]}
+const MIXAMO_DAGGER_STAB: Dictionary[String, Array] = {"mixamo_com": ["attack_daggers", 0.2, 1.6]}
+const MIXAMO_MAGIC_HEAL: Dictionary[String, Array] = {"mixamo_com": ["cast_heal", 0.3, 1.9]}
 ## Nome do clipe numa fonte que significa "o primeiro clipe do arquivo" (animações próprias das pastas dos itens).
 const FIRST_CLIP: String = "*"
 ## Clipe inteiro (sem corte): fim negativo.
@@ -63,6 +71,11 @@ const CHARACTERS: Array[Dictionary] = [
 			"res://tools/characters/animations/male_attack2h.glb": MESHY_TWO_HANDED,
 			"res://tools/characters/animations/male_combat.glb": MESHY_ACTIONS,
 			"res://tools/characters/animations/mixamo_great_sword_slash.fbx": MIXAMO_GREAT_SWORD,
+			"res://tools/characters/animations/mixamo_rifle_run.fbx": MIXAMO_RIFLE_RUN,
+			"res://tools/characters/animations/mixamo_firing_rifle.fbx": MIXAMO_FIRING_RIFLE,
+			"res://tools/characters/animations/mixamo_rifle_idle.fbx": MIXAMO_RIFLE_IDLE,
+			"res://tools/characters/animations/mixamo_double_dagger_stab.fbx": MIXAMO_DAGGER_STAB,
+			"res://tools/characters/animations/mixamo_magic_heal.fbx": MIXAMO_MAGIC_HEAL,
 		},
 	},
 	{
@@ -77,6 +90,11 @@ const CHARACTERS: Array[Dictionary] = [
 			"res://tools/characters/animations/female_attack2h.glb": MESHY_TWO_HANDED,
 			"res://tools/characters/animations/female_combat.glb": MESHY_ACTIONS,
 			"res://tools/characters/animations/mixamo_great_sword_slash.fbx": MIXAMO_GREAT_SWORD,
+			"res://tools/characters/animations/mixamo_rifle_run.fbx": MIXAMO_RIFLE_RUN,
+			"res://tools/characters/animations/mixamo_firing_rifle.fbx": MIXAMO_FIRING_RIFLE,
+			"res://tools/characters/animations/mixamo_rifle_idle.fbx": MIXAMO_RIFLE_IDLE,
+			"res://tools/characters/animations/mixamo_double_dagger_stab.fbx": MIXAMO_DAGGER_STAB,
+			"res://tools/characters/animations/mixamo_magic_heal.fbx": MIXAMO_MAGIC_HEAL,
 		},
 	},
 	{
@@ -93,15 +111,20 @@ const CHARACTERS: Array[Dictionary] = [
 			"res://tools/characters/animations/male_attack2h.glb": MESHY_TWO_HANDED,
 			"res://tools/characters/animations/male_combat.glb": MESHY_ACTIONS,
 			"res://tools/characters/animations/mixamo_great_sword_slash.fbx": MIXAMO_GREAT_SWORD,
+			"res://tools/characters/animations/mixamo_rifle_run.fbx": MIXAMO_RIFLE_RUN,
+			"res://tools/characters/animations/mixamo_firing_rifle.fbx": MIXAMO_FIRING_RIFLE,
+			"res://tools/characters/animations/mixamo_rifle_idle.fbx": MIXAMO_RIFLE_IDLE,
+			"res://tools/characters/animations/mixamo_double_dagger_stab.fbx": MIXAMO_DAGGER_STAB,
+			"res://tools/characters/animations/mixamo_magic_heal.fbx": MIXAMO_MAGIC_HEAL,
 		},
 	},
 ]
 ## Animações de verdade que dão a volta (ciclo).
-const LOOPED: Array[String] = ["run", "idle", "idle_sword", "idle_staff"]
+const LOOPED: Array[String] = ["run", "idle", "idle_sword", "idle_staff", "run_rifle", "idle_rifle"]
 ## Animações de corpo todo (camada de movimento). As outras são ações da camada de cima, que no jogo não mexe no
 ## quadril ([CharacterAnimator]): nelas a rotação do quadril passa para a base da coluna ([method _hips_to_spine]).
 ## Cada ação também sai como "<nome>_full" (corpo todo, com quadril e pernas), que o jogo toca com o personagem parado.
-const FULL_BODY: Array[String] = ["run", "idle", "idle_sword", "idle_staff"]
+const FULL_BODY: Array[String] = ["run", "idle", "idle_sword", "idle_staff", "run_rifle", "idle_rifle"]
 ## Ações que só existem na versão de cima (sem "<nome>_full" para tocar parado no corpo todo).
 const UPPER_ONLY: Array[String] = ["flinch"]
 ## Osso raiz (o único com trilha de posição que importa).

@@ -71,6 +71,9 @@ var body_id: String = Protocol.BODY_MALE
 var animator: CharacterAnimator = null
 
 var _mounts: Dictionary[String, Node3D] = {}
+## Arma apontada de mão a mão ([method _update_aimed]) e o id dela; null = nenhuma.
+var _aim_model: Node3D = null
+var _aim_id: String = ""
 var _state: PlayerState = null
 ## Esqueleto do personagem (direção do antebraço durante a ação).
 var _skeleton: Skeleton3D = null
@@ -114,6 +117,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_update_floating(delta)
+	_update_aimed()
 	if _held_model == null or not is_instance_valid(_held_model):
 		_set_arm_weight("Right", 0.0)
 		_set_arm_weight("Left", 0.0)
@@ -174,6 +178,29 @@ func _process(delta: float) -> void:
 		_place_arm("Left", off_grip + body_basis * WRIST_FROM_GRIP, 1.0)
 	else:
 		_set_arm_weight("Left", 0.0)
+
+
+## Arma apontada de mão a mão ([method ItemModels.aims_between_hands], [ART-11]): o arco (+Z da cena do item) vai
+## da mão direita para a esquerda, o topo (+X) o mais perto possível do "cima" do personagem, deslocada pelo
+## avanço/altura de [method ItemModels.aim_offsets]. A pose das mãos é a da animação (ex.: rifle do Mixamo para a besta).
+func _update_aimed() -> void:
+	if _aim_model == null or not is_instance_valid(_aim_model):
+		return
+	var right: Vector3 = _bone_position("RightHand")
+	var left: Vector3 = _bone_position("LeftHand")
+	var length: Vector3 = left - right
+	if length.length() < 0.05:
+		return
+	var axis: Vector3 = length.normalized()
+	var up: Vector3 = (get_parent() as Node3D).global_basis.y.normalized()
+	# Modelo apontado: arco (frente) em +Z da cena do item, topo em +X (medido; o comentário do hand-ranger.tscn
+	# dizia "cano em +Y", mas a matriz do .tscn é por linhas).
+	var z: Vector3 = axis
+	var x: Vector3 = (up - z * up.dot(z)).normalized()
+	var offsets: Vector3 = ItemModels.aim_offsets(_aim_id)
+	var aim_basis: Basis = Basis(x, z.cross(x), z).rotated(axis, offsets.z)
+	var size: float = _aim_model.global_basis.get_scale().y
+	_aim_model.global_transform = Transform3D(aim_basis.scaled_local(Vector3.ONE * size), right + axis * offsets.x + x * offsets.y)
 
 
 ## O personagem começou a lançar algo que leva [param seconds] s até o efeito (0 = instantâneo): o item flutuante
@@ -366,6 +393,9 @@ func bind(state: PlayerState) -> void:
 ## Recria os modelos de todos os slots a partir do look atual.
 func _refresh() -> void:
 	_held_model = null
+	if _aim_model != null and is_instance_valid(_aim_model):
+		_aim_model.queue_free()
+	_aim_model = null
 	if _float_model != null and is_instance_valid(_float_model):
 		_float_model.queue_free()
 	_float_model = null
@@ -380,9 +410,10 @@ func _refresh() -> void:
 	var hand_item: String = _state.look.get("hand", "") if _state != null else ""
 	if animator != null:
 		animator.set_idle_animation(ItemModels.idle_animation(hand_item))
+		animator.set_run_animation(ItemModels.run_animation(hand_item))
 	if _hand_grip != null:
 		var holding: bool = not hand_item.is_empty() and _mounts.has("hand") and not ItemModels.floats(hand_item)
-		_hand_grip.set_grip(holding, holding and (ItemModels.is_two_handed(hand_item) or ItemModels.is_paired(hand_item)))
+		_hand_grip.set_grip(holding, holding and (ItemModels.is_two_handed(hand_item) or ItemModels.is_paired(hand_item) or ItemModels.aims_between_hands(hand_item)))
 	for key: String in _mounts:
 		var mount: Node3D = _mounts[key]
 		for child: Node in mount.get_children():
@@ -395,6 +426,13 @@ func _refresh() -> void:
 			continue
 		var model: Node3D = ItemModels.instantiate(item_id, body_id)
 		if model == null:
+			continue
+		if key == "hand" and ItemModels.aims_between_hands(item_id):
+			# Apontada de mão a mão: filha da raiz do personagem (não do osso da mão: o encaixe é reposicionado depois
+			# dos ajustes de mão/dedos e desfazia a pose); [method _update_aimed] põe entre as mãos a cada quadro.
+			(get_parent() as Node3D).add_child(model)
+			_aim_model = model
+			_aim_id = item_id
 			continue
 		if key == "hand" and ItemModels.floats(item_id):
 			# Flutua ao lado do personagem: filho da raiz dele (segue o corpo, não a mão).

@@ -31,6 +31,10 @@ const LOWER_BONES: Array[String] = [
 const HIT_TIMES: Dictionary[String, float] = {
 	"attack_sword": 0.87,
 	"attack_greatsword": 0.6,
+	# Mixamo por arma ([ART-11]): facada dupla, cura com as duas mãos, tiro de rifle (besta).
+	"attack_daggers": 1.0,
+	"cast_heal": 0.65,
+	"shoot_rifle": 0.07,
 	"attack_staff": 0.47,
 	"attack_punch": 0.3,
 	"heavy_strike": 1.23,
@@ -60,6 +64,8 @@ var _action_speed: float = 1.0
 var _action_started_ms: int = 0
 ## Caminho do esqueleto a partir do personagem (raiz da árvore), ex. "Skeleton3D".
 var _skeleton_path: String = "Skeleton3D"
+## Nó da corrida (trocado por arma, [method set_run_animation]).
+var _run_node: AnimationNodeAnimation = null
 
 
 ## Monta a árvore com [param library] (animações "idle", "run", ações e "flinch"). [param skeleton_path] = caminho
@@ -70,7 +76,8 @@ func setup(library: AnimationLibrary, skeleton_path: String = "Skeleton3D") -> v
 	var tree: AnimationNodeBlendTree = AnimationNodeBlendTree.new()
 	_idle_node = _animation_node("idle")
 	tree.add_node("idle", _idle_node)
-	tree.add_node("run", _animation_node("run"))
+	_run_node = _animation_node("run")
+	tree.add_node("run", _run_node)
 	tree.add_node("run_speed", AnimationNodeTimeScale.new())
 	tree.add_node("move", AnimationNodeBlend2.new())
 	_action_node = _animation_node("buff")
@@ -111,6 +118,13 @@ func set_idle_animation(animation_name: String) -> void:
 	if _idle_node == null:
 		return
 	_idle_node.animation = animation_name if has_animation(animation_name) else "idle"
+
+
+## Troca a corrida (ex.: "run_rifle" com a besta, [ART-11]). Animação que a biblioteca não tem → "run".
+func set_run_animation(animation_name: String) -> void:
+	if _run_node == null:
+		return
+	_run_node.animation = animation_name if has_animation(animation_name) else "run"
 
 
 ## Velocidade de movimento como fração da normal (0 = parado, 1 = correndo, 2 = Disparada).

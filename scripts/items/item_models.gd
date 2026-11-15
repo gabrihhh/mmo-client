@@ -66,7 +66,6 @@ const _HOLD: Dictionary[String, Array] = {
 	"training_staff": [Vector3(0.0, 1.0, 0.3), 4.0, 4.0, false],
 	"knight_sword": [Vector3(0.0, 0.55, 1.0), 2.0, 2.0, true],
 	"arcane_staff": [Vector3(0.0, 1.0, 0.3), 4.0, 4.0, false],
-	"ranger_crossbow": [Vector3(0.0, 0.15, 1.0), 3.0, 3.0, false],
 }
 ## Posição de carregar (parado/correndo), no espaço do personagem (m; +Z frente, +Y cima, lado direito = −X):
 ## [onde fica a pegada da mão direita, direção do comprimento]. As mãos vão até a arma por IK ([EquipmentView]).
@@ -76,7 +75,6 @@ const _CARRY: Dictionary[String, Array] = {
 	"training_staff": [Vector3(-0.24, 1.12, 0.26), Vector3(0.0, 1.0, 0.18)],
 	"knight_sword": [Vector3(-0.10, 1.10, 0.30), Vector3(0.0, 0.6, 1.0)],
 	"arcane_staff": [Vector3(-0.24, 1.12, 0.26), Vector3(0.0, 1.0, 0.18)],
-	"ranger_crossbow": [Vector3(-0.12, 1.12, 0.32), Vector3(0.0, 0.1, 1.0)],
 }
 ## Postura parada por arma na mão ([CharacterAnimator.set_idle_animation]); sem linha = "idle".
 const _IDLE: Dictionary[String, String] = {
@@ -84,6 +82,19 @@ const _IDLE: Dictionary[String, String] = {
 	"training_staff": "idle_staff",
 	"knight_sword": "idle_sword",
 	"arcane_staff": "idle_staff",
+	"ranger_crossbow": "idle_rifle",
+}
+## Armas de duas mãos com animação própria (Mixamo, [ART-11]): a cada quadro a arma é apontada da mão direita para a
+## esquerda; a pegada vem da animação (parado, correndo, atirando), sem posição de carregar nem puxão.
+## Valor: [avanço (m) do centro do modelo à frente da mão direita, ao longo da mira; altura (m) acima da linha entre
+## as mãos (a mão da frente apoia por baixo); giro extra (graus) em volta do cano].
+## A besta: o centro do .glb fica no meio dela (coronha atrás, arco à frente), então avança ~0,2 m.
+const _AIM_BETWEEN_HANDS: Dictionary[String, Array] = {
+	"ranger_crossbow": [0.2, 0.05, 0.0],
+}
+## Corrida por arma na mão ([CharacterAnimator.set_run_animation], [ART-11]); sem linha = "run".
+const _RUN: Dictionary[String, String] = {
+	"ranger_crossbow": "run_rifle",
 }
 ## Armas de duas mãos: onde a mão esquerda segura (m, no espaço do modelo do item: comprimento em +Y, origem na mão
 ## direita). A mão esquerda vai até lá por IK ([EquipmentView]).
@@ -217,6 +228,22 @@ static func hold_pull(item_id: String, acting: bool) -> float:
 	if not _HOLD.has(item_id):
 		return 0.0
 	return float(_HOLD[item_id][2 if acting else 1])
+
+
+## true se [param item_id] é apontado de mão a mão ([member _AIM_BETWEEN_HANDS]).
+static func aims_between_hands(item_id: String) -> bool:
+	return _AIM_BETWEEN_HANDS.has(item_id)
+
+
+## Arma apontada de mão a mão: [avanço (m), altura (m), giro (rad)] ([member _AIM_BETWEEN_HANDS]).
+static func aim_offsets(item_id: String) -> Vector3:
+	var values: Array = _AIM_BETWEEN_HANDS.get(item_id, [0.0, 0.0, 0.0])
+	return Vector3(float(values[0]), float(values[1]), deg_to_rad(float(values[2])))
+
+
+## Corrida do personagem com [param item_id] na mão ("run" se a arma não tiver corrida própria).
+static func run_animation(item_id: String) -> String:
+	return _RUN.get(item_id, "run")
 
 
 ## Animação parada do personagem com [param item_id] na mão ("idle" se a arma não tiver postura própria).
