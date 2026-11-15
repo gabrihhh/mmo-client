@@ -76,6 +76,10 @@ const START_INTERPOLATION_TICKS: float = 1.0
 const _JITTER_WINDOW: int = 60
 ## Quão rápido a margem muda (ticks por segundo): devagar, para os outros não "acelerarem" de repente.
 const _DELAY_ADJUST_TICKS_PER_SECOND: float = 0.5
+## Sinal de vida ([constant Protocol.MSG_KEEP_ALIVE]): sem mandar nada há este tempo (ms) dentro da zona, manda um.
+## Mantém o Wi-Fi do celular acordado; parado, ele cochilava e os snapshots chegavam em lotes (os outros andavam aos
+## trancos até você se mexer). [INFRA-12]
+const KEEP_ALIVE_MS: int = 100
 ## A cada quantos segundos o resumo de desempenho vai para o log (adb logcat, [INFRA-12]).
 const _PERF_LOG_SECONDS: float = 10.0
 ## Se o relógio local se afastar mais que isto (ticks) do servidor, pula direto em vez de ajustar aos poucos.
@@ -187,6 +191,8 @@ var _arrival_offsets: PackedFloat64Array = PackedFloat64Array()
 ## Quando cada passo foi enviado (seq → µs), para medir o ping pelo ack.
 var _input_sent_usec: Dictionary[int, int] = {}
 var _perf_log_left: float = _PERF_LOG_SECONDS
+## Quando foi o último envio ao servidor (ms, Time.get_ticks_msec): base do sinal de vida.
+var _last_send_ms: int = 0
 ## A conexão caiu sem ninguém pedir (servidor reiniciou, Wi-Fi piscou): a tela de login reconecta sozinha com a sessão
 ## salva ([CLI-05], [INFRA-08]). Desliga ao entrar de novo, ao sair da conta, ao entrar em outro aparelho e quando o
 ## servidor recusa a sessão.
@@ -565,6 +571,8 @@ func _process(delta: float) -> void:
 	while _socket.get_available_packet_count() > 0:
 		_last_packet_ms = Time.get_ticks_msec()
 		_handle_message(_socket.get_packet().get_string_from_utf8())
+	if _socket != null:
+		_keep_radio_awake()
 
 	if state == WebSocketPeer.STATE_CLOSED:
 		_on_closed()
@@ -572,6 +580,17 @@ func _process(delta: float) -> void:
 
 func _send(type: String, data: Dictionary) -> void:
 	_socket.send_text(Protocol.encode(type, data))
+	_last_send_ms = Time.get_ticks_msec()
+
+
+## Parado (sem passos nem outros envios há [constant KEEP_ALIVE_MS]): manda o sinal de vida e já escreve no socket.
+func _keep_radio_awake() -> void:
+	if not _in_zone or _socket == null or _socket.get_ready_state() != WebSocketPeer.STATE_OPEN:
+		return
+	if Time.get_ticks_msec() - _last_send_ms < KEEP_ALIVE_MS:
+		return
+	_send(Protocol.MSG_KEEP_ALIVE, {})
+	_socket.poll()
 
 
 func _handle_message(text: String) -> void:

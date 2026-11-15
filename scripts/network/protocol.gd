@@ -31,6 +31,9 @@ const MSG_LOGIN: String = "login"
 const MSG_RESUME: String = "resume"
 ## Encerra a sessão deste aparelho e fecha a conexão. data: {}.
 const MSG_LOGOUT: String = "logout"
+## Sinal de vida do celular parado ([INFRA-12]): vazio, a cada ~100 ms sem outros envios, para o Wi-Fi do Android não
+## entrar em economia de energia. ATENÇÃO: ClientMessageType.KeepAlive em mmo-server/src/net/protocol.ts.
+const MSG_KEEP_ALIVE: String = "ka"
 ## Pede para entrar numa zona (depois de autenticar). data: { zone: String }.
 const MSG_JOIN: String = "join"
 ## Escolhe o corpo do personagem, uma vez só (primeira entrada). data: { body: [constant BODY_MALE] |
