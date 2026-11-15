@@ -42,6 +42,12 @@ const COVER_SINK_M: float = 0.025
 ## dele. Manga larga não acompanha o braço inteiro quando ele desce da pose T e o ombro saía pela lateral (peito do
 ## curandeiro masculino, 2026-11-13).
 const COVER_SHRINK: float = 0.7
+## Suavização dos pesos das partes soltas do peito ([method _smooth_loose_weights]): distância da pele (m) a partir
+## da qual começa e em que fica no máximo, quanto mistura no máximo por passada e quantas passadas.
+const LOOSE_GAP_MIN_M: float = 0.03
+const LOOSE_GAP_FULL_M: float = 0.12
+const LOOSE_SMOOTH_MAX: float = 0.6
+const LOOSE_SMOOTH_PASSES: int = 8
 ## Ossos que contam como "pé" (prefixo do lado na frente).
 const FOOT_BONES: Array[String] = ["Foot", "Toes"]
 
@@ -83,6 +89,9 @@ class BodyData:
 	## Eixo de cada osso em repouso (espaço do esqueleto): início e fim (média dos filhos; sem filho = o próprio início).
 	var bone_heads: PackedVector3Array = PackedVector3Array()
 	var bone_tails: PackedVector3Array = PackedVector3Array()
+	## Ossos de perna (coxa, canela, pé): parte de roupa presa a eles é saia/aba e é suavizada sempre
+	## ([method _smooth_loose_weights]).
+	var leg_bones: Dictionary[int, bool] = {}
 
 
 ## Dados do corpo [param body] (malha com pesos) no esqueleto [param skeleton]; calculados na primeira vez.
@@ -142,6 +151,11 @@ static func sample(body: MeshInstance3D, skeleton: Skeleton3D, original: Mesh = 
 			tail /= float(children.size())
 		data.bone_heads.append(head)
 		data.bone_tails.append(tail)
+	for side: String in ["Left", "Right"]:
+		for leg: String in ["UpperLeg", "LowerLeg", "Foot", "Toes"]:
+			var leg_bone: int = skeleton.find_bone(side + leg)
+			if leg_bone >= 0:
+				data.leg_bones[leg_bone] = true
 	for side: String in ["Left", "Right"]:
 		var upper: int = skeleton.find_bone(side + "UpperArm")
 		var shoulder: int = skeleton.find_bone(side + "Shoulder")
@@ -405,7 +419,7 @@ static func _gather_points(node: Node, parent_xform: Transform3D, points: Packed
 ## [param cache_key] (ex.: "<id da malha do corpo>|<itemId>|<encaixe>"): mesma chave = mesmo resultado; a partir da
 ## segunda vez só cria os nós com as malhas já calculadas ([member _mesh_cache]). Vazio = sem cache.
 static func skin(model: Node3D, skeleton: Skeleton3D, rest: Transform3D, data: BodyData, chest: bool = false,
-		cache_key: String = "") -> Array[MeshInstance3D]:
+		cache_key: String = "", smooth_loose: bool = false) -> Array[MeshInstance3D]:
 	var created: Array[MeshInstance3D] = []
 	if not cache_key.is_empty() and _mesh_cache.has(cache_key):
 		for entry: Array in _mesh_cache[cache_key]:
@@ -418,7 +432,7 @@ static func skin(model: Node3D, skeleton: Skeleton3D, rest: Transform3D, data: B
 			instance.skeleton = instance.get_path_to(skeleton)
 			created.append(instance)
 		return created
-	_collect(model, rest * model.transform.affine_inverse(), skeleton, data, created, chest)
+	_collect(model, rest * model.transform.affine_inverse(), skeleton, data, created, chest, smooth_loose)
 	if not cache_key.is_empty():
 		var entries: Array = []
 		for instance: MeshInstance3D in created:
@@ -428,19 +442,20 @@ static func skin(model: Node3D, skeleton: Skeleton3D, rest: Transform3D, data: B
 
 
 static func _collect(node: Node, parent_xform: Transform3D, skeleton: Skeleton3D, data: BodyData,
-		created: Array[MeshInstance3D], chest: bool) -> void:
+		created: Array[MeshInstance3D], chest: bool, smooth_loose: bool) -> void:
 	var xform: Transform3D = parent_xform * (node as Node3D).transform if node is Node3D else parent_xform
 	if node is MeshInstance3D and (node as MeshInstance3D).mesh != null:
-		var instance: MeshInstance3D = _skinned_copy(node as MeshInstance3D, xform, data, chest)
+		var instance: MeshInstance3D = _skinned_copy(node as MeshInstance3D, xform, data, chest, smooth_loose)
 		skeleton.add_child(instance)
 		instance.skeleton = instance.get_path_to(skeleton)
 		created.append(instance)
 	for child: Node in node.get_children():
-		_collect(child, xform, skeleton, data, created, chest)
+		_collect(child, xform, skeleton, data, created, chest, smooth_loose)
 
 
 ## Cópia de [param source] com vértices no espaço do esqueleto ([param xform]) e os pesos transferidos do corpo.
-static func _skinned_copy(source: MeshInstance3D, xform: Transform3D, data: BodyData, chest: bool) -> MeshInstance3D:
+static func _skinned_copy(source: MeshInstance3D, xform: Transform3D, data: BodyData, chest: bool,
+		smooth_loose: bool) -> MeshInstance3D:
 	var mesh: ArrayMesh = ArrayMesh.new()
 	var normal_basis: Basis = xform.basis.inverse().transposed()
 	var mirrored: bool = xform.basis.determinant() < 0.0
@@ -454,6 +469,9 @@ static func _skinned_copy(source: MeshInstance3D, xform: Transform3D, data: Body
 		weights.resize(vertices.size() * 4)
 		# Vértices na mesma posição (costuras de UV/normal) recebem os mesmos pesos: calcula uma vez só.
 		var done: Dictionary[Vector3i, int] = {}
+		# Distância (m) de cada vértice até a pele (o vizinho mais perto), para a suavização das partes soltas.
+		var gaps: PackedFloat32Array = PackedFloat32Array()
+		gaps.resize(vertices.size())
 		for v: int in range(vertices.size()):
 			vertices[v] = xform * vertices[v]
 			if v < normals.size():
@@ -466,7 +484,9 @@ static func _skinned_copy(source: MeshInstance3D, xform: Transform3D, data: Body
 					weights[v * 4 + k] = weights[first * 4 + k]
 				continue
 			done[key] = v
-			_transfer(vertices[v], data, bones, weights, v, chest)
+			gaps[v] = _transfer(vertices[v], data, bones, weights, v, chest)
+		if smooth_loose:
+			_smooth_loose_weights(vertices, arrays[Mesh.ARRAY_INDEX], done, gaps, bones, weights, data.leg_bones)
 		arrays[Mesh.ARRAY_VERTEX] = vertices
 		if not normals.is_empty():
 			arrays[Mesh.ARRAY_NORMAL] = normals
@@ -494,9 +514,9 @@ static func _skinned_copy(source: MeshInstance3D, xform: Transform3D, data: Body
 
 
 ## Pesos do vértice [param v] (em [param point]) = média, pela distância, dos [constant NEIGHBORS] vértices do corpo
-## mais próximos; ficam os 4 ossos de maior peso, normalizados.
+## mais próximos; ficam os 4 ossos de maior peso, normalizados. Devolve a distância (m) até o vizinho mais perto.
 static func _transfer(point: Vector3, data: BodyData, bones: PackedInt32Array, weights: PackedFloat32Array, v: int,
-		chest: bool) -> void:
+		chest: bool) -> float:
 	var nearest: Array[Vector2] = _nearest(point, data)  # (distância, índice)
 	var total: Dictionary[int, float] = {}
 	for pair: Vector2 in nearest:
@@ -530,6 +550,100 @@ static func _transfer(point: Vector3, data: BodyData, bones: PackedInt32Array, w
 		var has: bool = top_bones[k] >= 0 and sum > 0.0
 		bones[v * 4 + k] = top_bones[k] if has else 0
 		weights[v * 4 + k] = top_weights[k] / sum if has else 0.0
+	return nearest[0].x if not nearest.is_empty() else 0.0
+
+
+## Suaviza os pesos das partes **soltas** do peito (saia, abas, barra) pela malha da própria roupa ([ART-11],
+## 2026-11-15): cada vértice mistura os pesos com a média dos vizinhos (arestas dos triângulos), mais quanto mais longe
+## da pele ele está ([constant LOOSE_GAP_MIN_M] → [constant LOOSE_GAP_FULL_M]) ou se segue osso de perna (saia, aba),
+## [constant LOOSE_SMOOTH_PASSES] vezes.
+## Assim a aba da frente do casaco mistura quadril e as duas coxas e dobra macia (antes copiava só a coxa mais perto
+## e seguia como placa dura); onde a roupa encosta na pele os pesos ficam os da pele (não atravessa).
+## [param done] = posição arredondada → 1º vértice nela (costuras compartilham os pesos).
+static func _smooth_loose_weights(vertices: PackedVector3Array, raw_indices: Variant, done: Dictionary[Vector3i, int],
+		gaps: PackedFloat32Array, bones: PackedInt32Array, weights: PackedFloat32Array, leg_bones: Dictionary[int, bool]) -> void:
+	var count: int = vertices.size()
+	var indices: PackedInt32Array = raw_indices if raw_indices is PackedInt32Array else PackedInt32Array(range(count))
+	# Vértice → vértice "dono" (o primeiro na mesma posição).
+	var owner: PackedInt32Array = PackedInt32Array()
+	owner.resize(count)
+	for v: int in range(count):
+		owner[v] = done.get(Vector3i((vertices[v] * 10000.0).round()), v)
+	var neighbors: Dictionary[int, PackedInt32Array] = {}
+	for t: int in range(0, indices.size() - 2, 3):
+		for e: int in range(3):
+			var a: int = owner[indices[t + e]]
+			var b: int = owner[indices[t + (e + 1) % 3]]
+			if a == b:
+				continue
+			if not neighbors.has(a):
+				neighbors[a] = PackedInt32Array()
+			if not neighbors.has(b):
+				neighbors[b] = PackedInt32Array()
+			if not neighbors[a].has(b):
+				neighbors[a].append(b)
+			if not neighbors[b].has(a):
+				neighbors[b].append(a)
+	var current: Dictionary[int, Dictionary] = {}
+	for u: int in neighbors:
+		var map: Dictionary = {}
+		for k: int in range(4):
+			if weights[u * 4 + k] > 0.0:
+				map[bones[u * 4 + k]] = float(map.get(bones[u * 4 + k], 0.0)) + weights[u * 4 + k]
+		current[u] = map
+	# Quanto cada vértice mistura: pela distância da pele, ou o máximo se ele segue osso de perna (saia/aba: mesmo
+	# encostada na coxa na pose T, deve misturar quadril e as duas pernas).
+	var amounts: Dictionary[int, float] = {}
+	for u: int in neighbors:
+		var amount: float = clampf((gaps[u] - LOOSE_GAP_MIN_M) / (LOOSE_GAP_FULL_M - LOOSE_GAP_MIN_M), 0.0, 1.0) * LOOSE_SMOOTH_MAX
+		var leg_weight: float = 0.0
+		for k: int in range(4):
+			if leg_bones.has(bones[u * 4 + k]):
+				leg_weight += weights[u * 4 + k]
+		amounts[u] = maxf(amount, LOOSE_SMOOTH_MAX * clampf(leg_weight * 2.0, 0.0, 1.0))
+	for _pass: int in range(LOOSE_SMOOTH_PASSES):
+		var next: Dictionary[int, Dictionary] = {}
+		for u: int in neighbors:
+			var amount: float = amounts[u]
+			if amount <= 0.0:
+				next[u] = current[u]
+				continue
+			var mixed: Dictionary = {}
+			for bone: Variant in current[u]:
+				mixed[bone] = float(current[u][bone]) * (1.0 - amount)
+			var share: float = amount / float(neighbors[u].size())
+			for n: int in neighbors[u]:
+				for bone: Variant in current[n]:
+					mixed[bone] = float(mixed.get(bone, 0.0)) + float(current[n][bone]) * share
+			next[u] = mixed
+		current = next
+	# Volta para 4 ossos por vértice (os de maior peso, normalizados) e copia para as costuras.
+	for u: int in current:
+		var map: Dictionary = current[u]
+		var top_bones: PackedInt32Array = [-1, -1, -1, -1]
+		var top_weights: PackedFloat32Array = [0.0, 0.0, 0.0, 0.0]
+		for bone: Variant in map:
+			var w: float = float(map[bone])
+			for k: int in range(4):
+				if w > top_weights[k]:
+					for m: int in range(3, k, -1):
+						top_weights[m] = top_weights[m - 1]
+						top_bones[m] = top_bones[m - 1]
+					top_weights[k] = w
+					top_bones[k] = int(bone)
+					break
+		var sum: float = top_weights[0] + top_weights[1] + top_weights[2] + top_weights[3]
+		for k: int in range(4):
+			var has: bool = top_bones[k] >= 0 and sum > 0.0
+			bones[u * 4 + k] = top_bones[k] if has else 0
+			weights[u * 4 + k] = top_weights[k] / sum if has else 0.0
+	for v: int in range(count):
+		var u: int = owner[v]
+		if u == v:
+			continue
+		for k: int in range(4):
+			bones[v * 4 + k] = bones[u * 4 + k]
+			weights[v * 4 + k] = weights[u * 4 + k]
 
 
 ## Os [constant NEIGHBORS] vértices do corpo mais perto de [param point]: procura em anéis de células até achar.

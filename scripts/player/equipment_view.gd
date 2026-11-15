@@ -525,7 +525,8 @@ func _dress(model: Node3D, mount: Node3D, key: String) -> void:
 		if rest == Transform3D.IDENTITY:
 			return
 	var cache_key: String = "%d|%s|%s" % [_body_mesh.get_instance_id(), item_id, key]
-	var created: Array[MeshInstance3D] = BodySkinning.skin(model, _skeleton, rest, data, key == "chest" and not tailored, cache_key)
+	# Peito (sob medida ou não): pesos das partes soltas suavizados ([ART-11]); braço amortecido só no genérico.
+	var created: Array[MeshInstance3D] = BodySkinning.skin(model, _skeleton, rest, data, key == "chest" and not tailored, cache_key, key == "chest")
 	if created.is_empty():
 		return
 	_skinned.append_array(created)
