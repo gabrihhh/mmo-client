@@ -187,6 +187,10 @@ var _arrival_offsets: PackedFloat64Array = PackedFloat64Array()
 ## Quando cada passo foi enviado (seq → µs), para medir o ping pelo ack.
 var _input_sent_usec: Dictionary[int, int] = {}
 var _perf_log_left: float = _PERF_LOG_SECONDS
+## A conexão caiu sem ninguém pedir (servidor reiniciou, Wi-Fi piscou): a tela de login reconecta sozinha com a sessão
+## salva ([CLI-05], [INFRA-08]). Desliga ao entrar de novo, ao sair da conta, ao entrar em outro aparelho e quando o
+## servidor recusa a sessão.
+var should_reconnect: bool = false
 ## Pior quadro (ms) dos últimos [constant _PERF_LOG_SECONDS] s (o medidor na tela e o log mostram).
 var worst_frame_window_ms: int = 0
 
@@ -252,6 +256,7 @@ func register(new_username: String, email: String, password: String) -> void:
 func logout() -> void:
 	AccountStorage.clear_session_token()
 	last_error = ""
+	should_reconnect = false
 	if _socket != null and _socket.get_ready_state() == WebSocketPeer.STATE_OPEN:
 		_send(Protocol.MSG_LOGOUT, {})
 	elif _socket != null:
@@ -587,6 +592,7 @@ func _handle_message(text: String) -> void:
 				AccountStorage.save_session_token(token)
 			body = Protocol.read_string(data, "body")
 			_apply_social_settings(Protocol.read_dict(data, "social"))
+			should_reconnect = false
 			authenticated.emit(username)
 			# Primeira entrada: escolher o corpo antes de entrar na zona ([INFRA-07]).
 			if body.is_empty():
@@ -687,6 +693,8 @@ func _handle_error(code: String, message: String) -> void:
 	if code in _AUTH_ERROR_CODES:
 		if code == Protocol.ERR_INVALID_SESSION:
 			AccountStorage.clear_session_token()
+		# Sessão recusada (expirou, conta mudou): não adianta insistir sozinho.
+		should_reconnect = false
 		auth_failed.emit(code, message)
 	else:
 		server_error.emit(code, message)
@@ -874,7 +882,11 @@ func _on_closed() -> void:
 		return
 	if code == Protocol.CLOSE_REPLACED:
 		last_error = "Sua conta entrou em outro aparelho."
-	elif last_error.is_empty() and code != 1000:
+		should_reconnect = false
+	elif code != 1000:
+		# Caiu sem pedir (servidor reiniciou, Wi-Fi): a tela de login reconecta sozinha.
+		should_reconnect = has_saved_session()
+	if code != Protocol.CLOSE_REPLACED and last_error.is_empty() and code != 1000:
 		var now: int = Time.get_ticks_msec()
 		last_error = "Conexão perdida (código %d). Último dado há %.1f s; pior quadro %d ms (há %.0f s)." % [
 			code, (now - _last_packet_ms) / 1000.0, _worst_frame_ms, (now - _worst_frame_at_ms) / 1000.0]

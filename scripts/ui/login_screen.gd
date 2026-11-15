@@ -24,6 +24,14 @@ const DEV_BODY_ARG: String = "--body="
 const DEV_USER_ARG: String = "--dev-user="
 const DEV_PASSWORD: String = "dev-password-123"
 
+## Reconexão automática depois de queda ([member Network.should_reconnect]): espera antes de cada tentativa (s),
+## dobrando de [constant RECONNECT_FIRST_SECONDS] até [constant RECONNECT_MAX_SECONDS]; tenta para sempre enquanto o app
+## está aberto (servidor reiniciando volta sozinho). Versão nova no servidor → o atualizador assume ([INFRA-08]).
+const RECONNECT_FIRST_SECONDS: float = 1.0
+const RECONNECT_MAX_SECONDS: float = 8.0
+var _reconnect_attempt: int = 0
+var _reconnect_timer: SceneTreeTimer = null
+
 @onready var _status_label: Label = %StatusLabel
 ## Carregando pixel art, visível só enquanto espera o servidor.
 @onready var _loader: PixelLoader = %Loader
@@ -75,8 +83,11 @@ func _ready() -> void:
 	_status_label.text = network.last_error
 	_show_form(false)
 
+	# Caiu sem pedir (servidor reiniciou, Wi-Fi piscou): reconecta sozinho com a sessão salva.
+	if network.should_reconnect and network.has_saved_session():
+		_schedule_reconnect()
 	# Sessão salva e não voltou por erro: entra direto.
-	if network.has_saved_session() and network.last_error.is_empty():
+	elif network.has_saved_session() and network.last_error.is_empty():
 		_set_busy("Entrando...")
 		network.resume_session()
 	elif not _dev_user.is_empty() and network.last_error.is_empty():
@@ -162,11 +173,35 @@ func _on_auth_failed(code: String, message: String) -> void:
 
 
 func _on_connection_failed(_code: int, _message: String) -> void:
+	if Network.instance.should_reconnect:
+		_schedule_reconnect()
+		return
 	_show_error(Network.instance.last_error)
 
 
 func _on_left_zone(_code: int, _reason: String) -> void:
+	if Network.instance.should_reconnect:
+		_schedule_reconnect()
+		return
 	_show_error(Network.instance.last_error)
+
+
+## Próxima tentativa de reconectar, depois de esperar (1 s, 2 s, 4 s, 8 s, 8 s...). Mostra "Reconectando..." com o
+## carregando; os formulários ficam escondidos.
+func _schedule_reconnect() -> void:
+	var wait: float = minf(RECONNECT_FIRST_SECONDS * pow(2.0, float(_reconnect_attempt)), RECONNECT_MAX_SECONDS)
+	_reconnect_attempt += 1
+	_set_busy("Conexão perdida — reconectando%s..." % ("" if _reconnect_attempt <= 1 else " (tentativa %d)" % _reconnect_attempt))
+	_reconnect_timer = get_tree().create_timer(wait)
+	_reconnect_timer.timeout.connect(_try_reconnect)
+
+
+func _try_reconnect() -> void:
+	var network: Network = Network.instance
+	if network == null or not network.should_reconnect or not network.has_saved_session():
+		_show_error(network.last_error if network != null else "")
+		return
+	network.resume_session()
 
 
 ## Mostra o formulário de cadastro ([param register] = true) ou o de entrar.
