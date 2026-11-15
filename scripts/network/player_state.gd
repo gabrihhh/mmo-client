@@ -12,6 +12,22 @@ const _HISTORY_SIZE: int = 40
 
 ## Ticks sem aparecer no snapshot a partir dos quais o histórico recomeça (voltou de longe: não desliza do lugar antigo).
 const _GAP_TICKS: int = 10
+## Extrapolação ([INFRA-12]): depois do último snapshot, segue andando na velocidade dos dois últimos por no máximo
+## isto (ticks; 4 = 200 ms) e então para. É o que faz os outros parecerem "na hora" (como nos MMOs): desenhados onde
+## devem estar agora, não onde estavam. Errou (o outro parou/virou)? A diferença vira [member _correction], que o
+## [RemotePlayer] some suavemente.
+const MAX_EXTRAPOLATION_TICKS: float = 4.0
+## Correção maior que isto (m) não é suavizada (teleporte, renasceu): pula direto.
+const MAX_SMOOTH_CORRECTION: float = 2.0
+
+## Diferença (m) entre onde o desenho estava (extrapolado) e onde ele fica com o snapshot novo, no mesmo instante;
+## acumula até o [RemotePlayer] pegar ([method take_correction]).
+var _correction: Vector3 = Vector3.ZERO
+## Estatística das correções de extrapolação de todos (m): soma, maior e quantas (o resumo "Perf:" lê e zera,
+## [method take_correction_stats]).
+static var _stat_sum: float = 0.0
+static var _stat_max: float = 0.0
+static var _stat_count: int = 0
 
 ## Está na área de interesse (veio no último snapshot; o servidor só manda quem está perto, [INFRA-04]). Fora dela o
 ## nó fica escondido e congelado ([RemotePlayer]) e não serve de alvo.
@@ -130,7 +146,9 @@ func set_look(data: Dictionary, levels: Dictionary = {}) -> void:
 ## Registra o estado do tick [param at_tick]. Snapshot por diferença ([INFRA-11]): só os campos que vieram mudam;
 ## os outros ficam como estavam ([code]{}[/code] = "igual ao último", e o tick entra no histórico mesmo assim, para a
 ## interpolação não ver um buraco). Ticks repetidos ou antigos atualizam só o "último estado", sem entrar no histórico.
-func apply_snapshot(data: Dictionary, at_tick: int) -> void:
+func apply_snapshot(data: Dictionary, at_tick: int, render_tick: float = -1.0) -> void:
+	# Onde o desenho estava neste instante, antes do snapshot novo (para manter o movimento contínuo, sem tranco).
+	var shown_before: Vector3 = sample_position(render_tick) if render_tick >= 0.0 and not _ticks.is_empty() else Vector3.ZERO
 	x = Protocol.read_float(data, "x", x)
 	y = Protocol.read_float(data, "y", y)
 	z = Protocol.read_float(data, "z", z)
@@ -153,6 +171,7 @@ func apply_snapshot(data: Dictionary, at_tick: int) -> void:
 		_rotations.clear()
 	if not _ticks.is_empty() and at_tick <= _ticks[-1]:
 		return
+	var was_extrapolating: bool = render_tick >= 0.0 and not _ticks.is_empty() and render_tick > float(_ticks[-1])
 	_ticks.append(at_tick)
 	_positions.append(position)
 	_rotations.append(rot_y)
@@ -160,6 +179,31 @@ func apply_snapshot(data: Dictionary, at_tick: int) -> void:
 		_ticks.pop_front()
 		_positions.pop_front()
 		_rotations.pop_front()
+	# Só muda o que está na tela se o desenho estava ADIANTE do último snapshot (extrapolando): aí a diferença entre
+	# o palpite e o certo vira correção suave em vez de tranco.
+	if was_extrapolating:
+		var difference: Vector3 = shown_before - sample_position(render_tick)
+		_correction = _correction + difference if difference.length() < MAX_SMOOTH_CORRECTION else Vector3.ZERO
+		if difference.length() > 0.005:
+			_stat_sum += difference.length()
+			_stat_max = maxf(_stat_max, difference.length())
+			_stat_count += 1
+
+
+## Correções de extrapolação desde a última chamada: Vector3(média m, maior m, quantas); zera.
+static func take_correction_stats() -> Vector3:
+	var result: Vector3 = Vector3(_stat_sum / float(_stat_count) if _stat_count > 0 else 0.0, _stat_max, float(_stat_count))
+	_stat_sum = 0.0
+	_stat_max = 0.0
+	_stat_count = 0
+	return result
+
+
+## Pega (e zera) a correção acumulada ([member _correction]); o [RemotePlayer] soma ao desenho e faz sumir aos poucos.
+func take_correction() -> Vector3:
+	var value: Vector3 = _correction
+	_correction = Vector3.ZERO
+	return value
 
 
 ## Texto acima da cabeça de um jogador ([CLI-04]): "[nível] nome".
@@ -187,15 +231,29 @@ func mana_ratio() -> float:
 	return clampf(mana / max_mana, 0.0, 1.0) if max_mana > 0.0 else 0.0
 
 
-## Posição interpolada no tick (fracionário) [param render_tick]. Antes do histórico, devolve o
-## primeiro; depois do último, segura o último (não extrapola: evita "adivinhar" errado).
+## Posição no tick (fracionário) [param render_tick]: entre dois snapshots, interpola; antes do histórico, o primeiro;
+## depois do último, **extrapola** na velocidade dos dois últimos por até [constant MAX_EXTRAPOLATION_TICKS] ([INFRA-12]).
 func sample_position(render_tick: float) -> Vector3:
 	var index: int = _segment(render_tick)
 	if index < 0:
 		return _positions[0] if not _positions.is_empty() else position
 	if index >= _ticks.size() - 1:
-		return _positions[-1]
+		return _extrapolate(render_tick)
 	return _positions[index].lerp(_positions[index + 1], _weight(index, render_tick))
+
+
+## Depois do último snapshot: o último + velocidade (dos dois últimos, se forem seguidos) × o tempo passado (até
+## [constant MAX_EXTRAPOLATION_TICKS]). Sem dois seguidos (acabou de aparecer, buraco), segura o último.
+func _extrapolate(render_tick: float) -> Vector3:
+	var last: Vector3 = _positions[-1]
+	if _ticks.size() < 2:
+		return last
+	var span: int = _ticks[-1] - _ticks[-2]
+	if span <= 0 or span > 2:
+		return last
+	var velocity: Vector3 = (last - _positions[-2]) / float(span)
+	var ahead: float = clampf(render_tick - float(_ticks[-1]), 0.0, MAX_EXTRAPOLATION_TICKS)
+	return last + velocity * ahead
 
 
 ## Rotação Y interpolada no tick [param render_tick] (mesmas regras de [method sample_position]).

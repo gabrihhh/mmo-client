@@ -63,18 +63,17 @@ signal friend_notice(code: String, message: String)
 ## [constant Protocol.SOCIAL_ALWAYS] / [constant Protocol.SOCIAL_HIDE].
 signal social_settings_changed(friend_requests: String, group_invites: String)
 
-## Margem de interpolação ([INFRA-12]): os outros (jogadores, monstros) são desenhados este número de ticks no
-## passado, para sempre haver dois snapshots reais para interpolar. É ADAPTATIVA: 1 tick + o atraso que 95% dos
-## snapshots tiveram nos últimos [constant _JITTER_WINDOW] (variação da rede) + [constant _JITTER_MARGIN_TICKS], entre
-## estes limites. Rede boa = menos atraso (mínimo 75 ms); Wi-Fi instável = mais folga (os outros não param e pulam).
-const MIN_INTERPOLATION_TICKS: float = 1.5
-const MAX_INTERPOLATION_TICKS: float = 8.0
-## Começo (antes de medir a rede): 2 ticks = 100 ms, o valor fixo de antes.
-const START_INTERPOLATION_TICKS: float = 2.0
+## Margem de desenho ([INFRA-12]): os outros (jogadores, monstros) são desenhados este número de ticks antes do tick
+## atual estimado do servidor. Pequena porque passou do último snapshot o desenho **extrapola** (PlayerState): a
+## margem só cobre METADE da variação da rede (o resto a extrapolação cobre, com correção suave). ADAPTATIVA:
+## [constant MIN_INTERPOLATION_TICKS] + metade do atraso que 95% dos snapshots tiveram nos últimos
+## [constant _JITTER_WINDOW], entre estes limites. Antes (só interpolação) era 1,5–8 ticks (75–400 ms).
+const MIN_INTERPOLATION_TICKS: float = 0.5
+const MAX_INTERPOLATION_TICKS: float = 3.0
+## Começo (antes de medir a rede).
+const START_INTERPOLATION_TICKS: float = 1.0
 ## Quantos snapshots recentes entram na medida da variação da rede (60 = 3 s a 20 Hz).
 const _JITTER_WINDOW: int = 60
-## Folga somada à variação medida (ticks).
-const _JITTER_MARGIN_TICKS: float = 0.5
 ## Quão rápido a margem muda (ticks por segundo): devagar, para os outros não "acelerarem" de repente.
 const _DELAY_ADJUST_TICKS_PER_SECOND: float = 0.5
 ## A cada quantos segundos o resumo de desempenho vai para o log (adb logcat, [INFRA-12]).
@@ -533,8 +532,10 @@ func _process(delta: float) -> void:
 	if _perf_log_left <= 0.0:
 		_perf_log_left = _PERF_LOG_SECONDS
 		if _in_zone:
-			print("Perf: ping %d ms (pior %d) · variação da rede %d ms · margem %d ms · pior quadro %d ms" % [
-				int(ping_ms), int(worst_ping_ms), int(jitter_ms), int(interpolation_delay_ticks * 1000.0 / tick_rate), worst_frame_window_ms])
+			var corrections: Vector3 = PlayerState.take_correction_stats()
+			print("Perf: ping %d ms (pior %d) · variação da rede %d ms · margem %d ms · pior quadro %d ms · correção dos outros %d× média %d cm (maior %d)" % [
+				int(ping_ms), int(worst_ping_ms), int(jitter_ms), int(interpolation_delay_ticks * 1000.0 / tick_rate), worst_frame_window_ms,
+				int(corrections.z), int(corrections.x * 100.0), int(corrections.y * 100.0)])
 		worst_ping_ms = 0.0
 		worst_frame_window_ms = 0
 	var frame_ms: int = int(delta * 1000.0)
@@ -732,11 +733,13 @@ func _apply_snapshot(data: Dictionary) -> void:
 				var who: PlayerState = get_entity(id_value)
 				if who != null and who.id != player_id:
 					who.in_view = false
+	# Instante que está sendo desenhado agora (para a correção suave da extrapolação, PlayerState.apply_snapshot).
+	var render_now: float = render_tick()
 	var touched: Dictionary[String, bool] = {}
 	for entry: Dictionary in Protocol.read_dict_array(data, "players"):
 		var id: String = Protocol.read_string(entry, "id")
 		if _players.has(id):
-			_players[id].apply_snapshot(entry, server_tick)
+			_players[id].apply_snapshot(entry, server_tick, render_now)
 			_players[id].in_view = true
 			touched[id] = true
 			# Membro do grupo voltou para perto: vale o snapshot, não a posição de longe (velha).
@@ -744,16 +747,16 @@ func _apply_snapshot(data: Dictionary) -> void:
 	for entry: Dictionary in Protocol.read_dict_array(data, "npcs"):
 		var npc_id: String = Protocol.read_string(entry, "id")
 		if _npcs.has(npc_id):
-			_npcs[npc_id].apply_snapshot(entry, server_tick)
+			_npcs[npc_id].apply_snapshot(entry, server_tick, render_now)
 			_npcs[npc_id].in_view = true
 			touched[npc_id] = true
 	var unchanged: Dictionary = {}
 	for state: PlayerState in _players.values():
 		if state.in_view and not touched.has(state.id):
-			state.apply_snapshot(unchanged, server_tick)
+			state.apply_snapshot(unchanged, server_tick, render_now)
 	for state: PlayerState in _npcs.values():
 		if state.in_view and not touched.has(state.id):
-			state.apply_snapshot(unchanged, server_tick)
+			state.apply_snapshot(unchanged, server_tick, render_now)
 	var me: Dictionary = Protocol.read_dict(data, "me")
 	mana = Protocol.read_float(me, "mana", mana)
 	max_mana = Protocol.read_float(me, "maxMana", max_mana)
@@ -798,7 +801,7 @@ func _measure_arrival(server_tick: int) -> void:
 	lateness.sort()
 	var p95: float = lateness[mini(lateness.size() - 1, int(float(lateness.size()) * 0.95))]
 	jitter_ms = p95 * 1000.0 / tick_rate
-	_target_delay_ticks = clampf(1.0 + p95 + _JITTER_MARGIN_TICKS, MIN_INTERPOLATION_TICKS, MAX_INTERPOLATION_TICKS)
+	_target_delay_ticks = clampf(MIN_INTERPOLATION_TICKS + p95 * 0.5, MIN_INTERPOLATION_TICKS, MAX_INTERPOLATION_TICKS)
 
 
 ## Ping: o snapshot confirma (ack) os passos até [param ack]; o tempo desde que o último deles saiu é o ping.

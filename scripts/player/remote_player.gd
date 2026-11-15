@@ -43,6 +43,11 @@ var _death: DeathFall = DeathFall.new()
 var _wobble: float = 0.0
 var _wobble_time: float = 0.0
 
+## Deslocamento de correção da extrapolação ([PlayerState.take_correction]) que está sumindo, e a velocidade com que
+## some (1/s; 25 ≈ some 90% em 0,1 s).
+var _correction: Vector3 = Vector3.ZERO
+const CORRECTION_DECAY: float = 25.0
+
 ## Cor da camisa dos outros jogadores (a sua é azul).
 const SHIRT_COLOR: Color = Color(0.9, 0.3, 0.25)
 ## Cor da camisa dos monstros (zumbi: verde apagado), para não confundir com jogadores sem nome.
@@ -107,7 +112,10 @@ func _process(delta: float) -> void:
 	if not _sync_view():
 		return
 	var render_tick: float = Network.instance.render_tick()
-	position = _state.sample_position(render_tick)
+	# Extrapolação ([INFRA-12]): o palpite errado (parou/virou) vira um deslocamento que some em ~0,1 s, sem tranco.
+	_correction += _state.take_correction()
+	_correction *= exp(-CORRECTION_DECAY * delta)
+	position = _state.sample_position(render_tick) + _correction
 	# Altura do chão (só visual, [MUN-03]), suavizada nos degraus.
 	_ground_y = lerpf(_ground_y, ZoneTerrain.height_at(position.x, position.z), 1.0 - exp(-18.0 * delta))
 	position.y += _ground_y
@@ -231,6 +239,8 @@ func _sync_view() -> bool:
 	if model != null:
 		model.process_mode = Node.PROCESS_MODE_INHERIT if visible else Node.PROCESS_MODE_DISABLED
 	if visible:
+		_correction = Vector3.ZERO
+		_state.take_correction()
 		_ground_y = ZoneTerrain.height_at(_state.x, _state.z)
 		position = _state.position + Vector3.UP * _ground_y
 		_last_position = position
