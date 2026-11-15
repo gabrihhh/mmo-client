@@ -29,6 +29,19 @@ class Item:
 	## Ataque simples (só armas); null nos outros.
 	var basic_attack: AbilityView = null
 	var abilities: Array[AbilityView] = []
+	## Nível de melhoria no ferreiro ([JOGO-16]): 0 = +0, sem teto.
+	var level: int = 0
+	## Pontos de cada atributo ganhos no ferreiro (id de [ItemAttributes] → pontos; só os que têm).
+	var attrs: Dictionary[String, int] = {}
+	## Atributos que o ferreiro aceita para este item, na ordem da tela.
+	var upgrade_attributes: Array[String] = []
+	## Preço (moedas) e chance (0 a 1) da próxima melhoria, prontos do servidor.
+	var upgrade_cost: int = 0
+	var upgrade_chance: float = 1.0
+
+	## Nome com o nível: "Espada Longa +3" (+0 = só o nome).
+	func display_name() -> String:
+		return name if level <= 0 else "%s +%d" % [name, level]
 
 	static func from_dict(data: Dictionary) -> Item:
 		var item: Item = Item.new()
@@ -49,6 +62,19 @@ class Item:
 			item.basic_attack = AbilityView.from_dict(attack, item.slot)
 		for ability: Dictionary in Protocol.read_dict_array(data, "abilities"):
 			item.abilities.append(AbilityView.from_dict(ability, item.slot))
+		item.level = Protocol.read_int(data, "level")
+		var attrs: Dictionary = Protocol.read_dict(data, "attrs")
+		for id: String in ItemAttributes.IDS:
+			var points: int = Protocol.read_int(attrs, id)
+			if points > 0:
+				item.attrs[id] = points
+		var allowed: Variant = data.get("upgradeAttributes")
+		if allowed is Array:
+			for id: Variant in allowed as Array:
+				if id is String:
+					item.upgrade_attributes.append(id as String)
+		item.upgrade_cost = Protocol.read_int(data, "upgradeCost")
+		item.upgrade_chance = Protocol.read_float(data, "upgradeChance", 1.0)
 		return item
 
 

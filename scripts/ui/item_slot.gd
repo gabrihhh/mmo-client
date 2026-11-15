@@ -36,6 +36,8 @@ const EMPTY_BORDER: Color = Color(0.45, 0.36, 0.26, 0.55)
 ## Moldura de alvo ao arrastar: pode soltar / não pode.
 const DROP_OK: Color = Color(0.45, 0.95, 0.45)
 const DROP_NO: Color = Color(0.95, 0.35, 0.3)
+## Cor do "+N" (nível de melhoria, [JOGO-16]).
+const LEVEL_COLOR: Color = Color(1.0, 0.84, 0.3)
 ## Transparência do item enquanto está sendo arrastado (fica o "buraco" de onde saiu).
 const DRAGGING_ALPHA: float = 0.25
 
@@ -173,3 +175,12 @@ func _draw() -> void:
 	else:
 		draw_string(get_theme_default_font(), inner.position + Vector2(0, inner.size.y / 2.0), item.name,
 			HORIZONTAL_ALIGNMENT_CENTER, inner.size.x, 16, Color.WHITE)
+	# Nível de melhoria ([JOGO-16]): "+3" dourado com contorno no canto de cima à direita.
+	if item.level > 0:
+		var font: Font = get_theme_default_font()
+		var font_size: int = int(clampf(size.x * 0.2, 16.0, 30.0))
+		var text: String = "+%d" % item.level
+		var width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+		var at: Vector2 = Vector2(size.x - width - BORDER_PX - 4.0, BORDER_PX + font_size * 0.95)
+		draw_string_outline(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, 6, Color8(24, 16, 12))
+		draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, LEVEL_COLOR)

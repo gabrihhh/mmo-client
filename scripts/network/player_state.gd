@@ -58,6 +58,9 @@ var targetable: bool = true
 var level: int = 0
 ## Monstro (zumbi, [JOGO-13]): acima dele só vida, nível e barra de lançamento (sem nome). ATENÇÃO: NpcSnapshot.monster.
 var monster: bool = false
+## Serviço do NPC ([JOGO-16]): "blacksmith" = ferreiro (perto dele aparece o botão Ferreiro); vazio = nenhum.
+## ATENÇÃO: NpcSnapshot.service.
+var service: String = ""
 
 ## A aparência mudou ([member look]): o boneco troca os modelos dos itens.
 signal look_changed
@@ -91,6 +94,7 @@ static func from_snapshot(data: Dictionary, at_tick: int) -> PlayerState:
 	state.targetable = not (targetable_value is bool and targetable_value == false)
 	var monster_value: Variant = data.get("monster")
 	state.monster = monster_value is bool and monster_value == true
+	state.service = Protocol.read_string(data, "service")
 	state.apply_snapshot(data, at_tick)
 	return state
 

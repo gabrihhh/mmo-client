@@ -14,7 +14,9 @@ extends RefCounted
 ## v18: [code]tauntSeconds[/code] no AbilityView do inventário (Desafio do cavaleiro provoca os monstros, [JOGO-14]).
 ## v19: [constant MSG_BAG_MOVE], [code]index[/code] no [constant MSG_UNEQUIP] (arrastar no Inventário, [CLI-10]) e
 ## [code]gold[/code] no [code]me[/code] do snapshot (moedas, [JOGO-15]).
-const VERSION: int = 19
+## v20: ferreiro ([JOGO-16]): [constant MSG_UPGRADE] / [constant MSG_UPGRADE_RESULT], nível e atributos no ItemView,
+## [code]service[/code] no NpcSnapshot e [code]crit[/code] no evento de dano.
+const VERSION: int = 20
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
@@ -47,6 +49,9 @@ const MSG_UNEQUIP: String = "unequip"
 ## Organiza a mochila: troca o item da vaga [code]from[/code] com o da vaga [code]to[/code] (vaga livre = vai para o
 ## fim). data: { from: int, to: int }. Ver mmo-docs [JOGO-04], [CLI-10].
 const MSG_BAG_MOVE: String = "bag_move"
+## Tenta melhorar um item no ferreiro (perto dele, com moedas). data: { uid, attribute: id de [ItemAttributes] }.
+## Resposta: [constant MSG_UPGRADE_RESULT] (+ inventário se subiu) ou erro (not_enough_gold, too_far...). [JOGO-16]
+const MSG_UPGRADE: String = "upgrade"
 ## Fixa (ou limpa, com null) o alvo do ataque simples; o servidor bate sozinho quando em alcance.
 ## data: { targetId: String ou null }. Ver mmo-docs [JOGO-05].
 const MSG_ATTACK: String = "attack"
@@ -109,6 +114,9 @@ const MSG_SNAPSHOT: String = "snapshot"
 ## Inventário completo. data: { equipped: { hand, head, chest, feet: ItemView ou null }, bag: Array[ItemView],
 ## bagCapacity, unarmedAttack: AbilityView }. ItemView = { uid, itemId, name, slot, basicAttack, abilities }.
 const MSG_INVENTORY: String = "inventory"
+## Resultado da melhoria no ferreiro. data: { uid, success, cost, attribute, level, points }. ATENÇÃO:
+## UpgradeResultData em mmo-server/src/net/protocol.ts. [JOGO-16]
+const MSG_UPGRADE_RESULT: String = "upgrade_result"
 ## Atributos de um jogador (resposta ao [constant MSG_INSPECT]). data: { id, name, level, maxHp, maxMana,
 ## power: { damage, healing, shield } (multiplicadores pelo nível, 1 = nível 0), equipped: { hand, head, chest, feet:
 ## { itemId, name, set } ou null } }. ATENÇÃO: AttributesView em mmo-server/src/net/protocol.ts; lido por

@@ -32,6 +32,8 @@ signal play_area_changed
 signal unequip_requested(slot: String, index: int)
 ## Arrastou um item da mochila da vaga [param from] para a [param to] ([CLI-10]).
 signal bag_move_requested(from: int, to: int)
+## Ferreiro ([JOGO-16]): apertou "Melhorar" no item [param uid] com o atributo [param attribute].
+signal upgrade_requested(uid: String, attribute: String)
 ## Pediu os Atributos do jogador [param player_id] ([SOC-02]); a resposta volta por [method show_attributes].
 signal inspect_requested(player_id: String)
 ## Convidar [param player_id] para o grupo ([SOC-03]).
@@ -127,6 +129,9 @@ var _actions_origin: PanelContainer = null
 var _menu_base_height: float = 0.0
 ## Amizade ([SOC-04]): painel do Menu → Amigos, o botão "Amigos" do Menu e a lista atual (vinda da [Zone]).
 var _friends_panel: FriendsPanel = null
+## Ferreiro ([JOGO-16]): tela de melhoria e o botão que aparece perto dele.
+var _blacksmith_panel: BlacksmithPanel = null
+var _blacksmith_button: Button = null
 var _friends_button: Button = null
 var _friends: FriendList = FriendList.new()
 ## Configuração social ([SOC-04]): opção atual de cada linha ("friendRequests"/"groupInvites" → SOCIAL_*) e os
@@ -210,6 +215,7 @@ func set_abilities(abilities: Array[AbilityView]) -> void:
 func set_inventory(inventory: InventoryState) -> void:
 	_inventory = inventory
 	_inventory_view.show_inventory(inventory)
+	_blacksmith_panel.show_inventory(inventory)
 	# A ficha aberta mostrava o inventário antigo: volta para a tela do inventário.
 	if _item_detail.visible:
 		_open_panel(_inventory_panel)
@@ -218,6 +224,7 @@ func set_inventory(inventory: InventoryState) -> void:
 ## Moedas do personagem ([JOGO-15]), mostradas no Inventário.
 func set_gold(amount: int) -> void:
 	_inventory_view.set_gold(amount)
+	_blacksmith_panel.set_gold(amount)
 
 
 ## Abre a ficha de [param item] ([param equipped] = está vestido).
@@ -289,6 +296,8 @@ func show_toast(text: String) -> void:
 	# Com o Inventário aberto o aviso do topo fica atrás dele: aparece na linha de aviso do inventário.
 	if _inventory_panel.visible:
 		_inventory_view.show_notice(text)
+	if _blacksmith_panel.visible:
+		_blacksmith_panel.show_notice(text)
 	_toast.text = text
 	_toast.modulate.a = 1.0
 	_toast_left = _TOAST_SECONDS
@@ -355,6 +364,47 @@ func _build_social_panels() -> void:
 	_build_group_ui()
 	_build_friends_ui()
 	_build_social_settings()
+	_build_blacksmith_ui()
+
+
+## Ferreiro ([JOGO-16]): botão "Ferreiro" acima da moldura dos controles (só aparece perto dele,
+## [method set_blacksmith_near]) e a tela de melhoria em tela inteira.
+func _build_blacksmith_ui() -> void:
+	var root: Control = $Root
+	_blacksmith_panel = BlacksmithPanel.new()
+	root.add_child(_blacksmith_panel)
+	_blacksmith_panel.close_pressed.connect(_open_panel.bind(null))
+	_blacksmith_panel.upgrade_requested.connect(upgrade_requested.emit)
+	_blacksmith_button = PixelMenuPanel.make_button("⚒ Ferreiro")
+	_blacksmith_button.custom_minimum_size = Vector2(260.0, 84.0)
+	_blacksmith_button.visible = false
+	_blacksmith_button.pressed.connect(_open_panel.bind(_blacksmith_panel))
+	# Antes do fundo escurecido do Menu (fica atrás dos painéis).
+	root.add_child(_blacksmith_button)
+	root.move_child(_blacksmith_button, _menu_dimmer.get_index())
+	_controls_frame.resized.connect(_place_blacksmith_button)
+	_place_blacksmith_button()
+
+
+func _place_blacksmith_button() -> void:
+	var view: Vector2 = ($Root as Control).size
+	_blacksmith_button.size = _blacksmith_button.custom_minimum_size
+	_blacksmith_button.position = Vector2((view.x - _blacksmith_button.size.x) / 2.0, _controls_frame.position.y - _blacksmith_button.size.y - 16.0)
+
+
+## Perto (ou longe) de um ferreiro vivo ([JOGO-16]): mostra/esconde o botão "Ferreiro"; longe, fecha a tela dele.
+func set_blacksmith_near(near: bool) -> void:
+	if _blacksmith_button.visible != near:
+		_blacksmith_button.visible = near
+		_place_blacksmith_button()
+	if not near and _blacksmith_panel.visible:
+		_open_panel(null)
+		show_toast("Você se afastou do ferreiro")
+
+
+## Resultado de uma tentativa no ferreiro ([signal Network.upgrade_result]).
+func show_upgrade_result(uid: String, success: bool, cost: int, attribute: String, level: int, points: int) -> void:
+	_blacksmith_panel.show_result(uid, success, cost, attribute, level, points)
 
 
 ## Grupo ([SOC-03]): painel do Menu → Grupo, botão "Grupo" no Menu (cópia do de Jogadores Próximos, logo depois dele;
@@ -595,7 +645,7 @@ func _on_player_option(option_id: String) -> void:
 
 ## Todos os painéis do menu (um aberto por vez).
 func _all_panels() -> Array[PanelContainer]:
-	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel]
+	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel, _blacksmith_panel]
 
 
 ## Abre [param panel] e fecha os outros; null fecha tudo. Com menu aberto, os controles do jogo param.

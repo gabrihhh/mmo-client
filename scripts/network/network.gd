@@ -36,6 +36,9 @@ signal left_zone(code: int, reason: String)
 signal snapshot_received(tick: int, ack: int)
 ## O inventário mudou (chegou o primeiro após o login, ou uma troca foi aceita). Ver [member inventory].
 signal inventory_changed(inventory: InventoryState)
+## Resultado de uma tentativa de melhoria no ferreiro ([JOGO-16]): [param success] = subiu para [param level];
+## pagou [param cost] moedas; o atributo ganhou [param points] (0 se falhou).
+signal upgrade_result(uid: String, success: bool, cost: int, attribute: String, level: int, points: int)
 ## Um boneco/monstro está na zona (vem no welcome). [param state] é atualizado ao vivo.
 signal npc_added(npc_id: String, state: PlayerState)
 ## Evento de combate do tick (dano, morte, renascimento). Ver [constant Protocol.MSG_SNAPSHOT].
@@ -437,6 +440,13 @@ func send_unequip(slot: String, index: int = -1) -> void:
 	_send(Protocol.MSG_UNEQUIP, data)
 
 
+## Tenta melhorar o item [param uid] no ferreiro escolhendo o atributo [param attribute] ([JOGO-16]). A resposta vem em
+## [signal upgrade_result] (ou erro).
+func send_upgrade(uid: String, attribute: String) -> void:
+	if _authenticated:
+		_send(Protocol.MSG_UPGRADE, {"uid": uid, "attribute": attribute})
+
+
 ## Pede para trocar de lugar os itens das vagas [param from] e [param to] da mochila (vaga livre = leva para o fim).
 func send_bag_move(from: int, to: int) -> void:
 	if _authenticated:
@@ -562,6 +572,11 @@ func _handle_message(text: String) -> void:
 		Protocol.MSG_INVENTORY:
 			inventory = InventoryState.from_dict(data)
 			inventory_changed.emit(inventory)
+		Protocol.MSG_UPGRADE_RESULT:
+			var success_value: Variant = data.get("success")
+			upgrade_result.emit(Protocol.read_string(data, "uid"), success_value is bool and success_value == true,
+				Protocol.read_int(data, "cost"), Protocol.read_string(data, "attribute"), Protocol.read_int(data, "level"),
+				Protocol.read_int(data, "points"))
 		Protocol.MSG_ATTRIBUTES:
 			var attributes: PlayerAttributes = PlayerAttributes.from_dict(data)
 			if attributes != null:

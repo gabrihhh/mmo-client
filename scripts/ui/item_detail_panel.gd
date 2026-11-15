@@ -3,7 +3,8 @@ extends PanelContainer
 ## Ficha de um item ([CLI-10]): abre ao tocar num item do inventário. Mostra o ícone, nome, conjunto, slot e a
 ## descrição; depois o ataque simples (armas) e cada habilidade com a imagem dela e os números: dano, cura,
 ## escudo e quanto dura, alcance, raio, tempo de lançamento, recarga e mana ([method AbilityView.stats]).
-## Embaixo: "Vestir" (item da mochila) ou "Tirar" (item vestido) e "Voltar".
+## Embaixo: "Vestir" (item da mochila) ou "Tirar" (item vestido) e "Voltar". Item melhorado ([JOGO-16]): nome com "+N"
+## e uma etiqueta por atributo com os pontos e o efeito (valem para o personagem enquanto o item está vestido).
 ##
 ## Montada em código a cada [method show_item]; os números vêm do servidor (só exibição, [JOGO-04]).
 
@@ -95,7 +96,7 @@ func _header(item: InventoryState.Item) -> Control:
 	var texts: VBoxContainer = VBoxContainer.new()
 	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	texts.alignment = BoxContainer.ALIGNMENT_CENTER
-	texts.add_child(_label(item.name, 34, Color.WHITE))
+	texts.add_child(_label(item.display_name(), 34, Color.WHITE))
 	texts.add_child(_label("%s · %s" % [item.set_name, AbilityView.SLOT_LABELS.get(item.slot, item.slot)], 22, ItemIcons.set_color(item.set_name).lightened(0.25)))
 	texts.add_child(_label(item.description, 19, Color(1, 1, 1, 0.75)))
 	# Perfil do conjunto (baixo/médio/alto) e vida extra da peça ([JOGO-09]).
@@ -108,6 +109,10 @@ func _header(item: InventoryState.Item) -> Control:
 			chips.add_child(_chip("%s: %s" % [PROFILE_LABELS[key], TIER_LABELS.get(tier, tier)], TIER_COLORS.get(tier, STAT_COLORS[AbilityView.StatKind.OTHER])))
 	if item.bonus_hp > 0.0:
 		chips.add_child(_chip("+%s de vida" % AbilityView.number(item.bonus_hp), STAT_COLORS[AbilityView.StatKind.HEAL]))
+	# Atributos de melhoria do ferreiro ([JOGO-16]): "Dano 5 · +5% de dano".
+	for id: String in ItemAttributes.IDS:
+		if item.attrs.has(id):
+			chips.add_child(_chip("%s %d · %s" % [ItemAttributes.title(id), item.attrs[id], ItemAttributes.effect_text(id, item.attrs[id])], ItemAttributes.COLORS[id]))
 	if chips.get_child_count() > 0:
 		texts.add_child(chips)
 	row.add_child(texts)

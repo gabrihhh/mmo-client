@@ -55,6 +55,9 @@ func _ready() -> void:
 	_hud.equip_requested.connect(Network.instance.send_equip)
 	_hud.unequip_requested.connect(Network.instance.send_unequip)
 	_hud.bag_move_requested.connect(Network.instance.send_bag_move)
+	# Ferreiro ([JOGO-16]): melhorar vai ao servidor; o resultado volta para a tela dele.
+	_hud.upgrade_requested.connect(Network.instance.send_upgrade)
+	Network.instance.upgrade_result.connect(_hud.show_upgrade_result)
 	# Atributos de outro jogador (Menu → Jogadores Próximos, [SOC-02]).
 	_hud.inspect_requested.connect(Network.instance.send_inspect)
 	Network.instance.attributes_received.connect(_hud.show_attributes)
@@ -212,7 +215,12 @@ func _on_combat_event(event: Dictionary) -> void:
 			var amount: int = roundi(Protocol.read_float(event, "amount"))
 			var absorbed: int = roundi(Protocol.read_float(event, "absorbed"))
 			if amount > 0:
-				FloatingText.spawn(self, above, "-%d" % amount, color)
+				# Crítico ([JOGO-16]): laranja com "!".
+				var crit_value: Variant = event.get("crit")
+				if crit_value is bool and crit_value == true:
+					FloatingText.spawn(self, above + Vector3.UP * 0.2, "-%d!" % amount, Color(1.0, 0.55, 0.1))
+				else:
+					FloatingText.spawn(self, above, "-%d" % amount, color)
 			# Parte do golpe que o escudo segurou, em azul claro.
 			if absorbed > 0:
 				FloatingText.spawn(self, above + Vector3.UP * 0.4, "-%d escudo" % absorbed, Color(0.55, 0.8, 1.0))
@@ -392,11 +400,25 @@ func _on_snapshot(_tick: int, _ack: int) -> void:
 			"+%d moedas" % (network.gold - _last_gold), Color(1.0, 0.82, 0.25))
 	_last_gold = network.gold
 	_hud.set_gold(network.gold)
+	_hud.set_blacksmith_near(not own.dead and _near_blacksmith(network, own))
 	# Jogadores Próximos aberto: a lista acompanha quem chega, sai ou sobe de nível ([SOC-02]).
 	if _hud.is_nearby_open():
 		_hud.set_nearby_players(network.get_nearby_players())
 	if own.dead:
 		_hud.show_toast("Você morreu · renasce em %d s" % ceili(network.respawn_in))
+
+
+## Distância máxima (m) do ferreiro para o botão aparecer. ATENÇÃO: = BLACKSMITH_RANGE em mmo-server/src/zones/Zone.ts
+## (lá ainda soma o raio do corpo, 0,4 m: o botão aparece um pouco antes do limite do servidor, nunca depois).
+const _BLACKSMITH_RANGE: float = 4.0
+
+
+## Há um ferreiro ([member PlayerState.service]) a até [constant _BLACKSMITH_RANGE] m de [param own]?
+static func _near_blacksmith(network: Network, own: PlayerState) -> bool:
+	for npc: PlayerState in network.get_npcs():
+		if npc.service == "blacksmith" and Vector2(npc.x - own.x, npc.z - own.z).length() <= _BLACKSMITH_RANGE:
+			return true
+	return false
 
 
 ## XP com no máximo 1 casa, sem ",0" ("20", "20.2").
