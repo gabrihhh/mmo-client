@@ -46,10 +46,12 @@ const BODIES: Array[String] = [Protocol.BODY_MALE, Protocol.BODY_FEMALE]
 static var _path_cache: Dictionary[String, String] = {}
 
 ## Como a mão segura (giro em X, graus, a partir do osso da mão). Os modelos de segurar têm o comprimento em +Y:
-## 90 = "lâmina para a frente" (espada: com o braço caído aponta para a frente); 0 = em pé (cajado).
+## 90 = "lâmina para a frente" (espada: com o braço caído aponta para a frente); 0 = em pé (cajado);
+## −90 = **pegada invertida** (a ponta sai por trás da mão, ao longo do antebraço: as adagas do assassino, 2026-11-14).
 const _GRIP_PITCH: Dictionary[String, float] = {
 	"training_staff": 0.0,
 	"arcane_staff": 0.0,
+	"assassin_daggers": -90.0,
 }
 ## Pegada padrão (armas de lâmina).
 const DEFAULT_GRIP_PITCH: float = 90.0

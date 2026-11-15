@@ -22,6 +22,8 @@ var _local_player: LocalPlayer = null
 var _remote_players: Dictionary[String, RemotePlayer] = {}
 ## Bonecos/monstros da zona (usam o mesmo script de desenho dos jogadores remotos).
 var _npcs: Dictionary[String, RemotePlayer] = {}
+## NPCs de serviço desenhados como cena fixa (o Ferreiro, [JOGO-16]), por id.
+var _stations: Dictionary[String, BlacksmithStation] = {}
 var _aim_preview: AimPreview = null
 var _combat: CombatController = null
 ## Projéteis do servidor na tela, por id do evento "projectile" ([JOGO-08]).
@@ -170,7 +172,14 @@ func _on_player_removed(player_id: String) -> void:
 
 
 func _spawn_npc(state: PlayerState) -> void:
-	if _npcs.has(state.id):
+	if _npcs.has(state.id) or _stations.has(state.id):
+		return
+	# Ferreiro ([JOGO-16]): a cena fixa (ferreiro + fornalha + bigorna) no lugar do NPC; não é alvo nem anda.
+	if state.service == "blacksmith":
+		var station: BlacksmithStation = BlacksmithStation.new()
+		station.setup(state)
+		_players_root.add_child(station)
+		_stations[state.id] = station
 		return
 	# NPC humano ([JOGO-11]): personagem vestido, como um jogador; os outros: boneco de palha.
 	var scene: PackedScene = REMOTE_PLAYER_SCENE if state.has_body else DUMMY_SCENE

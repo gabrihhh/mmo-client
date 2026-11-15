@@ -2,21 +2,21 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://doba70iwv75dw"
-path.s3tc="res://.godot/imported/chest-assassin_0.jpg-722fb029b063724c8479656e5d48b669.s3tc.ctex"
-path.etc2="res://.godot/imported/chest-assassin_0.jpg-722fb029b063724c8479656e5d48b669.etc2.ctex"
+uid="uid://buc6f8lutoa7x"
+path.s3tc="res://.godot/imported/chest-assassin_chest-assassin_chest-assassin_chest-assassin_0.png-dfd9de560cf1a8e31435008bd44dbe3d.s3tc.ctex"
+path.etc2="res://.godot/imported/chest-assassin_chest-assassin_chest-assassin_chest-assassin_0.png-dfd9de560cf1a8e31435008bd44dbe3d.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "0fd131f314d61a0f2ad31e0024226403"
+"md5": "187db34d20c833022a7c0a07c8fdb1de"
 }
 
 [deps]
 
-source_file="res://assets/itens/chest/assassin/male/chest-assassin_0.jpg"
-dest_files=["res://.godot/imported/chest-assassin_0.jpg-722fb029b063724c8479656e5d48b669.s3tc.ctex", "res://.godot/imported/chest-assassin_0.jpg-722fb029b063724c8479656e5d48b669.etc2.ctex"]
+source_file="res://assets/itens/chest/assassin/female/chest-assassin_chest-assassin_chest-assassin_chest-assassin_0.png"
+dest_files=["res://.godot/imported/chest-assassin_chest-assassin_chest-assassin_chest-assassin_0.png-dfd9de560cf1a8e31435008bd44dbe3d.s3tc.ctex", "res://.godot/imported/chest-assassin_chest-assassin_chest-assassin_chest-assassin_0.png-dfd9de560cf1a8e31435008bd44dbe3d.etc2.ctex"]
 
 [params]
 

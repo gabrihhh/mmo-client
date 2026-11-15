@@ -1,0 +1,12 @@
+[gd_scene load_steps=2 format=3]
+
+; Ferreiro com a fornalha e a bigorna ([JOGO-16]), Meshy image→3D (meshy-t2.5, 3.095 triângulos, peça fixa: aparece
+; uma vez no mapa). O .glb vem com ~0,91 m de altura e origem no centro: escala 2,95 (o ferreiro fica com ~1,8 m e o
+; conjunto com ~2,7 m de altura) e origem na base (y = 0,455 × 2,95). Frente em +Z.
+
+[ext_resource type="PackedScene" path="res://assets/props/blacksmith/blacksmith.glb" id="1_glb"]
+
+[node name="Blacksmith" type="Node3D"]
+
+[node name="Model" parent="." instance=ExtResource("1_glb")]
+transform = Transform3D(2.95, 0, 0, 0, 2.95, 0, 0, 0, 2.95, 0, 1.343, 0)

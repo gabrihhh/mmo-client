@@ -1,19 +1,19 @@
-# Colete sombrio (`assassin_vest`)
+# Casaco sombrio (`assassin_vest`)
 
 > **Gerado** por `mmo-docs/tools/gerar_catalogo_itens.py` a partir do código (números do servidor,
 > `mmo-server/src/items/catalog.ts`). Não editar acima de **Anotações**: mudou o item → rodar o gerador.
 > Arquitetura desta pasta: mmo-docs [ART-08]. Catálogo completo: [ITEM-01].
 
 - **Conjunto:** Assassino · **Slot:** Peito (pasta `chest/`) · **Vida extra:** +0
-- **Descrição:** Colete de couro negro com faixa roxa.
+- **Descrição:** Casaco longo negro, do pescoço à canela, com faixa roxa.
 - **No boneco:** encaixe automático no tronco de cada corpo ([ART-04]): a escala final no jogo depende do corpo.
 
 ## Malhas (uma por corpo)
 
 | Corpo | Arquivo | Escala na cena | Situação |
 |---|---|---|---|
-| Masculino | `male/chest-assassin.tscn` | ×1, origem do modelo em (0; 0; 0) m | ✅ própria |
-| Feminino | `female/chest-assassin.tscn` | ×1, origem do modelo em (0; 0; 0) m | ⚠ cópia idêntica da masculina — falta a malha feita para este corpo |
+| Masculino | `male/chest-assassin.glb` | ×1 (o .glb direto, no espaço do personagem) | ✅ **sob medida** (modelada em cima do corpo no Blender: entra sem esticar e segue o braço inteiro) |
+| Feminino | `female/chest-assassin.glb` | ×1 (o .glb direto, no espaço do personagem) | ✅ **sob medida** (modelada em cima do corpo no Blender: entra sem esticar e segue o braço inteiro) |
 
 ## Habilidades
 

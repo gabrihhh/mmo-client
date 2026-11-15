@@ -2,21 +2,21 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://n8s56bnvoiao"
-path.s3tc="res://.godot/imported/chest-assassin_0.jpg-439e873e97be925b6521f2b3808dc735.s3tc.ctex"
-path.etc2="res://.godot/imported/chest-assassin_0.jpg-439e873e97be925b6521f2b3808dc735.etc2.ctex"
+uid="uid://dv8ew7i24vptg"
+path.s3tc="res://.godot/imported/blacksmith_0.jpg-4846974214b8d3863031f80e782a9d90.s3tc.ctex"
+path.etc2="res://.godot/imported/blacksmith_0.jpg-4846974214b8d3863031f80e782a9d90.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "0fd131f314d61a0f2ad31e0024226403"
+"md5": "b34840b3303a270314216e86d72af8bb"
 }
 
 [deps]
 
-source_file="res://assets/itens/chest/assassin/female/chest-assassin_0.jpg"
-dest_files=["res://.godot/imported/chest-assassin_0.jpg-439e873e97be925b6521f2b3808dc735.s3tc.ctex", "res://.godot/imported/chest-assassin_0.jpg-439e873e97be925b6521f2b3808dc735.etc2.ctex"]
+source_file="res://assets/props/blacksmith/blacksmith_0.jpg"
+dest_files=["res://.godot/imported/blacksmith_0.jpg-4846974214b8d3863031f80e782a9d90.s3tc.ctex", "res://.godot/imported/blacksmith_0.jpg-4846974214b8d3863031f80e782a9d90.etc2.ctex"]
 
 [params]
 
@@ -41,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=256
+process/size_limit=512
 detect_3d/compress_to=1
