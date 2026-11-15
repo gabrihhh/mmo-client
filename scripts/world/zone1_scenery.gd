@@ -3,7 +3,8 @@ extends Node3D
 ## Cenário da zona 1 ([MUN-03]):
 ## - o mapa feito no Blender ([ART-10], `workspace-blender/spawn.blend` → `assets/zones/zone_1/zone_1.glb`): chão,
 ##   praça, montanhas e o que o dono puser na coleção `Terreno`. Refazer: `python3 tools/blender/export_zone.py`.
-##   As cores vêm por vértice; todas as malhas usam o material low poly de [LowPolyShapes];
+##   As cores vêm por vértice; as malhas usam o material low poly de [LowPolyShapes], menos o chão do campo
+##   (`jogo_chao`), que leva a grama com textura de [GroundMaterial];
 ## - campo florido por código por cima (flores e grama em MultiMesh, divididos em blocos para a câmera só desenhar os
 ##   perto), na altura de [ZoneTerrain], fora da praça e do chão dos acampamentos ([ZoneInfo]);
 ## - fogo animado ([CampfireFlame]) em cima de cada fogueira dos acampamentos ([JOGO-18]).
@@ -42,7 +43,8 @@ func _add_map() -> void:
 	add_child(map)
 	var material: StandardMaterial3D = LowPolyShapes.material()
 	for node: Node in map.find_children("*", "MeshInstance3D", true, false):
-		(node as MeshInstance3D).material_override = material
+		# Chão do campo: grama com textura ([GroundMaterial]); o resto, cor por vértice chapada.
+		(node as MeshInstance3D).material_override = GroundMaterial.material() if GroundMaterial.is_ground(node) else material
 
 
 ## Fogo animado em cima de cada fogueira dos acampamentos ([JOGO-18], [ZoneInfo]).

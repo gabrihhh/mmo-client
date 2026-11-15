@@ -167,6 +167,12 @@ def split_chunks(mesh: bpy.types.Mesh, name: str) -> list:
         bm.free()
         for mat in mesh.materials:
             part.materials.append(mat)
+        # O bmesh leva a camada de cor, mas não a marca de "ativa": sem isto o glTF (export_vertex_color="ACTIVE")
+        # grava o bloco todo BRANCO (o chão e as montanhas saíam brancos até 2026-11-15).
+        col = part.color_attributes.get("Col")
+        if col is not None:
+            part.color_attributes.active_color = col
+            part.color_attributes.render_color_index = part.color_attributes.find("Col")
         result.append((part.name, part))
     bpy.data.meshes.remove(mesh)
     return result
