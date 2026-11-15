@@ -6,7 +6,8 @@ extends CanvasLayer
 ## com espaços iguais entre eles e nas bordas. O Menu (Inventário, Configuração, "Sair da conta", cada um com ícone
 ## à esquerda) fecha pelo X no canto ou tocando fora dele (no fundo escurecido). Mapa ([CLI-11], [ZoneMap]): a zona
 ## inteira em pixel art, girada como a câmera, com você, monstros, bonecos/NPCs e jogadores ao vivo (tela inteira). Inventário ([CLI-10]), em tela
-## inteira: boneco com o que está vestido ([PaperDoll]) + mochila em grade de ícones que rola; tocar num item abre
+## inteira ([InventoryView]): o personagem em 3D com o que está vestido ([PaperDoll]), as moedas e a mochila em grade
+## que rola; segurar e arrastar um item veste/tira/organiza; tocar num item abre
 ## a ficha dele ([ItemDetailPanel], também em tela inteira). Jogadores Próximos ([SOC-02], [NearbyPlayersPanel]):
 ## quem está a até 45 m; tocar num nome abre as opções sobre ele ([PlayerActionsPanel]: Atributos, Solicitar amizade
 ## se ainda não é amigo, Convidar para o grupo) e Atributos abre a tela dele ([AttributesPanel]). Grupo ([SOC-03],
@@ -26,8 +27,11 @@ signal logout_requested
 signal equip_requested(uid: String)
 ## O espaço livre entre as molduras mudou (tela girou/redimensionou): ver [method play_area_center_ratio].
 signal play_area_changed
-## Apertou "Tirar" na ficha de um item vestido: tirar para a mochila ([param slot] = "hand", "head", "chest", "feet").
-signal unequip_requested(slot: String)
+## Tirar para a mochila ([param slot] = "hand", "head", "chest", "feet"): "Tirar" na ficha ([param index] = −1, no
+## fim) ou arrastou o item vestido até a vaga [param index] da mochila ([CLI-10]).
+signal unequip_requested(slot: String, index: int)
+## Arrastou um item da mochila da vaga [param from] para a [param to] ([CLI-10]).
+signal bag_move_requested(from: int, to: int)
 ## Pediu os Atributos do jogador [param player_id] ([SOC-02]); a resposta volta por [method show_attributes].
 signal inspect_requested(player_id: String)
 ## Convidar [param player_id] para o grupo ([SOC-03]).
@@ -49,8 +53,6 @@ signal social_settings_requested(friend_requests: String, group_invites: String)
 
 ## Quantas cartas de habilidade a HUD mostra ([JOGO-01]: 3 da arma + cabeça + peito + pés).
 const CARD_COUNT: int = 6
-## Lado (px) de cada quadro da mochila (5 colunas cabem na largura de 720 com o painel em tela inteira).
-const BAG_SLOT_PX: float = 120.0
 ## Tempo (s) que um aviso fica na tela.
 const _TOAST_SECONDS: float = 1.8
 ## Cores da linha de XP e do quadrado do nível ([CLI-08]): fundo cinza, preenchimento e número ciano, quadrado preto.
@@ -84,9 +86,7 @@ const _SOCIAL_ROWS: Dictionary[String, String] = {
 ## Mapa da zona em tela inteira (Menu → Mapa).
 @onready var _map_panel: PanelContainer = %MapPanel
 @onready var _logout_button: Button = %LogoutButton
-@onready var _paper_doll: PaperDoll = %PaperDoll
-@onready var _bag_title: Label = %BagTitle
-@onready var _bag_grid: GridContainer = %BagGrid
+@onready var _inventory_view: InventoryView = %InventoryView
 ## Ficha do item tocado (abre por cima do inventário; "Voltar" volta para ele).
 @onready var _item_detail: ItemDetailPanel = %ItemDetailPanel
 
@@ -157,7 +157,11 @@ func _ready() -> void:
 	(%CloseInventoryButton as Button).pressed.connect(_open_panel.bind(null))
 	(%SettingsBackButton as Button).pressed.connect(_open_panel.bind(_menu_panel))
 	_logout_button.pressed.connect(_on_logout_pressed)
-	_paper_doll.slot_pressed.connect(_on_equipped_slot_pressed)
+	_inventory_view.item_pressed.connect(_show_item_detail)
+	_inventory_view.empty_slot_pressed.connect(_on_empty_slot_pressed)
+	_inventory_view.equip_requested.connect(equip_requested.emit)
+	_inventory_view.unequip_requested.connect(unequip_requested.emit)
+	_inventory_view.bag_move_requested.connect(bag_move_requested.emit)
 	_item_detail.back_pressed.connect(_open_panel.bind(_inventory_panel))
 	_item_detail.action_pressed.connect(_on_item_action)
 	_menu_dimmer.gui_input.connect(_on_dimmer_input)
@@ -201,28 +205,19 @@ func set_abilities(abilities: Array[AbilityView]) -> void:
 		_cards[i].queue_redraw()
 
 
-## Monta a tela de Inventário ([CLI-10]): o boneco com os 4 slots vestidos e a mochila em grade (vagas livres
-## aparecem vazias até a capacidade). Ver mmo-docs [JOGO-04].
+## Monta a tela de Inventário ([CLI-10]): personagem 3D, os 4 slots vestidos e a mochila ([InventoryView]).
+## Ver mmo-docs [JOGO-04].
 func set_inventory(inventory: InventoryState) -> void:
 	_inventory = inventory
-	_paper_doll.show_inventory(inventory)
-	for child: Node in _bag_grid.get_children():
-		child.queue_free()
-	_bag_title.text = "Mochila %d/%d" % [inventory.bag.size(), inventory.bag_capacity]
-	for i: int in range(maxi(inventory.bag_capacity, inventory.bag.size())):
-		var view: ItemSlot = ItemSlot.new()
-		view.custom_minimum_size = Vector2(BAG_SLOT_PX, BAG_SLOT_PX)
-		if i < inventory.bag.size():
-			var item: InventoryState.Item = inventory.bag[i]
-			view.show_item(item)
-			view.pressed.connect(_show_item_detail.bind(item, false))
-		else:
-			view.show_item(null)
-			view.disabled = true
-		_bag_grid.add_child(view)
+	_inventory_view.show_inventory(inventory)
 	# A ficha aberta mostrava o inventário antigo: volta para a tela do inventário.
 	if _item_detail.visible:
 		_open_panel(_inventory_panel)
+
+
+## Moedas do personagem ([JOGO-15]), mostradas no Inventário.
+func set_gold(amount: int) -> void:
+	_inventory_view.set_gold(amount)
 
 
 ## Abre a ficha de [param item] ([param equipped] = está vestido).
@@ -234,18 +229,14 @@ func _show_item_detail(item: InventoryState.Item, equipped: bool) -> void:
 	_open_panel(_item_detail)
 
 
-func _on_equipped_slot_pressed(slot: String) -> void:
-	var item: InventoryState.Item = _inventory.item_in(slot) if _inventory != null else null
-	if item == null:
-		show_toast("Nada vestido em %s: escolha um item na mochila" % AbilityView.SLOT_LABELS[slot].to_lower())
-		return
-	_show_item_detail(item, true)
+func _on_empty_slot_pressed(slot: String) -> void:
+	_inventory_view.show_notice("Nada vestido em %s: arraste um item da mochila para cá" % AbilityView.SLOT_LABELS[slot].to_lower())
 
 
 ## "Vestir"/"Tirar" na ficha: pede ao servidor (a tela atualiza quando o inventário novo chegar).
 func _on_item_action(item: InventoryState.Item, equipped: bool) -> void:
 	if equipped:
-		unequip_requested.emit(item.slot)
+		unequip_requested.emit(item.slot, -1)
 	else:
 		equip_requested.emit(item.uid)
 	_open_panel(_inventory_panel)
@@ -295,6 +286,9 @@ func set_status(text: String) -> void:
 
 ## Aviso curto no topo da tela, que some sozinho.
 func show_toast(text: String) -> void:
+	# Com o Inventário aberto o aviso do topo fica atrás dele: aparece na linha de aviso do inventário.
+	if _inventory_panel.visible:
+		_inventory_view.show_notice(text)
 	_toast.text = text
 	_toast.modulate.a = 1.0
 	_toast_left = _TOAST_SECONDS

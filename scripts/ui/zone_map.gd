@@ -9,6 +9,11 @@ extends Control
 ## LONGE: perto, a posição vem do snapshot; longe, de [constant Protocol.MSG_GROUP_POSITIONS] (2 Hz). Membro aparece
 ## também morto (é o lugar onde ele caiu).
 ##
+## **Mexer no mapa** (toque): **pinça** com dois dedos = zoom (de 1× a [constant MAX_ZOOM]×, no ponto entre os dedos);
+## **girar** os dois dedos = gira o mapa; **um dedo** arrastando = move o mapa. No PC: roda do mouse = zoom, arrastar
+## = mover. O botão **Redefinir** (canto de cima) volta ao inicial (girado como a câmera, inteiro, centrado). A vista
+## fica como estava ao fechar e abrir o mapa de novo.
+##
 ## Só desenha: lê as posições do [Network] (último snapshot) a cada quadro enquanto está visível.
 
 ## Imagem do mapa (importada como Image, sem compressão).
@@ -21,6 +26,11 @@ const SHOW_HALF: float = 160.0
 const MAP_YAW: float = PI / 4.0
 ## Altura (px) reservada embaixo para a legenda.
 const LEGEND_HEIGHT: float = 56.0
+## Zoom máximo (vezes o mapa inteiro) e quanto cada passo da roda do mouse aproxima.
+const MAX_ZOOM: float = 8.0
+const WHEEL_ZOOM_STEP: float = 1.15
+## Quanto do mapa pode sair da área (px de folga): o centro do mapa não vai além da borda da área.
+const PAN_MARGIN_PX: float = 0.0
 
 ## Cores dos marcadores e do contorno deles.
 const COLOR_SELF: Color = Color(0.35, 0.65, 1.0)
@@ -40,11 +50,128 @@ const MARKER_PX: float = 14.0
 const ARROW_PX: float = 18.0
 
 var _texture: ImageTexture = null
+## Vista atual: zoom (1 = mapa inteiro), giro somado ao da câmera (rad) e deslocamento do centro (px).
+var _zoom: float = 1.0
+var _turn: float = 0.0
+var _pan: Vector2 = Vector2.ZERO
+## Dedos em cima do mapa agora: índice do toque → posição (global, px).
+var _touches: Dictionary[int, Vector2] = {}
+var _reset_button: Button = null
 
 
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	clip_contents = true
 	_texture = ImageTexture.create_from_image(build_image())
+	_reset_button = Button.new()
+	_reset_button.text = "Redefinir"
+	_reset_button.theme_type_variation = &"PixelButton"
+	_reset_button.add_theme_font_size_override("font_size", 24)
+	_reset_button.custom_minimum_size = Vector2(170.0, 64.0)
+	_reset_button.focus_mode = Control.FOCUS_NONE
+	_reset_button.pressed.connect(reset_view)
+	add_child(_reset_button)
+	resized.connect(_place_reset_button)
+	_place_reset_button()
+
+
+## Volta a vista inicial: sem zoom, girado só como a câmera, centrado.
+func reset_view() -> void:
+	_zoom = 1.0
+	_turn = 0.0
+	_pan = Vector2.ZERO
+	queue_redraw()
+
+
+func _place_reset_button() -> void:
+	_reset_button.position = Vector2(size.x - _reset_button.size.x - 8.0, 8.0)
+
+
+## Toques (multitoque; no PC o mouse vira toque, `emulate_touch_from_mouse`) e roda do mouse. Usa [method _input] (e não [method _gui_input]) para receber o segundo dedo:
+## só conta toque que começou dentro do mapa (fora do botão Redefinir).
+func _input(event: InputEvent) -> void:
+	if not is_visible_in_tree():
+		_touches.clear()
+		return
+	if event is InputEventScreenTouch:
+		var touch: InputEventScreenTouch = event as InputEventScreenTouch
+		if touch.pressed:
+			if _accepts_point(touch.position):
+				_touches[touch.index] = touch.position
+				get_viewport().set_input_as_handled()
+		elif _touches.has(touch.index):
+			_touches.erase(touch.index)
+			get_viewport().set_input_as_handled()
+	elif event is InputEventScreenDrag:
+		var drag: InputEventScreenDrag = event as InputEventScreenDrag
+		if _touches.has(drag.index):
+			_on_finger_moved(drag.index, drag.position)
+			get_viewport().set_input_as_handled()
+	elif event is InputEventMouseButton:
+		var button: InputEventMouseButton = event as InputEventMouseButton
+		# Clique emulado de um toque: já tratado acima como toque.
+		if button.device == InputEvent.DEVICE_ID_EMULATION:
+			return
+		if button.button_index == MOUSE_BUTTON_WHEEL_UP or button.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			if button.pressed and _accepts_point(button.position):
+				var factor: float = WHEEL_ZOOM_STEP if button.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / WHEEL_ZOOM_STEP
+				_apply_gesture(button.position, button.position, factor, 0.0)
+				get_viewport().set_input_as_handled()
+	elif event is InputEventMagnifyGesture:
+		var magnify: InputEventMagnifyGesture = event as InputEventMagnifyGesture
+		if _accepts_point(magnify.position):
+			_apply_gesture(magnify.position, magnify.position, magnify.factor, 0.0)
+
+
+## Ponto (tela) dentro da área do mapa e fora do botão Redefinir.
+func _accepts_point(point: Vector2) -> bool:
+	var area: Rect2 = get_global_rect()
+	area.size.y -= LEGEND_HEIGHT
+	return area.has_point(point) and not _reset_button.get_global_rect().has_point(point)
+
+
+## Um dedo andou: com um dedo só, move o mapa; com dois, pinça (zoom) + giro + mover pelo meio dos dois.
+func _on_finger_moved(index: int, point: Vector2) -> void:
+	var before: Dictionary[int, Vector2] = _touches.duplicate()
+	_touches[index] = point
+	var keys: Array[int] = _touches.keys()
+	if keys.size() == 1:
+		_apply_gesture(before[index], point, 1.0, 0.0)
+		return
+	# Dois dedos: o que andou e o outro (o primeiro que não é ele).
+	var other: int = keys[0] if keys[0] != index else keys[1]
+	var old_a: Vector2 = before[index]
+	var old_b: Vector2 = before[other]
+	var new_b: Vector2 = _touches[other]
+	var old_span: Vector2 = old_a - old_b
+	var new_span: Vector2 = point - new_b
+	if old_span.length() < 1.0 or new_span.length() < 1.0:
+		return
+	_apply_gesture((old_a + old_b) / 2.0, (point + new_b) / 2.0, new_span.length() / old_span.length(),
+		old_span.angle_to(new_span))
+
+
+## Aplica um gesto: o ponto [param from] da tela vai para [param to], com zoom × [param factor] e giro [param angle]
+## (rad) em volta dele. Assim o lugar entre os dedos fica embaixo dos dedos. Pontos em coordenadas globais.
+func _apply_gesture(from: Vector2, to: Vector2, factor: float, angle: float) -> void:
+	var new_zoom: float = clampf(_zoom * factor, 1.0, MAX_ZOOM)
+	var applied: float = new_zoom / _zoom
+	var base: Vector2 = _base_center()
+	var from_local: Vector2 = from - global_position
+	var to_local: Vector2 = to - global_position
+	# Centro do mapa na tela = base + pan; transformado pelo gesto em volta de "from".
+	var center: Vector2 = to_local + (base + _pan - from_local).rotated(angle) * applied
+	_zoom = new_zoom
+	_turn = wrapf(_turn + angle, -PI, PI)
+	_pan = center - base
+	_clamp_pan()
+	queue_redraw()
+
+
+## O centro do mapa não sai da área visível (não dá para "perder" o mapa).
+func _clamp_pan() -> void:
+	var half: Vector2 = Vector2(size.x, size.y - LEGEND_HEIGHT) / 2.0 + Vector2(PAN_MARGIN_PX, PAN_MARGIN_PX)
+	_pan = _pan.clamp(-half, half)
 
 
 func _process(_delta: float) -> void:
@@ -64,19 +191,29 @@ static func build_image() -> Image:
 	return image
 
 
-## Ponto da tela (local deste Control) para o ponto (x, z) do mundo, com o giro da câmera.
+## Ponto da tela (local deste Control) para o ponto (x, z) do mundo, com o giro da câmera e a vista atual.
 func world_to_map(x: float, z: float) -> Vector2:
-	return _map_center() + Vector2(x, z).rotated(MAP_YAW) * _pixels_per_meter()
+	return _map_center() + Vector2(x, z).rotated(_yaw()) * _pixels_per_meter()
 
 
-## Px por metro: o losango da zona (lado 2 × SHOW_HALF girado 45°) cabe na área do mapa.
+## Giro total do desenho: o da câmera + o que o jogador girou.
+func _yaw() -> float:
+	return MAP_YAW + _turn
+
+
+## Px por metro: no zoom 1 o losango da zona (lado 2 × SHOW_HALF girado 45°) cabe na área do mapa.
 func _pixels_per_meter() -> float:
 	var area: Vector2 = Vector2(size.x, size.y - LEGEND_HEIGHT)
-	return minf(area.x, area.y) / (SHOW_HALF * 2.0 * sqrt(2.0))
+	return minf(area.x, area.y) / (SHOW_HALF * 2.0 * sqrt(2.0)) * _zoom
+
+
+## Centro da área do mapa sem deslocamento.
+func _base_center() -> Vector2:
+	return Vector2(size.x / 2.0, (size.y - LEGEND_HEIGHT) / 2.0)
 
 
 func _map_center() -> Vector2:
-	return Vector2(size.x / 2.0, (size.y - LEGEND_HEIGHT) / 2.0)
+	return _base_center() + _pan
 
 
 func _draw() -> void:
@@ -85,12 +222,14 @@ func _draw() -> void:
 	var scale_px: float = _pixels_per_meter() * METERS_PER_PIXEL
 	var half_px: float = _texture.get_width() / 2.0
 	# Contorno escuro (2 px de tela) e a imagem, girados como a câmera.
-	draw_set_transform(_map_center(), MAP_YAW, Vector2(scale_px, scale_px))
+	draw_set_transform(_map_center(), _yaw(), Vector2(scale_px, scale_px))
 	var outline: float = 2.0 / scale_px
 	draw_rect(Rect2(-half_px - outline, -half_px - outline, half_px * 2.0 + outline * 2.0, half_px * 2.0 + outline * 2.0), OUTLINE)
 	draw_texture(_texture, Vector2(-half_px, -half_px))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	_draw_markers()
+	# Faixa da legenda por cima do mapa (com zoom o mapa passa por baixo dela).
+	draw_rect(Rect2(0.0, size.y - LEGEND_HEIGHT, size.x, LEGEND_HEIGHT), Color(0.09, 0.06, 0.04))
 	_draw_legend()
 
 
@@ -164,7 +303,7 @@ func _draw_square(at: Vector2, color: Color) -> void:
 
 ## Seta apontando para onde [param rot_y] olha (rotY = 0 olha para −Z), girada como o mapa.
 func _draw_arrow(at: Vector2, rot_y: float) -> void:
-	var facing: Vector2 = Vector2(-sin(rot_y), -cos(rot_y)).rotated(MAP_YAW)
+	var facing: Vector2 = Vector2(-sin(rot_y), -cos(rot_y)).rotated(_yaw())
 	var side: Vector2 = Vector2(-facing.y, facing.x)
 	var tip: Vector2 = at + facing * ARROW_PX
 	var back: Vector2 = at - facing * ARROW_PX * 0.6

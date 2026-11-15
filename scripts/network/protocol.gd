@@ -12,7 +12,9 @@ extends RefCounted
 ## Versão do protocolo enviada ao autenticar. Precisa ser igual a PROTOCOL_VERSION do servidor.
 ## v17: [constant MSG_GROUP_POSITIONS] (membros do grupo longe, para o mapa, [SOC-03]).
 ## v18: [code]tauntSeconds[/code] no AbilityView do inventário (Desafio do cavaleiro provoca os monstros, [JOGO-14]).
-const VERSION: int = 18
+## v19: [constant MSG_BAG_MOVE], [code]index[/code] no [constant MSG_UNEQUIP] (arrastar no Inventário, [CLI-10]) e
+## [code]gold[/code] no [code]me[/code] do snapshot (moedas, [JOGO-15]).
+const VERSION: int = 19
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
@@ -39,8 +41,12 @@ const BODY_ZOMBIE: String = "zombie"
 const MSG_INPUT: String = "input"
 ## Veste um item da mochila (o do slot volta para a mochila). data: { uid }. Ver mmo-docs [JOGO-04].
 const MSG_EQUIP: String = "equip"
-## Tira o item do slot para a mochila. data: { slot: "hand" | "head" | "chest" | "feet" }.
+## Tira o item do slot para a mochila. data: { slot: "hand" | "head" | "chest" | "feet", index?: vaga da mochila onde
+## foi solto (sem = no fim) }.
 const MSG_UNEQUIP: String = "unequip"
+## Organiza a mochila: troca o item da vaga [code]from[/code] com o da vaga [code]to[/code] (vaga livre = vai para o
+## fim). data: { from: int, to: int }. Ver mmo-docs [JOGO-04], [CLI-10].
+const MSG_BAG_MOVE: String = "bag_move"
 ## Fixa (ou limpa, com null) o alvo do ataque simples; o servidor bate sozinho quando em alcance.
 ## data: { targetId: String ou null }. Ver mmo-docs [JOGO-05].
 const MSG_ATTACK: String = "attack"

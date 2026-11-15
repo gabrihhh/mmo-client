@@ -129,6 +129,8 @@ var respawn_in: float = 0.0
 var level: int = 0
 var xp: float = 0.0
 var xp_next: float = 0.0
+## Moedas do personagem ([JOGO-15]), do `me` do snapshot; mostradas no Inventário.
+var gold: int = 0
 ## Meu grupo segundo o servidor ([SOC-03]); null = sem grupo. Membros do grupo não se atingem e aparecem com a cor
 ## de aliado ([RemotePlayer]).
 var group: GroupState = null
@@ -424,10 +426,21 @@ func send_equip(uid: String) -> void:
 		_send(Protocol.MSG_EQUIP, {"uid": uid})
 
 
-## Pede para tirar o item do [param slot] ("hand", "head", "chest", "feet") para a mochila.
-func send_unequip(slot: String) -> void:
+## Pede para tirar o item do [param slot] ("hand", "head", "chest", "feet") para a mochila: na vaga [param index]
+## (arrastado até ela, [CLI-10]) ou, com −1, no fim.
+func send_unequip(slot: String, index: int = -1) -> void:
+	if not _authenticated:
+		return
+	var data: Dictionary = {"slot": slot}
+	if index >= 0:
+		data["index"] = index
+	_send(Protocol.MSG_UNEQUIP, data)
+
+
+## Pede para trocar de lugar os itens das vagas [param from] e [param to] da mochila (vaga livre = leva para o fim).
+func send_bag_move(from: int, to: int) -> void:
 	if _authenticated:
-		_send(Protocol.MSG_UNEQUIP, {"slot": slot})
+		_send(Protocol.MSG_BAG_MOVE, {"from": from, "to": to})
 
 
 func _notification(what: int) -> void:
@@ -660,6 +673,7 @@ func _apply_snapshot(data: Dictionary) -> void:
 	level = Protocol.read_int(me, "level", level)
 	xp = Protocol.read_float(me, "xp", xp)
 	xp_next = Protocol.read_float(me, "xpNext", xp_next)
+	gold = Protocol.read_int(me, "gold", gold)
 	attack_target = Protocol.read_string(me, "target")
 	var casting: Dictionary = Protocol.read_dict(me, "casting")
 	casting_target = Protocol.read_string(casting, "target")

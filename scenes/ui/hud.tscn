@@ -15,7 +15,7 @@
 [ext_resource type="Texture2D" path="res://assets/ui/pixel/card.png" id="16_card"]
 [ext_resource type="Texture2D" path="res://assets/ui/pixel/card_pressed.png" id="17_card_pressed"]
 [ext_resource type="Script" path="res://scripts/ui/cast_bar.gd" id="18_cast_bar"]
-[ext_resource type="Script" path="res://scripts/ui/paper_doll.gd" id="6_doll"]
+[ext_resource type="Script" path="res://scripts/ui/inventory_view.gd" id="6_inventory_view"]
 [ext_resource type="Script" path="res://scripts/ui/item_detail_panel.gd" id="7_detail"]
 [ext_resource type="Texture2D" path="res://assets/ui/pixel/icon_map.png" id="19_icon_map"]
 [ext_resource type="Script" path="res://scripts/ui/zone_map.gd" id="20_zone_map"]
@@ -578,38 +578,11 @@ theme_override_font_sizes/font_size = 34
 text = "✕"
 theme_type_variation = &"PixelButton"
 
-[node name="EquippedTitle" type="Label" parent="Root/InventoryPanel/VBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 1, 1, 0.7)
-theme_override_font_sizes/font_size = 22
-text = "Equipado"
-
-[node name="PaperDoll" type="Control" parent="Root/InventoryPanel/VBox"]
+[node name="InventoryView" type="VBoxContainer" parent="Root/InventoryPanel/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 440)
-layout_mode = 2
-script = ExtResource("6_doll")
-
-[node name="BagTitle" type="Label" parent="Root/InventoryPanel/VBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 1, 1, 0.7)
-theme_override_font_sizes/font_size = 22
-text = "Mochila"
-
-[node name="BagScroll" type="ScrollContainer" parent="Root/InventoryPanel/VBox"]
-custom_minimum_size = Vector2(0, 260)
 layout_mode = 2
 size_flags_vertical = 3
-horizontal_scroll_mode = 0
-
-[node name="BagGrid" type="GridContainer" parent="Root/InventoryPanel/VBox/BagScroll"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 6
-theme_override_constants/h_separation = 12
-theme_override_constants/v_separation = 12
-columns = 5
+script = ExtResource("6_inventory_view")
 
 [node name="InventoryBackButton" type="Button" parent="Root/InventoryPanel/VBox"]
 unique_name_in_owner = true

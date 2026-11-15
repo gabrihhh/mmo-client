@@ -34,6 +34,8 @@ var _cast_warnings: Dictionary[String, GroundWarning] = {}
 ## Nível e XP do último snapshot (para mostrar "+20 XP" quando a XP sobe; −1 = ainda não recebeu).
 var _last_level: int = -1
 var _last_xp: float = 0.0
+## Moedas no snapshot anterior (−1 = ainda nenhum): subiu → "+N moedas" acima de você ([JOGO-15]).
+var _last_gold: int = -1
 
 ## Altura (m) de onde os projéteis voam (mais ou menos a mão de quem lança).
 const _PROJECTILE_HEIGHT: float = 1.3
@@ -52,6 +54,7 @@ func _ready() -> void:
 	_hud.logout_requested.connect(_on_logout_requested)
 	_hud.equip_requested.connect(Network.instance.send_equip)
 	_hud.unequip_requested.connect(Network.instance.send_unequip)
+	_hud.bag_move_requested.connect(Network.instance.send_bag_move)
 	# Atributos de outro jogador (Menu → Jogadores Próximos, [SOC-02]).
 	_hud.inspect_requested.connect(Network.instance.send_inspect)
 	Network.instance.attributes_received.connect(_hud.show_attributes)
@@ -383,6 +386,12 @@ func _on_snapshot(_tick: int, _ack: int) -> void:
 			"+%s XP" % _format_xp(network.xp - _last_xp), Color(0.0, 0.9, 1.0))
 	_last_level = network.level
 	_last_xp = network.xp
+	# Moedas subiram (matou um monstro): "+10 moedas" dourado, um pouco acima do "+XP" ([JOGO-15]).
+	if _last_gold >= 0 and network.gold > _last_gold and _local_player != null:
+		FloatingText.spawn(self, _local_player.global_position + Vector3.UP * (_FLOATING_TEXT_HEIGHT + 1.0),
+			"+%d moedas" % (network.gold - _last_gold), Color(1.0, 0.82, 0.25))
+	_last_gold = network.gold
+	_hud.set_gold(network.gold)
 	# Jogadores Próximos aberto: a lista acompanha quem chega, sai ou sobe de nível ([SOC-02]).
 	if _hud.is_nearby_open():
 		_hud.set_nearby_players(network.get_nearby_players())
