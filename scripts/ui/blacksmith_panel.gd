@@ -19,6 +19,8 @@ extends PanelContainer
 ## └───────────────────────────────┘
 ## ```
 ## Preço e chance vêm prontos do servidor (no inventário); o servidor confere tudo e sorteia ([JOGO-16]).
+## "Melhorar" abre a forja ([UpgradeForge]): a carga demora ~1,8 s e o resultado (e o inventário novo, com o "+N") só
+## aparece no ápice, mesmo que o servidor tenha respondido antes.
 
 ## Apertou "Melhorar": item [param uid] com o atributo [param attribute].
 signal upgrade_requested(uid: String, attribute: String)
@@ -52,6 +54,11 @@ var _attribute_box: VBoxContainer = null
 var _upgrade_button: Button = null
 var _result_label: Label = null
 var _pick_grid: GridContainer = null
+var _forge: UpgradeForge = null
+## Guardados enquanto a forja anima: o inventário novo e a mensagem do resultado (aplicados no fim).
+var _pending_inventory: InventoryState = null
+var _pending_message: String = ""
+var _pending_color: Color = Color.WHITE
 
 
 func _init() -> void:
@@ -142,11 +149,19 @@ func _ready() -> void:
 	back.custom_minimum_size = Vector2(0.0, 88.0)
 	back.pressed.connect(close_pressed.emit)
 	column.add_child(back)
+	# Forja por cima de tudo (último filho: o PanelContainer a estica sobre o conteúdo).
+	_forge = UpgradeForge.new()
+	_forge.finished.connect(_on_forge_finished)
+	add_child(_forge)
 	_refresh()
 
 
 ## Inventário novo (troca, melhoria): refaz a lista e mantém o item escolhido, se ainda existir.
 func show_inventory(inventory: InventoryState) -> void:
+	# Forjando: o "+N" novo só aparece no ápice.
+	if _forge != null and _forge.is_running():
+		_pending_inventory = inventory
+		return
 	_inventory = inventory
 	_waiting = false
 	if is_node_ready():
@@ -165,21 +180,54 @@ func set_gold(amount: int) -> void:
 
 ## Resposta do servidor a uma tentativa ([signal Network.upgrade_result]).
 func show_result(uid: String, success: bool, cost: int, attribute: String, level: int, points: int) -> void:
-	_waiting = false
 	var item: InventoryState.Item = _find(uid)
 	var item_name: String = item.name if item != null else "Item"
+	var message: String = ""
 	if success:
-		_show_message("Deu certo! %s +%d · %s +%d" % [item_name, level, ItemAttributes.title(attribute), points], SUCCESS_COLOR)
+		message = "Deu certo! %s +%d · %s +%d" % [item_name, level, ItemAttributes.title(attribute), points]
 	else:
-		_show_message("Falhou... perdeu %s moedas (continua +%d)" % [InventoryView.format_gold(cost), level], FAIL_COLOR)
+		message = "Falhou... perdeu %s moedas (continua +%d)" % [InventoryView.format_gold(cost), level]
+	var color: Color = SUCCESS_COLOR if success else FAIL_COLOR
+	if _forge.is_running():
+		# Mostra no ápice da forja; a linha de resultado só depois que ela fechar.
+		if success:
+			_forge.set_result(true, "+%d!" % level, "%s +%d · %s +%d" % [item_name, level, ItemAttributes.title(attribute), points])
+		else:
+			_forge.set_result(false, "Falhou", "perdeu %s moedas · continua +%d" % [InventoryView.format_gold(cost), level])
+		_pending_message = message
+		_pending_color = color
+		return
+	_waiting = false
+	_show_message(message, color)
 	_refresh_button()
 
 
 ## Aviso (recusa do servidor: longe, sem moedas...).
 func show_notice(text: String) -> void:
+	# Recusa (longe, sem moedas...) no meio da forja: fecha ela sem resultado.
+	if _forge != null and _forge.is_running():
+		_forge.abort()
+		_apply_pending()
 	_waiting = false
 	_show_message(text, FAIL_COLOR)
 	_refresh_button()
+
+
+## Forja fechou: aplica o inventário novo e a mensagem guardados.
+func _on_forge_finished() -> void:
+	_apply_pending()
+	_waiting = false
+	if not _pending_message.is_empty():
+		_show_message(_pending_message, _pending_color)
+	_pending_message = ""
+	_refresh_button()
+
+
+func _apply_pending() -> void:
+	if _pending_inventory != null:
+		_inventory = _pending_inventory
+		_pending_inventory = null
+		_refresh()
 
 
 func _show_message(text: String, color: Color) -> void:
@@ -289,8 +337,11 @@ func _on_upgrade_pressed() -> void:
 	if _selected_uid.is_empty() or _selected_attribute.is_empty() or _waiting:
 		return
 	_waiting = true
-	_show_message("Martelando...", Color(1, 1, 1, 0.7))
+	_result_label.text = ""
+	_pending_message = ""
 	_refresh_button()
+	var item: InventoryState.Item = _find(_selected_uid)
+	_forge.start(ItemIcons.item(item.item_id) if item != null else null, ItemIcons.set_color(item.set_name) if item != null else GOLD_COLOR)
 	upgrade_requested.emit(_selected_uid, _selected_attribute)
 
 
