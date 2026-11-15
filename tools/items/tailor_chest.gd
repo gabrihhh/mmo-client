@@ -67,11 +67,19 @@ func _process(_d: float) -> bool:
 	var bxf: Transform3D = to_character * body.global_transform
 	var skin_points: PackedVector3Array = PackedVector3Array()
 	var skin_normals: PackedVector3Array = PackedVector3Array()
+	# Só pele do tronco e dos membros: vértices cujo osso dominante é a cabeça, o pescoço ou cabelo ficam de fora
+	# (o rabo de cavalo da feminina desce pelas costas; tratado como pele, empurrava o peito para dentro e abria fenda).
+	var skeleton: Skeleton3D = _model.skeleton
 	for s: int in range(body_mesh.get_surface_count()):
 		var barr: Array = body_mesh.surface_get_arrays(s)
 		var bv: PackedVector3Array = barr[Mesh.ARRAY_VERTEX]
 		var bn: PackedVector3Array = barr[Mesh.ARRAY_NORMAL]
+		var bones: PackedInt32Array = barr[Mesh.ARRAY_BONES] if barr[Mesh.ARRAY_BONES] != null else PackedInt32Array()
+		var weights: PackedFloat32Array = barr[Mesh.ARRAY_WEIGHTS] if barr[Mesh.ARRAY_WEIGHTS] != null else PackedFloat32Array()
+		var per: int = bones.size() / bv.size() if bv.size() > 0 else 0
 		for i: int in range(bv.size()):
+			if per > 0 and _is_head_or_hair(skeleton, bones, weights, per, i):
+				continue
 			skin_points.append(bxf * bv[i])
 			skin_normals.append((bxf.basis * bn[i]).normalized())
 	var margin: float = float(_args[5]) if _args.size() > 5 else 0.02
@@ -125,3 +133,17 @@ func _process(_d: float) -> bool:
 	print("gravado %s (erro %d)" % [_args[2], error])
 	root.free()
 	return true
+
+
+## true se o osso de maior peso do vértice [param v] é da cabeça, do pescoço ou de cabelo.
+static func _is_head_or_hair(skeleton: Skeleton3D, bones: PackedInt32Array, weights: PackedFloat32Array, per: int, v: int) -> bool:
+	var best: int = -1
+	var best_w: float = -1.0
+	for k: int in range(per):
+		if weights[v * per + k] > best_w:
+			best_w = weights[v * per + k]
+			best = bones[v * per + k]
+	if best < 0 or best >= skeleton.get_bone_count():
+		return false
+	var bone_name: String = skeleton.get_bone_name(best).to_lower()
+	return bone_name.contains("head") or bone_name.contains("neck") or bone_name.contains("hair")

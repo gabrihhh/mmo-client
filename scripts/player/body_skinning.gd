@@ -29,10 +29,11 @@ const CHEST_ARM_SHARE: float = 0.35
 ## Ossos do braço (prefixo do lado na frente), todos levados ao UpperArm/Shoulder no item de peito.
 const ARM_BONES: Array[String] = ["UpperArm", "LowerArm", "Hand", "Fingers", "Thumb"]
 ## Pele coberta por roupa sob medida ([method covered_mesh]): até quanto (m) para fora da pele, pela normal, a roupa
-## ainda conta como "por cima".
-const COVER_REACH_M: float = 0.06
-## Idem, quanto (m) para dentro da pele: roupa modelada encostada ou levemente afundada também cobre.
-const COVER_INSET_M: float = 0.01
+## ainda conta como "por cima". 15 cm (2026-11-14; eram 6): os peitos longos do Meshy assentados com
+## `tools/items/tailor_chest.gd` ficam folgados nas costas da feminina e a pele (escápulas) não era escondida.
+const COVER_REACH_M: float = 0.15
+## Idem, quanto (m) para dentro da pele: roupa modelada encostada ou levemente afundada também cobre (3 cm; era 1).
+const COVER_INSET_M: float = 0.03
 ## Quanto (m) a pele coberta afunda (pela normal, para dentro): com o braço baixando da pose T a pele do ombro sobe
 ## mais que a roupa e atravessava. Afundar (em vez de apagar) não abre buraco por onde se veja através do corpo.
 const COVER_SINK_M: float = 0.025
@@ -52,6 +53,14 @@ static var _cache: Dictionary[Mesh, BodyData] = {}
 static var _mesh_cache: Dictionary[String, Array] = {}
 ## Corpo com pele afundada sob roupa sob medida: chave (corpo|pés|roupa) → malha ([method covered_mesh]).
 static var _covered_cache: Dictionary[String, ArrayMesh] = {}
+## Cache de [method hair_hidden_mesh]: "malha base|malha original" → corpo com o cabelo recolhido.
+static var _hair_cache: Dictionary[String, ArrayMesh] = {}
+## Cabelo sob capuz/elmo ([method hair_hidden_mesh]): centro do crânio acima do osso Head (m) e raio (m) até onde o
+## cabelo de trás é recolhido. O crânio tem ~9–10 cm de raio; com 8,5 cm o cabelo recolhido ainda aparecia pela nuca do elmo: 6,5 cm.
+const HAIR_CENTER_UP_M: float = 0.09
+const HAIR_RADIUS_M: float = 0.065
+## Até quanto à frente do centro (m, +Z) ainda conta como "trás da cabeça" (o rosto fica de fora).
+const HAIR_FRONT_LIMIT_M: float = 0.02
 
 
 ## Dados de um corpo, no espaço do esqueleto, com o corpo em repouso.
@@ -95,6 +104,11 @@ static func sample(body: MeshInstance3D, skeleton: Skeleton3D, original: Mesh = 
 			to_skeleton = skeleton.get_bone_global_rest(bind_bone[b]) * body_skin.get_bind_pose(b)
 			break
 	data.to_skeleton = to_skeleton
+	# Cabelo pendurado (rabo de cavalo da feminina): vértices que seguem a cabeça mas ficam abaixo do osso dela não
+	# entram na busca de vizinhos — senão as costas da roupa copiavam os pesos da cabeça e, com o braço baixando, a
+	# pele das escápulas furava o peito (cavaleiro feminino, 2026-11-14).
+	var head_bone: int = skeleton.find_bone("Head")
+	var head_y: float = skeleton.get_bone_global_rest(head_bone).origin.y if head_bone >= 0 else INF
 	for surface: int in range(mesh.get_surface_count()):
 		var arrays: Array = mesh.surface_get_arrays(surface)
 		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
@@ -109,6 +123,8 @@ static func sample(body: MeshInstance3D, skeleton: Skeleton3D, original: Mesh = 
 				var bind: int = bones[v * per + k] if k < per else 0
 				data.bones.append(maxi(0, bind_bone[bind]) if bind < bind_bone.size() else 0)
 				data.weights.append(weights[v * per + k] if k < per else 0.0)
+			if head_bone >= 0 and point.y < head_y and _dominant_bone(data, index) == head_bone:
+				continue
 			var cell: Vector3i = _cell(point)
 			if not data.grid.has(cell):
 				data.grid[cell] = PackedInt32Array()
@@ -137,6 +153,44 @@ static func sample(body: MeshInstance3D, skeleton: Skeleton3D, original: Mesh = 
 				data.chest_remap[bone] = [[upper, CHEST_ARM_SHARE], [shoulder if shoulder >= 0 else skeleton.get_bone_parent(upper), 1.0 - CHEST_ARM_SHARE]]
 	_cache[mesh] = data
 	return data
+
+
+## Malha [param base] (o corpo como está agora: original ou com os pés escondidos) com o **cabelo de trás recolhido
+## para dentro do crânio**: vértices que seguem o osso Head e ficam atrás do centro do crânio (ou abaixo do osso, o
+## rabo de cavalo) e mais longe que [constant HAIR_RADIUS_M] dele vão para a esfera desse raio. Com capuz ou elmo
+## ([method ItemModels.hides_hair]) o cabelo não atravessa a peça por trás (2026-11-14). O rosto (frente do centro)
+## não muda. [param original] = a malha original do corpo (os dados de [method sample] são dela; mesma ordem dos
+## vértices). Uma por par de malhas, compartilhada.
+static func hair_hidden_mesh(base: Mesh, original: Mesh, skeleton: Skeleton3D) -> ArrayMesh:
+	var key: String = "%d|%d" % [base.get_instance_id(), original.get_instance_id()]
+	if _hair_cache.has(key):
+		return _hair_cache[key]
+	var data: BodyData = _cache.get(original)
+	var head_bone: int = skeleton.find_bone("Head")
+	if data == null or head_bone < 0:
+		return null
+	var head: Vector3 = skeleton.get_bone_global_rest(head_bone).origin
+	var center: Vector3 = head + Vector3.UP * HAIR_CENTER_UP_M
+	var to_mesh: Transform3D = data.to_skeleton.affine_inverse()
+	var mesh: ArrayMesh = ArrayMesh.new()
+	var offset: int = 0
+	for surface: int in range(base.get_surface_count()):
+		var arrays: Array = base.surface_get_arrays(surface)
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		for v: int in range(vertices.size()):
+			var index: int = offset + v
+			if index >= data.positions.size() or _dominant_bone(data, index) != head_bone:
+				continue
+			var point: Vector3 = data.to_skeleton * vertices[v]
+			var rel: Vector3 = point - center
+			if (rel.z < HAIR_FRONT_LIMIT_M or point.y < head.y) and rel.length() > HAIR_RADIUS_M:
+				vertices[v] = to_mesh * (center + rel.normalized() * HAIR_RADIUS_M)
+		offset += vertices.size()
+		arrays[Mesh.ARRAY_VERTEX] = vertices
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		mesh.surface_set_material(surface, base.surface_get_material(surface))
+	_hair_cache[key] = mesh
+	return mesh
 
 
 ## Malha do corpo [param body] com os vértices do pé (ossos `<Lado>Foot`/`<Lado>Toes`) encolhidos até o tornozelo:

@@ -2,19 +2,21 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dss6o486uhtyd"
-path="res://.godot/imported/chest-assassin_chest-assassin_chest-assassin_0.png-1d01be774eee314970996d64651f69f6.ctex"
+uid="uid://bbq72mb2fudgj"
+path.s3tc="res://.godot/imported/chest-mage_material_0_albedo.png-96dc2e86de2a1f62db3a62c47f36b72b.s3tc.ctex"
+path.etc2="res://.godot/imported/chest-mage_material_0_albedo.png-96dc2e86de2a1f62db3a62c47f36b72b.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
-"md5": "187db34d20c833022a7c0a07c8fdb1de"
+"md5": "574f5e2a7236b58b7b0555c92d48f346"
 }
 
 [deps]
 
-source_file="res://assets/itens/chest/assassin/male/chest-assassin_chest-assassin_chest-assassin_0.png"
-dest_files=["res://.godot/imported/chest-assassin_chest-assassin_chest-assassin_0.png-1d01be774eee314970996d64651f69f6.ctex"]
+source_file="res://assets/itens/chest/mage/female/chest-mage_material_0_albedo.png"
+dest_files=["res://.godot/imported/chest-mage_material_0_albedo.png-96dc2e86de2a1f62db3a62c47f36b72b.s3tc.ctex", "res://.godot/imported/chest-mage_material_0_albedo.png-96dc2e86de2a1f62db3a62c47f36b72b.etc2.ctex"]
 
 [params]
 

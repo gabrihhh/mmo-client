@@ -17,7 +17,7 @@ const VIEWS: Array[Array] = [
 const SPACING: float = 0.85
 ## O que o boneco veste em cada conjunto ([JOGO-03], [JOGO-09]).
 const KITS: Dictionary[String, Dictionary] = {
-	"treino": {"hand": "training_sword", "head": "training_hood"},
+	"treino": {"hand": "training_sword", "head": "training_hood", "chest": "training_vest"},
 	"mago": {"hand": "arcane_staff", "head": "mage_hat", "chest": "mage_tunic", "feet": "mage_shoes"},
 	"cavaleiro": {"hand": "knight_sword", "head": "knight_helm", "chest": "knight_plate", "feet": "knight_greaves"},
 	"atirador": {"hand": "ranger_crossbow", "head": "ranger_hood", "chest": "ranger_jerkin", "feet": "ranger_boots"},

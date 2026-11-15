@@ -2,21 +2,21 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cl7o6u6lmitdr"
-path.s3tc="res://.godot/imported/chest-ranger_0.jpg-ce1ed14a90b2f50c30f205fabd129b53.s3tc.ctex"
-path.etc2="res://.godot/imported/chest-ranger_0.jpg-ce1ed14a90b2f50c30f205fabd129b53.etc2.ctex"
+uid="uid://8d7doxb7m1w1"
+path.s3tc="res://.godot/imported/chest-mage_material_0_albedo.png-c896de1214ab1bfa19708d72d9194bb7.s3tc.ctex"
+path.etc2="res://.godot/imported/chest-mage_material_0_albedo.png-c896de1214ab1bfa19708d72d9194bb7.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "f065da6abf1386ce19d4a7336fbe50e8"
+"md5": "574f5e2a7236b58b7b0555c92d48f346"
 }
 
 [deps]
 
-source_file="res://assets/itens/chest/ranger/female/chest-ranger_0.jpg"
-dest_files=["res://.godot/imported/chest-ranger_0.jpg-ce1ed14a90b2f50c30f205fabd129b53.s3tc.ctex", "res://.godot/imported/chest-ranger_0.jpg-ce1ed14a90b2f50c30f205fabd129b53.etc2.ctex"]
+source_file="res://assets/itens/chest/mage/male/chest-mage_material_0_albedo.png"
+dest_files=["res://.godot/imported/chest-mage_material_0_albedo.png-c896de1214ab1bfa19708d72d9194bb7.s3tc.ctex", "res://.godot/imported/chest-mage_material_0_albedo.png-c896de1214ab1bfa19708d72d9194bb7.etc2.ctex"]
 
 [params]
 

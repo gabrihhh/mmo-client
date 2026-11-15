@@ -12,8 +12,8 @@
 
 | Corpo | Arquivo | Escala na cena | Situação |
 |---|---|---|---|
-| Masculino | `male/` (vazia) | — | ❌ falta (item não aparece no boneco) |
-| Feminino | `female/` (vazia) | — | ❌ falta (item não aparece no boneco) |
+| Masculino | `male/chest-training.glb` | ×1 (o .glb direto, no espaço do personagem) | ✅ **sob medida** (modelada em cima do corpo no Blender: entra sem esticar e segue o braço inteiro) |
+| Feminino | `female/chest-training.glb` | ×1 (o .glb direto, no espaço do personagem) | ✅ **sob medida** (modelada em cima do corpo no Blender: entra sem esticar e segue o braço inteiro) |
 
 ## Habilidades
 

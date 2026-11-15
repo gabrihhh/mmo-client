@@ -104,6 +104,10 @@ const _FLOATING: Dictionary[String, Array] = {
 ## Armas que vêm em PAR (duas adagas): o mesmo modelo também aparece na mão esquerda, espelhado, seguindo a mão
 ## animada ([EquipmentView]).
 const _PAIRED: Array[String] = ["assassin_daggers"]
+## Itens de cabeça que **escondem o cabelo de trás** (capuzes e elmo): o cabelo da nuca e o rabo de cavalo são
+## recolhidos para dentro do crânio ([method BodySkinning.hair_hidden_mesh]) e não atravessam a peça (2026-11-14).
+## Chapéu do mago e tiara do curandeiro deixam o cabelo à mostra.
+const _HIDES_HAIR: Array[String] = ["training_hood", "assassin_hood", "ranger_hood", "knight_helm"]
 
 
 ## Começa a carregar, em segundo plano, os modelos de todos os itens (chamar ao abrir a zona). Sem isso, a primeira
@@ -218,6 +222,11 @@ static func hold_pull(item_id: String, acting: bool) -> float:
 ## Animação parada do personagem com [param item_id] na mão ("idle" se a arma não tiver postura própria).
 static func idle_animation(item_id: String) -> String:
 	return _IDLE.get(item_id, "idle")
+
+
+## true se o item de cabeça [param item_id] esconde o cabelo de trás ([member _HIDES_HAIR]).
+static func hides_hair(item_id: String) -> bool:
+	return item_id in _HIDES_HAIR
 
 
 ## true se [param item_id] é um par (uma cópia espelhada vai na mão esquerda).

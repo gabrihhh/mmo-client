@@ -2,21 +2,21 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c5lsans35214g"
-path.s3tc="res://.godot/imported/chest-mage_0.jpg-6e89c34e639180aa4fa7ef5096b48b5a.s3tc.ctex"
-path.etc2="res://.godot/imported/chest-mage_0.jpg-6e89c34e639180aa4fa7ef5096b48b5a.etc2.ctex"
+uid="uid://dv75vnllulome"
+path.s3tc="res://.godot/imported/chest-knight_material_0_albedo.png-6bf1f11663025575a508e9afe6a2ab13.s3tc.ctex"
+path.etc2="res://.godot/imported/chest-knight_material_0_albedo.png-6bf1f11663025575a508e9afe6a2ab13.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "72e09f6c0ac809dc1d97dbf05835925b"
+"md5": "449ac493c3a86dce6fed6a5e9ce03618"
 }
 
 [deps]
 
-source_file="res://assets/itens/chest/mage/female/chest-mage_0.jpg"
-dest_files=["res://.godot/imported/chest-mage_0.jpg-6e89c34e639180aa4fa7ef5096b48b5a.s3tc.ctex", "res://.godot/imported/chest-mage_0.jpg-6e89c34e639180aa4fa7ef5096b48b5a.etc2.ctex"]
+source_file="res://assets/itens/chest/knight/female/chest-knight_material_0_albedo.png"
+dest_files=["res://.godot/imported/chest-knight_material_0_albedo.png-6bf1f11663025575a508e9afe6a2ab13.s3tc.ctex", "res://.godot/imported/chest-knight_material_0_albedo.png-6bf1f11663025575a508e9afe6a2ab13.etc2.ctex"]
 
 [params]
 

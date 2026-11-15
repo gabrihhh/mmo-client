@@ -2,21 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ro1xft6nloaf"
-path.s3tc="res://.godot/imported/chest-knight_0.jpg-83aae0f124ab89f04d14bfa5ba256eb9.s3tc.ctex"
-path.etc2="res://.godot/imported/chest-knight_0.jpg-83aae0f124ab89f04d14bfa5ba256eb9.etc2.ctex"
+uid="uid://y3ff5e17cvox"
+path="res://.godot/imported/chest-ranger_material_0_albedo.png-1a6a1ff93b3d33df69e1c07445b0687e.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
-"vram_texture": true
+"vram_texture": false
 }
 generator_parameters={
-"md5": "c9411cb1399e8f6ac87733d15e41b51a"
+"md5": "9cb5d53a63a7f643199eef7abcf379c0"
 }
 
 [deps]
 
-source_file="res://assets/itens/chest/knight/female/chest-knight_0.jpg"
-dest_files=["res://.godot/imported/chest-knight_0.jpg-83aae0f124ab89f04d14bfa5ba256eb9.s3tc.ctex", "res://.godot/imported/chest-knight_0.jpg-83aae0f124ab89f04d14bfa5ba256eb9.etc2.ctex"]
+source_file="res://assets/itens/chest/ranger/male/chest-ranger_material_0_albedo.png"
+dest_files=["res://.godot/imported/chest-ranger_material_0_albedo.png-1a6a1ff93b3d33df69e1c07445b0687e.ctex"]
 
 [params]
 

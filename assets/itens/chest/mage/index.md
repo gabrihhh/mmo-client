@@ -12,8 +12,8 @@
 
 | Corpo | Arquivo | Escala na cena | Situação |
 |---|---|---|---|
-| Masculino | `male/chest-mage.tscn` | ×0,82, origem do modelo em (0; -0,39; 0) m | ✅ própria |
-| Feminino | `female/chest-mage.tscn` | ×0,82, origem do modelo em (0; -0,39; 0) m | ⚠ cópia idêntica da masculina — falta a malha feita para este corpo |
+| Masculino | `male/chest-mage.glb` | ×1 (o .glb direto, no espaço do personagem) | ✅ **sob medida** (modelada em cima do corpo no Blender: entra sem esticar e segue o braço inteiro) |
+| Feminino | `female/chest-mage.glb` | ×1 (o .glb direto, no espaço do personagem) | ✅ **sob medida** (modelada em cima do corpo no Blender: entra sem esticar e segue o braço inteiro) |
 
 ## Habilidades
 

@@ -2,21 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c68dkd3cn5y4t"
-path.s3tc="res://.godot/imported/chest-ranger_0.jpg-4c992e9fb1dc4d9c3f05ce2267a6efb2.s3tc.ctex"
-path.etc2="res://.godot/imported/chest-ranger_0.jpg-4c992e9fb1dc4d9c3f05ce2267a6efb2.etc2.ctex"
+uid="uid://bj8es5yvr4ehi"
+path="res://.godot/imported/chest-training_material_0_albedo.png-ca0045c952f992221c007508458c45ca.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
-"vram_texture": true
+"vram_texture": false
 }
 generator_parameters={
-"md5": "f065da6abf1386ce19d4a7336fbe50e8"
+"md5": "d05594aa6f814cc81856defa95ec3f17"
 }
 
 [deps]
 
-source_file="res://assets/itens/chest/ranger/male/chest-ranger_0.jpg"
-dest_files=["res://.godot/imported/chest-ranger_0.jpg-4c992e9fb1dc4d9c3f05ce2267a6efb2.s3tc.ctex", "res://.godot/imported/chest-ranger_0.jpg-4c992e9fb1dc4d9c3f05ce2267a6efb2.etc2.ctex"]
+source_file="res://assets/itens/chest/training/female/chest-training_material_0_albedo.png"
+dest_files=["res://.godot/imported/chest-training_material_0_albedo.png-ca0045c952f992221c007508458c45ca.ctex"]
 
 [params]
 

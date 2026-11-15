@@ -2,21 +2,21 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://poarmggg7acw"
-path.s3tc="res://.godot/imported/chest-mage_0.jpg-b12ee4787758d6bcee547e73bbcba13e.s3tc.ctex"
-path.etc2="res://.godot/imported/chest-mage_0.jpg-b12ee4787758d6bcee547e73bbcba13e.etc2.ctex"
+uid="uid://db5lcuv1lx4ht"
+path.s3tc="res://.godot/imported/chest-assassin_material_0_albedo.png-7552ea7cf856dde903f89f2e0b69f2b9.s3tc.ctex"
+path.etc2="res://.godot/imported/chest-assassin_material_0_albedo.png-7552ea7cf856dde903f89f2e0b69f2b9.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "72e09f6c0ac809dc1d97dbf05835925b"
+"md5": "187db34d20c833022a7c0a07c8fdb1de"
 }
 
 [deps]
 
-source_file="res://assets/itens/chest/mage/male/chest-mage_0.jpg"
-dest_files=["res://.godot/imported/chest-mage_0.jpg-b12ee4787758d6bcee547e73bbcba13e.s3tc.ctex", "res://.godot/imported/chest-mage_0.jpg-b12ee4787758d6bcee547e73bbcba13e.etc2.ctex"]
+source_file="res://assets/itens/chest/assassin/female/chest-assassin_material_0_albedo.png"
+dest_files=["res://.godot/imported/chest-assassin_material_0_albedo.png-7552ea7cf856dde903f89f2e0b69f2b9.s3tc.ctex", "res://.godot/imported/chest-assassin_material_0_albedo.png-7552ea7cf856dde903f89f2e0b69f2b9.etc2.ctex"]
 
 [params]
 

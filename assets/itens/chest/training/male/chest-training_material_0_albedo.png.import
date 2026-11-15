@@ -2,21 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dpqdq31xf1d5l"
-path.s3tc="res://.godot/imported/chest-knight_0.jpg-d6a2ffac6663699930dada13c0ad516b.s3tc.ctex"
-path.etc2="res://.godot/imported/chest-knight_0.jpg-d6a2ffac6663699930dada13c0ad516b.etc2.ctex"
+uid="uid://jmykt3de8i7a"
+path="res://.godot/imported/chest-training_material_0_albedo.png-5effee7d9d947a948ec92f8c082ee8ff.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
-"vram_texture": true
+"vram_texture": false
 }
 generator_parameters={
-"md5": "c9411cb1399e8f6ac87733d15e41b51a"
+"md5": "d05594aa6f814cc81856defa95ec3f17"
 }
 
 [deps]
 
-source_file="res://assets/itens/chest/knight/male/chest-knight_0.jpg"
-dest_files=["res://.godot/imported/chest-knight_0.jpg-d6a2ffac6663699930dada13c0ad516b.s3tc.ctex", "res://.godot/imported/chest-knight_0.jpg-d6a2ffac6663699930dada13c0ad516b.etc2.ctex"]
+source_file="res://assets/itens/chest/training/male/chest-training_material_0_albedo.png"
+dest_files=["res://.godot/imported/chest-training_material_0_albedo.png-5effee7d9d947a948ec92f8c082ee8ff.ctex"]
 
 [params]
 

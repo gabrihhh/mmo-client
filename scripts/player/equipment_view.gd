@@ -376,6 +376,7 @@ func _refresh() -> void:
 	_covers.clear()
 	_covers_key = ""
 	_hide_body_feet(_state != null and _mounts.has("foot_left") and ItemModels.has_model(String(_state.look.get("feet", ""))))
+	_hide_body_hair(_state != null and _mounts.has("head") and ItemModels.hides_hair(String(_state.look.get("head", ""))))
 	var hand_item: String = _state.look.get("hand", "") if _state != null else ""
 	if animator != null:
 		animator.set_idle_animation(ItemModels.idle_animation(hand_item))
@@ -432,6 +433,18 @@ func _sink_covered_skin() -> void:
 		return
 	var key: String = "%d|%d|%s" % [_body_mesh.get_instance_id(), body.mesh.get_instance_id(), _covers_key]
 	var variant: ArrayMesh = BodySkinning.covered_mesh(_body_mesh, body.mesh, _covers, key)
+	if variant != null:
+		body.mesh = variant
+
+
+## Com capuz/elmo ([param hidden] true), o cabelo de trás é recolhido para dentro do crânio
+## ([method BodySkinning.hair_hidden_mesh]): o rabo de cavalo e a nuca não atravessam a peça. Roda depois de
+## [method _hide_body_feet] (parte da malha que ele escolheu).
+func _hide_body_hair(hidden: bool) -> void:
+	if body == null or not hidden or _body_mesh == null:
+		return
+	BodySkinning.sample(body, _skeleton, _body_mesh)
+	var variant: ArrayMesh = BodySkinning.hair_hidden_mesh(body.mesh, _body_mesh, _skeleton)
 	if variant != null:
 		body.mesh = variant
 
