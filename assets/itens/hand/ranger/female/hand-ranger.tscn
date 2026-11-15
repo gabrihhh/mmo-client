@@ -1,9 +1,10 @@
 [gd_scene load_steps=2 format=3]
 
-; Besta de caça (ranger_crossbow), Meshy image→3D. Item de segurar: o .glb vem de lado (coronha em −X,
-; arco em +X, braços do arco em Z). Aqui o cano vai para +Y (comprimento, [ART-02]) com 0,65 m e a origem na
-; PEGADA (perto da coronha); os braços do arco ficam deitados (X) e o topo para −Z (vira cima com a pegada de 90°).
 
+; Besta de caça (ranger_crossbow), Meshy image→3D. O .glb vem de lado (coronha em −X, arco em +X, braços do arco
+; em Z). ATENÇÃO (medido em 2026-11-15): a matriz abaixo é por linhas; na cena o ARCO (frente) fica em +Z, o topo em
+; +X e os braços do arco em Y (o comentário antigo dizia "cano em +Y"). Desde [ART-11] a besta é apontada de mão a
+; mão (EquipmentView._update_aimed, ItemModels._AIM_BETWEEN_HANDS), com a pose de rifle do Mixamo.
 [ext_resource type="PackedScene" path="res://assets/itens/hand/ranger/female/hand-ranger.glb" id="1_glb"]
 
 [node name="RangerCrossbow" type="Node3D"]
