@@ -80,6 +80,22 @@ const _SOCIAL_ROWS: Dictionary[String, String] = {
 @onready var _card_row: HBoxContainer = %CardRow
 @onready var _vitals_frame: Control = $Root/VitalsFrame
 @onready var _controls_frame: Control = $Root/ControlsFrame
+@onready var _cast_bar_node: Control = %CastBar
+
+## Distância (px no espaço de referência 720×1280) entre a HUD e a borda da ÁREA SEGURA da tela, em cima e embaixo
+## (a mesma das laterais). Celular sem entalhe: a HUD fica quase na borda; com entalhe/câmera, desvia só o que o
+## sistema reservar ([method _safe_insets], [CLI-08]).
+const EDGE_MARGIN: float = 16.0
+## Margens com que a cena foi desenhada (a moldura de cima a 80 px do topo, a de baixo a 120 px da base): o que é
+## movido parte delas.
+const SCENE_TOP_MARGIN: float = 80.0
+const SCENE_BOTTOM_MARGIN: float = 120.0
+## Maior reserva (px de referência) que aceitamos do sistema em cada borda (valor estranho de algum aparelho não
+## esconde a HUD).
+const MAX_SAFE_INSET: float = 160.0
+## Offsets originais (cena) de quem acompanha a borda de cima / de baixo: nó → (offset_top, offset_bottom).
+var _top_base: Dictionary[Control, Vector2] = {}
+var _bottom_base: Dictionary[Control, Vector2] = {}
 @onready var _menu_panel: PanelContainer = %MenuPanel
 ## Fundo escurecido atrás dos painéis do menu: bloqueia toques no jogo e, tocado, fecha o menu.
 @onready var _menu_dimmer: Panel = %MenuDimmer
@@ -170,6 +186,7 @@ func _ready() -> void:
 	_item_detail.back_pressed.connect(_open_panel.bind(_inventory_panel))
 	_item_detail.action_pressed.connect(_on_item_action)
 	_menu_dimmer.gui_input.connect(_on_dimmer_input)
+	_setup_safe_margins()
 	_vitals_frame.resized.connect(play_area_changed.emit)
 	_xp_row.resized.connect(play_area_changed.emit)
 	_controls_frame.resized.connect(play_area_changed.emit)
@@ -180,6 +197,50 @@ func _process(delta: float) -> void:
 	if _toast_left > 0.0:
 		_toast_left -= delta
 		_toast.modulate.a = clampf(_toast_left / 0.4, 0.0, 1.0)
+
+
+## Guarda as posições da cena e encosta a HUD nas bordas da área segura; refaz quando a tela muda de tamanho.
+func _setup_safe_margins() -> void:
+	for node: Control in [_vitals_frame, _xp_row, _status_label, _toast]:
+		_top_base[node] = Vector2(node.offset_top, node.offset_bottom)
+	for node: Control in [_controls_frame, _cast_bar_node]:
+		_bottom_base[node] = Vector2(node.offset_top, node.offset_bottom)
+	get_viewport().size_changed.connect(_apply_safe_margins)
+	_apply_safe_margins()
+
+
+## Parte de cima (vida/mana, XP, avisos) a [constant EDGE_MARGIN] px do topo da área segura e parte de baixo (cartas,
+## joystick, ataque, menu e a barra de lançamento) a [constant EDGE_MARGIN] px da base dela. Mais espaço para o jogo
+## no meio; a câmera recentraliza o boneco ([signal play_area_changed]).
+func _apply_safe_margins() -> void:
+	var insets: Vector2 = _safe_insets()
+	var top_shift: float = insets.x + EDGE_MARGIN - SCENE_TOP_MARGIN
+	var bottom_shift: float = SCENE_BOTTOM_MARGIN - (insets.y + EDGE_MARGIN)
+	for node: Control in _top_base:
+		node.offset_top = _top_base[node].x + top_shift
+		node.offset_bottom = _top_base[node].y + top_shift
+	for node: Control in _bottom_base:
+		node.offset_top = _bottom_base[node].x + bottom_shift
+		node.offset_bottom = _bottom_base[node].y + bottom_shift
+	if _blacksmith_button != null:
+		_place_blacksmith_button()
+	play_area_changed.emit()
+
+
+## Quanto o sistema reserva em cima e embaixo (x = topo, y = base), em px do espaço de referência: entalhe/câmera
+## frontal, cantos, barra de gestos. Lido de [method DisplayServer.get_display_safe_area] (só no celular; no PC, 0).
+func _safe_insets() -> Vector2:
+	if not OS.has_feature("mobile"):
+		return Vector2.ZERO
+	var window_size: Vector2i = DisplayServer.window_get_size()
+	if window_size.y <= 0:
+		return Vector2.ZERO
+	var window_position: Vector2i = DisplayServer.window_get_position()
+	var safe: Rect2i = DisplayServer.get_display_safe_area()
+	var top_px: float = maxf(0.0, float(safe.position.y - window_position.y))
+	var bottom_px: float = maxf(0.0, float(window_position.y + window_size.y - safe.end.y))
+	var scale_factor: float = get_viewport().get_visible_rect().size.y / float(window_size.y)
+	return Vector2(minf(top_px * scale_factor, MAX_SAFE_INSET), minf(bottom_px * scale_factor, MAX_SAFE_INSET))
 
 
 ## Altura (0 = topo, 1 = base da tela) do meio do espaço livre entre a moldura de vida/mana (com a linha de XP
