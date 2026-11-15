@@ -2,7 +2,9 @@ extends SceneTree
 ## Exporta um item do jogo como ele fica VESTIDO no corpo em repouso, para servir de base no Blender ([ART-09]).
 ## Monta o personagem, veste o item, deixa o esqueleto em repouso e grava as malhas do item no espaço do personagem
 ## (origem nos pés, metros, Y para cima): importado no Blender, cai exatamente onde fica no jogo.
-## Pés: sai só o pé esquerdo, na posição do encaixe pelo osso (o jogo ainda reencaixa pela sola do pé, [ART-04]).
+## Peito e pés saem **como o jogo mostra** (as cópias vestidas com pesos, já encaixadas, os dois pés): antes saía a
+## peça rígida escondida, que no peito sob medida vinha ~1 m acima (posição do osso somada duas vezes) e no calçado
+## vinha antes do encaixe pelo pé (gigante). Cabeça e mão: a peça presa ao osso.
 ##
 ## Chamado por tools/blender/item_to_blender.py (rodar aquele). Direto, da pasta mmo-client:
 ##   godot --path . --headless --script res://tools/blender/item_to_glb.gd -- <item_id> <male|female> <saida.glb>
@@ -69,7 +71,16 @@ func _export() -> void:
 	var root: Node3D = Node3D.new()
 	root.name = _item_id
 	var count: int = 0
-	for node: Node in attachment.find_children("*", "MeshInstance3D", true, false):
+	var sources: Array[Node] = attachment.find_children("*", "MeshInstance3D", true, false)
+	if slot == "chest" or slot == "feet":
+		# As cópias vestidas (pesos do corpo, encaixadas) ficam no esqueleto: são elas que aparecem no jogo.
+		var skinned: Variant = _model.get_node("Equipment").get("_skinned")
+		if skinned is Array and not (skinned as Array).is_empty():
+			sources.clear()
+			for instance: Variant in skinned as Array:
+				if instance is MeshInstance3D:
+					sources.append(instance as MeshInstance3D)
+	for node: Node in sources:
 		var source: MeshInstance3D = node as MeshInstance3D
 		var copy: MeshInstance3D = MeshInstance3D.new()
 		copy.name = source.name
