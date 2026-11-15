@@ -95,6 +95,9 @@ const SCENE_BOTTOM_MARGIN: float = 120.0
 const MAX_SAFE_INSET: float = 160.0
 ## Offsets originais (cena) de quem acompanha a borda de cima / de baixo: nó → (offset_top, offset_bottom).
 var _top_base: Dictionary[Control, Vector2] = {}
+## Medidor de desempenho ([PerfOverlay], [INFRA-12]) e os botões Mostrar/Ocultar dele na Configuração.
+var _perf_overlay: PerfOverlay = null
+var _perf_buttons: Dictionary[bool, Button] = {}
 var _bottom_base: Dictionary[Control, Vector2] = {}
 @onready var _menu_panel: PanelContainer = %MenuPanel
 ## Fundo escurecido atrás dos painéis do menu: bloqueia toques no jogo e, tocado, fecha o menu.
@@ -224,6 +227,9 @@ func _apply_safe_margins() -> void:
 		node.offset_bottom = _bottom_base[node].y + bottom_shift
 	if _blacksmith_button != null:
 		_place_blacksmith_button()
+	if _perf_overlay != null:
+		_perf_overlay.offset_bottom = _controls_frame.offset_top - 4.0
+		_perf_overlay.offset_top = _controls_frame.offset_top - 30.0
 	play_area_changed.emit()
 
 
@@ -425,6 +431,7 @@ func _build_social_panels() -> void:
 	_build_group_ui()
 	_build_friends_ui()
 	_build_social_settings()
+	_build_perf_setting()
 	_build_blacksmith_ui()
 
 
@@ -532,6 +539,52 @@ func _build_social_settings() -> void:
 			buttons.add_child(button)
 			_social_buttons["%s|%s" % [key, value]] = button
 	_refresh_social_buttons()
+
+
+## Medidor de desempenho ([INFRA-12]): linha pequena logo acima da moldura de baixo (ping, rede, FPS) e, na Configuração, "Medidor de
+## desempenho" Mostrar/Ocultar (salvo só neste aparelho, [LocalSettings]).
+func _build_perf_setting() -> void:
+	_perf_overlay = PerfOverlay.new()
+	# Logo acima da moldura de baixo (canto livre da tela); acompanha a margem dela em _apply_safe_margins.
+	_perf_overlay.anchor_top = 1.0
+	_perf_overlay.anchor_bottom = 1.0
+	_perf_overlay.anchor_right = 1.0
+	_perf_overlay.offset_left = _controls_frame.offset_left + 8.0
+	_perf_overlay.offset_right = _controls_frame.offset_right
+	_perf_overlay.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	$Root.add_child(_perf_overlay)
+	_perf_overlay.visible = LocalSettings.show_perf()
+	var back: Button = %SettingsBackButton
+	var column: VBoxContainer = back.get_parent() as VBoxContainer
+	var label: Label = PixelMenuPanel.make_label("Medidor de desempenho")
+	column.add_child(label)
+	column.move_child(label, back.get_index())
+	var buttons: HBoxContainer = HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", 16)
+	column.add_child(buttons)
+	column.move_child(buttons, back.get_index())
+	for value: bool in [true, false]:
+		var button: Button = PixelMenuPanel.make_button("")
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.pressed.connect(_on_perf_option.bind(value))
+		buttons.add_child(button)
+		_perf_buttons[value] = button
+	_refresh_perf_buttons()
+
+
+func _on_perf_option(enabled: bool) -> void:
+	LocalSettings.set_show_perf(enabled)
+	_perf_overlay.visible = enabled
+	_refresh_perf_buttons()
+
+
+func _refresh_perf_buttons() -> void:
+	for value: bool in _perf_buttons.keys():
+		var selected: bool = _perf_overlay.visible == value
+		var text: String = "Mostrar" if value else "Ocultar"
+		var button: Button = _perf_buttons[value]
+		button.text = ("✓ " + text) if selected else text
+		button.modulate = Color(1, 1, 1) if selected else Color(1, 1, 1, 0.5)
 
 
 ## Tocou em Sempre/Ocultar: manda a Configuração nova ao servidor (a tela muda quando ele confirmar).

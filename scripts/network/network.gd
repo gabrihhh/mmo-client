@@ -63,9 +63,22 @@ signal friend_notice(code: String, message: String)
 ## [constant Protocol.SOCIAL_ALWAYS] / [constant Protocol.SOCIAL_HIDE].
 signal social_settings_changed(friend_requests: String, group_invites: String)
 
-## Os jogadores remotos são desenhados este número de ticks no passado (2 ticks = 100 ms a 20 Hz),
-## para sempre haver dois snapshots reais para interpolar mesmo se um atrasar.
-const INTERPOLATION_DELAY_TICKS: float = 2.0
+## Margem de interpolação ([INFRA-12]): os outros (jogadores, monstros) são desenhados este número de ticks no
+## passado, para sempre haver dois snapshots reais para interpolar. É ADAPTATIVA: 1 tick + o atraso que 95% dos
+## snapshots tiveram nos últimos [constant _JITTER_WINDOW] (variação da rede) + [constant _JITTER_MARGIN_TICKS], entre
+## estes limites. Rede boa = menos atraso (mínimo 75 ms); Wi-Fi instável = mais folga (os outros não param e pulam).
+const MIN_INTERPOLATION_TICKS: float = 1.5
+const MAX_INTERPOLATION_TICKS: float = 8.0
+## Começo (antes de medir a rede): 2 ticks = 100 ms, o valor fixo de antes.
+const START_INTERPOLATION_TICKS: float = 2.0
+## Quantos snapshots recentes entram na medida da variação da rede (60 = 3 s a 20 Hz).
+const _JITTER_WINDOW: int = 60
+## Folga somada à variação medida (ticks).
+const _JITTER_MARGIN_TICKS: float = 0.5
+## Quão rápido a margem muda (ticks por segundo): devagar, para os outros não "acelerarem" de repente.
+const _DELAY_ADJUST_TICKS_PER_SECOND: float = 0.5
+## A cada quantos segundos o resumo de desempenho vai para o log (adb logcat, [INFRA-12]).
+const _PERF_LOG_SECONDS: float = 10.0
 ## Se o relógio local se afastar mais que isto (ticks) do servidor, pula direto em vez de ajustar aos poucos.
 const _CLOCK_SNAP_TICKS: float = 10.0
 ## Fração do erro do relógio corrigida a cada snapshot (ajuste suave, sem trancos).
@@ -160,6 +173,23 @@ var casting_remaining: float = 0.0
 
 ## Estimativa do tick atual do servidor (fracionário), avançada pelo tempo local e ajustada a cada snapshot.
 var _clock_tick: float = 0.0
+## Margem de interpolação atual (ticks; ver [constant MIN_INTERPOLATION_TICKS]) e a que ela persegue.
+var interpolation_delay_ticks: float = START_INTERPOLATION_TICKS
+var _target_delay_ticks: float = START_INTERPOLATION_TICKS
+## Variação da rede medida (ms): quanto 95% dos snapshots chegaram atrasados em relação ao mais adiantado.
+var jitter_ms: float = 0.0
+## Ping (ms): de mandar um passo até chegar o snapshot com ele aplicado (inclui a espera do tick do servidor, 0–50 ms).
+## Suavizado. -1 = ainda não medido (só mede andando).
+var ping_ms: float = -1.0
+## Pior ping dos últimos [constant _PERF_LOG_SECONDS] s (ms).
+var worst_ping_ms: float = 0.0
+## "tick do servidor − relógio local em ticks" de cada snapshot recente (a variação disso é a variação da rede).
+var _arrival_offsets: PackedFloat64Array = PackedFloat64Array()
+## Quando cada passo foi enviado (seq → µs), para medir o ping pelo ack.
+var _input_sent_usec: Dictionary[int, int] = {}
+var _perf_log_left: float = _PERF_LOG_SECONDS
+## Pior quadro (ms) dos últimos [constant _PERF_LOG_SECONDS] s (o medidor na tela e o log mostram).
+var worst_frame_window_ms: int = 0
 
 var _socket: WebSocketPeer = null
 ## A conexão chegou a abrir (diferencia "não conectou" de "caiu depois").
@@ -259,9 +289,9 @@ func tick_seconds() -> float:
 
 
 ## Tick (fracionário) em que os jogadores remotos devem ser desenhados agora: o tick estimado do
-## servidor menos [constant INTERPOLATION_DELAY_TICKS].
+## servidor menos a margem de interpolação ([member interpolation_delay_ticks], adaptativa).
 func render_tick() -> float:
-	return _clock_tick - INTERPOLATION_DELAY_TICKS
+	return _clock_tick - interpolation_delay_ticks
 
 
 ## Bonecos/monstros da zona.
@@ -316,6 +346,9 @@ func send_input(seq: int, direction_x: float, direction_z: float) -> void:
 	if not is_in_zone():
 		return
 	_send(Protocol.MSG_INPUT, {"seq": seq, "x": direction_x, "z": direction_z})
+	_input_sent_usec[seq] = Time.get_ticks_usec()
+	# O WebSocketPeer só escreve no socket no poll(): sem isto o passo esperava o próximo quadro (+16–33 ms).
+	_socket.poll()
 
 
 ## Distância máxima (m) da lista "Jogadores Próximos" ([SOC-02]): a mesma da área de interesse do servidor
@@ -478,6 +511,11 @@ func _open_socket() -> void:
 	_last_packet_ms = Time.get_ticks_msec()
 	_socket.inbound_buffer_size = _INBOUND_BUFFER_BYTES
 	_socket.max_queued_packets = _MAX_QUEUED_PACKETS
+	_arrival_offsets.clear()
+	_input_sent_usec.clear()
+	interpolation_delay_ticks = START_INTERPOLATION_TICKS
+	_target_delay_ticks = START_INTERPOLATION_TICKS
+	ping_ms = -1.0
 	var url: String = NetworkConfig.server_url()
 	var error: Error = _socket.connect_to_url(url)
 	if error != OK:
@@ -490,7 +528,17 @@ func _open_socket() -> void:
 
 func _process(delta: float) -> void:
 	_clock_tick += delta * tick_rate
+	interpolation_delay_ticks = move_toward(interpolation_delay_ticks, _target_delay_ticks, _DELAY_ADJUST_TICKS_PER_SECOND * delta)
+	_perf_log_left -= delta
+	if _perf_log_left <= 0.0:
+		_perf_log_left = _PERF_LOG_SECONDS
+		if _in_zone:
+			print("Perf: ping %d ms (pior %d) · variação da rede %d ms · margem %d ms · pior quadro %d ms" % [
+				int(ping_ms), int(worst_ping_ms), int(jitter_ms), int(interpolation_delay_ticks * 1000.0 / tick_rate), worst_frame_window_ms])
+		worst_ping_ms = 0.0
+		worst_frame_window_ms = 0
 	var frame_ms: int = int(delta * 1000.0)
+	worst_frame_window_ms = maxi(worst_frame_window_ms, frame_ms)
 	if frame_ms > _worst_frame_ms:
 		_worst_frame_ms = frame_ms
 		_worst_frame_at_ms = Time.get_ticks_msec()
@@ -499,6 +547,9 @@ func _process(delta: float) -> void:
 
 	if state == WebSocketPeer.STATE_OPEN and not _was_open:
 		_was_open = true
+		# Sem o algoritmo de Nagle: o passo (mensagem pequena, 20 por segundo) sai na hora, sem esperar juntar.
+		# (Só dá depois de abrir: antes o socket TCP ainda não existe.)
+		_socket.set_no_delay(true)
 		if not _pending_auth.is_empty():
 			_send(Protocol.read_string(_pending_auth, "type"), Protocol.read_dict(_pending_auth, "data"))
 			_pending_auth = {}
@@ -672,6 +723,8 @@ func _apply_snapshot(data: Dictionary) -> void:
 	var server_tick: int = Protocol.read_int(data, "tick", -1)
 	if server_tick < 0:
 		return
+	_measure_arrival(server_tick)
+	_measure_ping(Protocol.read_int(data, "ack"))
 	var gone: Variant = data.get("gone")
 	if gone is Array:
 		for id_value: Variant in gone:
@@ -728,9 +781,48 @@ func _apply_snapshot(data: Dictionary) -> void:
 		combat_event.emit(event)
 
 
-## Puxa o relógio local na direção do tick do servidor: aos poucos, ou de uma vez se estiver longe.
+## Variação da rede ([INFRA-12]): guarda "tick do servidor − relógio local" deste snapshot. O mais adiantado da janela
+## é o caminho sem atraso extra; quanto os outros ficaram atrás dele é a variação. Margem de interpolação = 1 tick + a
+## variação que 95% tiveram + folga.
+func _measure_arrival(server_tick: int) -> void:
+	var local_ticks: float = float(Time.get_ticks_usec()) / 1000000.0 * tick_rate
+	_arrival_offsets.append(float(server_tick) - local_ticks)
+	if _arrival_offsets.size() > _JITTER_WINDOW:
+		_arrival_offsets.remove_at(0)
+	var best: float = _arrival_offsets[0]
+	for offset: float in _arrival_offsets:
+		best = maxf(best, offset)
+	var lateness: PackedFloat64Array = PackedFloat64Array()
+	for offset: float in _arrival_offsets:
+		lateness.append(best - offset)
+	lateness.sort()
+	var p95: float = lateness[mini(lateness.size() - 1, int(float(lateness.size()) * 0.95))]
+	jitter_ms = p95 * 1000.0 / tick_rate
+	_target_delay_ticks = clampf(1.0 + p95 + _JITTER_MARGIN_TICKS, MIN_INTERPOLATION_TICKS, MAX_INTERPOLATION_TICKS)
+
+
+## Ping: o snapshot confirma (ack) os passos até [param ack]; o tempo desde que o último deles saiu é o ping.
+func _measure_ping(ack: int) -> void:
+	if not _input_sent_usec.has(ack):
+		return
+	var sample: float = float(Time.get_ticks_usec() - _input_sent_usec[ack]) / 1000.0
+	ping_ms = sample if ping_ms < 0.0 else lerpf(ping_ms, sample, 0.2)
+	worst_ping_ms = maxf(worst_ping_ms, sample)
+	for seq: int in _input_sent_usec.keys():
+		if seq <= ack:
+			_input_sent_usec.erase(seq)
+
+
+## Puxa o relógio local na direção do tick do servidor: aos poucos, ou de uma vez se estiver longe. Usa o snapshot
+## MAIS ADIANTADO da janela (o caminho sem atraso extra), não o último: um snapshot atrasado não puxa o relógio para trás.
 func _sync_clock(server_tick: int) -> void:
-	var error: float = float(server_tick) - _clock_tick
+	var target: float = float(server_tick)
+	if not _arrival_offsets.is_empty():
+		var best: float = _arrival_offsets[0]
+		for offset: float in _arrival_offsets:
+			best = maxf(best, offset)
+		target = float(Time.get_ticks_usec()) / 1000000.0 * tick_rate + best
+	var error: float = target - _clock_tick
 	if absf(error) > _CLOCK_SNAP_TICKS:
 		_clock_tick = float(server_tick)
 	else:
