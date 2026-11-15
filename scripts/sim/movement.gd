@@ -11,12 +11,12 @@ extends RefCounted
 
 ## Abaixo deste comprimento o input é "parado" (não move nem gira).
 const MIN_INPUT_LENGTH: float = 0.01
-## Passos por metro: posições em centímetros ([method quantize], [INFRA-11]).
+## Passos por metro: posições em milímetros ([method quantize], [INFRA-11]).
 ## ATENÇÃO: = POSITION_STEPS em mmo-server/src/sim/movement.ts.
-const POSITION_STEPS: float = 100.0
+const POSITION_STEPS: float = 1000.0
 
 
-## Arredonda [param value] (m) ao centímetro, com a MESMA conta do servidor: floor(v × 100 + 0,5) / 100 (o round()
+## Arredonda [param value] (m) ao milímetro, com a MESMA conta do servidor: floor(v × 1000 + 0,5) / 1000 (o round()
 ## do GDScript trata o ,5 negativo diferente do JS). Cada passo da simulação arredonda X e Z com isto.
 ## ATENÇÃO: espelho de quantize em mmo-server/src/sim/movement.ts.
 static func quantize(value: float) -> float:

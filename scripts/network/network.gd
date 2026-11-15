@@ -67,12 +67,12 @@ signal social_settings_changed(friend_requests: String, group_invites: String)
 ## atual estimado do servidor. Pequena porque passou do último snapshot o desenho **extrapola** (PlayerState): a
 ## margem só cobre METADE da variação da rede (o resto a extrapolação cobre, com correção suave). ADAPTATIVA:
 ## [constant MIN_INTERPOLATION_TICKS] + metade do atraso que 95% dos snapshots tiveram nos últimos
-## [constant _JITTER_WINDOW], entre estes limites. Antes (só interpolação) era 1,5–8 ticks (75–400 ms).
+## [constant _JITTER_WINDOW], entre estes limites (a 30 Hz: 17–150 ms). Antes (só interpolação, 20 Hz) era 75–400 ms.
 const MIN_INTERPOLATION_TICKS: float = 0.5
-const MAX_INTERPOLATION_TICKS: float = 3.0
+const MAX_INTERPOLATION_TICKS: float = 4.5
 ## Começo (antes de medir a rede).
 const START_INTERPOLATION_TICKS: float = 1.0
-## Quantos snapshots recentes entram na medida da variação da rede (60 = 3 s a 20 Hz).
+## Quantos snapshots recentes entram na medida da variação da rede (60 = 2 s a 30 Hz).
 const _JITTER_WINDOW: int = 60
 ## Quão rápido a margem muda (ticks por segundo): devagar, para os outros não "acelerarem" de repente.
 const _DELAY_ADJUST_TICKS_PER_SECOND: float = 0.5
@@ -128,7 +128,7 @@ var body: String = ""
 ## Última mensagem de erro/desconexão, em português, para a tela de login mostrar. Vazio = nenhuma.
 var last_error: String = ""
 ## Parâmetros da simulação recebidos no welcome (o servidor manda; o cliente não decide).
-var tick_rate: float = 20.0
+var tick_rate: float = 30.0
 var move_speed: float = 5.0
 var zone_half_size: float = 150.0
 ## Último inventário recebido (vestido + mochila); null antes do primeiro.
@@ -177,7 +177,7 @@ var interpolation_delay_ticks: float = START_INTERPOLATION_TICKS
 var _target_delay_ticks: float = START_INTERPOLATION_TICKS
 ## Variação da rede medida (ms): quanto 95% dos snapshots chegaram atrasados em relação ao mais adiantado.
 var jitter_ms: float = 0.0
-## Ping (ms): de mandar um passo até chegar o snapshot com ele aplicado (inclui a espera do tick do servidor, 0–50 ms).
+## Ping (ms): de mandar um passo até chegar o snapshot com ele aplicado (inclui a espera do tick do servidor, 0–33 ms a 30 Hz).
 ## Suavizado. -1 = ainda não medido (só mede andando).
 var ping_ms: float = -1.0
 ## Pior ping dos últimos [constant _PERF_LOG_SECONDS] s (ms).

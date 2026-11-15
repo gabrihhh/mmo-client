@@ -3,7 +3,7 @@ extends Node3D
 ## Jogador controlado por este aparelho, com PREDIÇÃO e RECONCILIAÇÃO. Ver mmo-docs [INFRA-09], [CLI-04].
 ##
 ## O servidor é a autoridade: este nó não decide onde o jogador está, só o que ele QUER fazer.
-## A cada tick de simulação (20 Hz) ele:
+## A cada tick de simulação (30 Hz, vem do servidor no welcome) ele:
 ## 1. lê o joystick/teclado e converte para uma direção no mundo (relativa à câmera);
 ## 2. manda o input numerado ao servidor ([method Network.send_input]);
 ## 3. aplica o MESMO input localmente com [Movement] (predição), para responder na hora.

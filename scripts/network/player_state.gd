@@ -13,10 +13,10 @@ const _HISTORY_SIZE: int = 40
 ## Ticks sem aparecer no snapshot a partir dos quais o histórico recomeça (voltou de longe: não desliza do lugar antigo).
 const _GAP_TICKS: int = 10
 ## Extrapolação ([INFRA-12]): depois do último snapshot, segue andando na velocidade dos dois últimos por no máximo
-## isto (ticks; 4 = 200 ms) e então para. É o que faz os outros parecerem "na hora" (como nos MMOs): desenhados onde
+## isto (ticks; 6 = 200 ms a 30 Hz) e então para. É o que faz os outros parecerem "na hora" (como nos MMOs): desenhados onde
 ## devem estar agora, não onde estavam. Errou (o outro parou/virou)? A diferença vira [member _correction], que o
 ## [RemotePlayer] some suavemente.
-const MAX_EXTRAPOLATION_TICKS: float = 4.0
+const MAX_EXTRAPOLATION_TICKS: float = 6.0
 ## Correção maior que isto (m) não é suavizada (teleporte, renasceu): pula direto.
 const MAX_SMOOTH_CORRECTION: float = 2.0
 
