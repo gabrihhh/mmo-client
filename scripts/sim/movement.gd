@@ -11,6 +11,16 @@ extends RefCounted
 
 ## Abaixo deste comprimento o input é "parado" (não move nem gira).
 const MIN_INPUT_LENGTH: float = 0.01
+## Passos por metro: posições em centímetros ([method quantize], [INFRA-11]).
+## ATENÇÃO: = POSITION_STEPS em mmo-server/src/sim/movement.ts.
+const POSITION_STEPS: float = 100.0
+
+
+## Arredonda [param value] (m) ao centímetro, com a MESMA conta do servidor: floor(v × 100 + 0,5) / 100 (o round()
+## do GDScript trata o ,5 negativo diferente do JS). Cada passo da simulação arredonda X e Z com isto.
+## ATENÇÃO: espelho de quantize em mmo-server/src/sim/movement.ts.
+static func quantize(value: float) -> float:
+	return floor(value * POSITION_STEPS + 0.5) / POSITION_STEPS
 
 
 ## Estado simulado de um personagem. Metros e radianos, em float de 64 bits.
@@ -47,9 +57,9 @@ static func step(state: State, input_x: float, input_z: float, dt: float, speed:
 		dx /= length
 		dz /= length
 	return State.new(
-		minf(half_size, maxf(-half_size, state.x + dx * speed * dt)),
+		quantize(minf(half_size, maxf(-half_size, state.x + dx * speed * dt))),
 		state.y,
-		minf(half_size, maxf(-half_size, state.z + dz * speed * dt)),
+		quantize(minf(half_size, maxf(-half_size, state.z + dz * speed * dt))),
 		atan2(-dx, -dz),
 	)
 
@@ -65,9 +75,9 @@ static func dash(state: State, dir_x: float, dir_z: float, distance: float, half
 	var dx: float = dir_x / length
 	var dz: float = dir_z / length
 	return State.new(
-		minf(half_size, maxf(-half_size, state.x + dx * distance)),
+		quantize(minf(half_size, maxf(-half_size, state.x + dx * distance))),
 		state.y,
-		minf(half_size, maxf(-half_size, state.z + dz * distance)),
+		quantize(minf(half_size, maxf(-half_size, state.z + dz * distance))),
 		atan2(-dx, -dz),
 	)
 

@@ -557,6 +557,8 @@ func _handle_message(text: String) -> void:
 			for npc: Dictionary in Protocol.read_dict_array(data, "npcs"):
 				var npc_state: PlayerState = PlayerState.from_snapshot(npc, int(_clock_tick))
 				if npc_state != null and not _npcs.has(npc_state.id):
+					# Fora da vista até vir no snapshot ([INFRA-11]: o servidor só manda quem está perto).
+					npc_state.in_view = false
 					_npcs[npc_state.id] = npc_state
 					npc_added.emit(npc_state.id, npc_state)
 			# Lista primeiro: quem reagir ao joined_zone já encontra os jogadores em get_players().
@@ -642,6 +644,8 @@ func _add_player(info: Dictionary) -> void:
 	var state: PlayerState = PlayerState.from_snapshot(info, int(_clock_tick))
 	if state == null or _players.has(state.id):
 		return
+	# Fora da vista até vir no snapshot (você sempre vem), [INFRA-11].
+	state.in_view = state.id == player_id
 	_players[state.id] = state
 	player_added.emit(state.id, state)
 
@@ -657,42 +661,61 @@ func _apply_group_positions(data: Dictionary) -> void:
 			_group_far[id] = Vector2(Protocol.read_float(entry, "x"), Protocol.read_float(entry, "z"))
 
 
-## Aplica um snapshot: guarda o estado de cada jogador naquele tick, ajusta o relógio e avisa.
+## Aplica um snapshot ([INFRA-04], versão 22 por diferença, [INFRA-11]): guarda o estado de cada um naquele tick,
+## ajusta o relógio e avisa.
+## - Entrada em [code]players[/code]/[code]npcs[/code]: só os campos que mudaram (todos, se acabou de entrar na vista);
+##   junta aos que já conhecemos e marca como à vista.
+## - [code]gone[/code]: saiu da vista (longe ou limite da multidão): esconde e congela até voltar.
+## - À vista e não veio: está igual ao último; entra no histórico mesmo assim (a interpolação não vê buraco).
+## - [code]me[/code]: só os campos que mudaram; os outros ficam como estavam.
 func _apply_snapshot(data: Dictionary) -> void:
 	var server_tick: int = Protocol.read_int(data, "tick", -1)
 	if server_tick < 0:
 		return
-	# Área de interesse ([INFRA-04]): só vem quem está perto; quem não veio fica fora de vista até voltar.
-	for state: PlayerState in _players.values():
-		state.in_view = state.id == player_id
-	for state: PlayerState in _npcs.values():
-		state.in_view = false
-	for snapshot: Dictionary in Protocol.read_dict_array(data, "players"):
-		if not Protocol.is_player_snapshot(snapshot):
-			continue
-		var id: String = Protocol.read_string(snapshot, "id")
+	var gone: Variant = data.get("gone")
+	if gone is Array:
+		for id_value: Variant in gone:
+			if id_value is String:
+				var who: PlayerState = get_entity(id_value)
+				if who != null and who.id != player_id:
+					who.in_view = false
+	var touched: Dictionary[String, bool] = {}
+	for entry: Dictionary in Protocol.read_dict_array(data, "players"):
+		var id: String = Protocol.read_string(entry, "id")
 		if _players.has(id):
-			_players[id].apply_snapshot(snapshot, server_tick)
+			_players[id].apply_snapshot(entry, server_tick)
 			_players[id].in_view = true
+			touched[id] = true
 			# Membro do grupo voltou para perto: vale o snapshot, não a posição de longe (velha).
 			_group_far.erase(id)
-	for npc: Dictionary in Protocol.read_dict_array(data, "npcs"):
-		var npc_id: String = Protocol.read_string(npc, "id")
-		if _npcs.has(npc_id) and Protocol.is_player_snapshot(npc):
-			_npcs[npc_id].apply_snapshot(npc, server_tick)
+	for entry: Dictionary in Protocol.read_dict_array(data, "npcs"):
+		var npc_id: String = Protocol.read_string(entry, "id")
+		if _npcs.has(npc_id):
+			_npcs[npc_id].apply_snapshot(entry, server_tick)
 			_npcs[npc_id].in_view = true
+			touched[npc_id] = true
+	var unchanged: Dictionary = {}
+	for state: PlayerState in _players.values():
+		if state.in_view and not touched.has(state.id):
+			state.apply_snapshot(unchanged, server_tick)
+	for state: PlayerState in _npcs.values():
+		if state.in_view and not touched.has(state.id):
+			state.apply_snapshot(unchanged, server_tick)
 	var me: Dictionary = Protocol.read_dict(data, "me")
 	mana = Protocol.read_float(me, "mana", mana)
 	max_mana = Protocol.read_float(me, "maxMana", max_mana)
-	respawn_in = Protocol.read_float(me, "respawnIn")
+	respawn_in = Protocol.read_float(me, "respawnIn", respawn_in)
 	level = Protocol.read_int(me, "level", level)
 	xp = Protocol.read_float(me, "xp", xp)
 	xp_next = Protocol.read_float(me, "xpNext", xp_next)
 	gold = Protocol.read_int(me, "gold", gold)
-	attack_target = Protocol.read_string(me, "target")
-	var casting: Dictionary = Protocol.read_dict(me, "casting")
-	casting_target = Protocol.read_string(casting, "target")
-	casting_remaining = Protocol.read_float(casting, "remaining")
+	# Alvo e lançamento podem virar null: só mudam quando a chave vem.
+	if me.has("target"):
+		attack_target = Protocol.read_string(me, "target")
+	if me.has("casting"):
+		var casting: Dictionary = Protocol.read_dict(me, "casting")
+		casting_target = Protocol.read_string(casting, "target")
+		casting_remaining = Protocol.read_float(casting, "remaining")
 	_sync_clock(server_tick)
 	snapshot_received.emit(server_tick, Protocol.read_int(data, "ack"))
 	for event: Dictionary in Protocol.read_dict_array(data, "events"):

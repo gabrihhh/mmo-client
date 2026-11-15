@@ -127,17 +127,18 @@ func set_look(data: Dictionary, levels: Dictionary = {}) -> void:
 	look_changed.emit()
 
 
-## Registra o estado do tick [param at_tick] (PlayerSnapshot já validado). Ticks repetidos ou
-## antigos atualizam só o "último estado", sem entrar no histórico.
+## Registra o estado do tick [param at_tick]. Snapshot por diferença ([INFRA-11]): só os campos que vieram mudam;
+## os outros ficam como estavam ([code]{}[/code] = "igual ao último", e o tick entra no histórico mesmo assim, para a
+## interpolação não ver um buraco). Ticks repetidos ou antigos atualizam só o "último estado", sem entrar no histórico.
 func apply_snapshot(data: Dictionary, at_tick: int) -> void:
-	x = Protocol.read_float(data, "x")
-	y = Protocol.read_float(data, "y")
-	z = Protocol.read_float(data, "z")
-	rot_y = Protocol.read_float(data, "rotY")
+	x = Protocol.read_float(data, "x", x)
+	y = Protocol.read_float(data, "y", y)
+	z = Protocol.read_float(data, "z", z)
+	rot_y = Protocol.read_float(data, "rotY", rot_y)
 	hp = Protocol.read_float(data, "hp", hp)
 	max_hp = Protocol.read_float(data, "maxHp", max_hp)
-	shield = Protocol.read_float(data, "shield")
-	guard = Protocol.read_float(data, "guard")
+	shield = Protocol.read_float(data, "shield", shield)
+	guard = Protocol.read_float(data, "guard", guard)
 	mana = Protocol.read_float(data, "mana", mana)
 	max_mana = Protocol.read_float(data, "maxMana", max_mana)
 	level = Protocol.read_int(data, "level", level)

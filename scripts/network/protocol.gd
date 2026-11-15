@@ -17,7 +17,9 @@ extends RefCounted
 ## v20: ferreiro ([JOGO-16]): [constant MSG_UPGRADE] / [constant MSG_UPGRADE_RESULT], nível e atributos no ItemView,
 ## [code]service[/code] no NpcSnapshot e [code]crit[/code] no evento de dano.
 ## v21: [code]levels[/code] (nível de melhoria das peças) no PlayerInfo e no evento [code]look[/code]: brilho ([JOGO-17]).
-const VERSION: int = 21
+## v22: snapshot por diferença ([INFRA-11]): cada entrada traz só os campos que mudaram, [code]gone[/code] lista
+## quem saiu da vista, [code]me[/code] parcial; posição em cm; eventos só de perto; limite da multidão.
+const VERSION: int = 22
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
