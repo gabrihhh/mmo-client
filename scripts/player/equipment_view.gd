@@ -427,6 +427,12 @@ func _refresh() -> void:
 		var model: Node3D = ItemModels.instantiate(item_id, body_id)
 		if model == null:
 			continue
+		# Brilho do item melhorado ([JOGO-17], [ItemGlow]): na cor do conjunto, mais claro a cada 5 níveis.
+		var level: int = _state.look_levels.get(slot, 0) if _state != null else 0
+		var glow: ShaderMaterial = ItemGlow.material(item_id, level)
+		ItemGlow.apply(model, glow)
+		if slot == "hand" and ItemGlow.has_sparks(level):
+			model.add_child(ItemGlow.make_sparks(ItemGlow.spark_amount(level)))
 		if key == "hand" and ItemModels.aims_between_hands(item_id):
 			# Apontada de mão a mão: filha da raiz do personagem (não do osso da mão: o encaixe é reposicionado depois
 			# dos ajustes de mão/dedos e desfazia a pose); [method _update_aimed] põe entre as mãos a cada quadro.
@@ -460,7 +466,11 @@ func _refresh() -> void:
 			_fit(model, fit_boxes[key], slot)
 		mount.add_child(model)
 		if (slot == "chest" or slot == "feet") and body != null:
+			var before: int = _skinned.size()
 			_dress(model, mount, key)
+			# A roupa vestida são cópias com pesos: o brilho vai nelas (a peça rígida fica escondida).
+			for index: int in range(before, _skinned.size()):
+				_skinned[index].material_overlay = glow
 	_sink_covered_skin()
 
 

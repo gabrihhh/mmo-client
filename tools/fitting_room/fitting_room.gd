@@ -9,12 +9,13 @@ extends Node3D
 ##
 ## Controles (botões na tela; atalhos no teclado):
 ## - Conjunto ◀ ▶ (A / D) — treino, mago, cavaleiro, atirador, assassino, curandeiro, sem roupa.
+## - Nível ◀ ▶ (Q / E) — nível de melhoria de todas as peças (0, 1, 5, 10… 70): o brilho de [ItemGlow] ([JOGO-17]).
 ## - Animação ◀ ▶ (W / S) — parado, correndo e cada ação da biblioteca (ataques, magias), repetindo.
 ## - Velocidade (1 / 2 / 3 = 100% / 50% / 25%), Pausa (espaço), Girar sozinho (R), Pose T (T: esqueleto em repouso).
 ## - Arrastar com o mouse gira os dois; roda do mouse aproxima/afasta; F/L/C/O = vista de frente/lado/costas/3‑4.
 ## - P salva uma foto (user://provador_<n>.png, o caminho aparece embaixo).
 ## Sem tela para clicar (Claude): `-- --shot=<saida.png> [--kit=N] [--anim=nome] [--view=graus]` tira a foto depois
-## de [constant SHOT_DELAY_S] s e fecha.
+## de [constant SHOT_DELAY_S] s e fecha (também `--level=N`).
 
 ## Conjuntos: nome na tela → o que veste. ATENÇÃO: mesmos itens de tools/placeholders/preview_fit.gd (KITS).
 const KITS: Array[Array] = [
@@ -46,6 +47,10 @@ var _turntable: Node3D = null
 var _camera: Camera3D = null
 var _distance: float = CAMERA_DISTANCE_M
 var _kit: int = 0
+## Níveis de melhoria oferecidos e o escolhido.
+const LEVELS: Array[int] = [0, 1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70]
+var _level: int = 0
+var _level_label: Label = null
 ## Animações oferecidas: "idle", "run" e as ações (nomes base, sem o "_full").
 var _animations: Array[String] = []
 var _animation: int = 0
@@ -78,6 +83,11 @@ func _auto_shot() -> void:
 		elif arg.begins_with("--kit="):
 			_kit = clampi(int(arg.trim_prefix("--kit=")), 0, KITS.size() - 1)
 			_apply_kit()
+		elif arg.begins_with("--level="):
+			var wanted_level: int = LEVELS.find(int(arg.trim_prefix("--level=")))
+			if wanted_level >= 0:
+				_level = wanted_level
+				_apply_kit()
 		elif arg.begins_with("--anim="):
 			var wanted: int = _animations.find(arg.trim_prefix("--anim="))
 			if wanted >= 0:
@@ -148,6 +158,7 @@ func _build_ui() -> void:
 	column.add_theme_constant_override("separation", 6)
 	panel.add_child(column)
 	_kit_label = _row(column, "Conjunto", _change_kit.bind(-1), _change_kit.bind(1))
+	_level_label = _row(column, "Nível", _change_level.bind(-1), _change_level.bind(1))
 	_animation_label = _row(column, "Animação", _change_animation.bind(-1), _change_animation.bind(1))
 	var speeds: HBoxContainer = HBoxContainer.new()
 	for pair: Array in [["100%", 1.0], ["50%", 0.5], ["25%", 0.25]]:
@@ -231,10 +242,19 @@ func _change_kit(step: int) -> void:
 	_apply_kit()
 
 
+func _change_level(step: int) -> void:
+	_level = posmod(_level + step, LEVELS.size())
+	_apply_kit()
+
+
 func _apply_kit() -> void:
 	var look: Dictionary = KITS[_kit][1]
+	var levels: Dictionary = {}
+	for slot: String in look:
+		levels[slot] = LEVELS[_level]
 	for state: PlayerState in _looks:
-		state.set_look(look)
+		state.set_look(look, levels)
+	_level_label.text = "+%d" % LEVELS[_level]
 	_kit_label.text = String(KITS[_kit][0])
 	_action_left = 0.0
 
@@ -287,6 +307,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		match (event as InputEventKey).keycode:
 			KEY_A: _change_kit(-1)
 			KEY_D: _change_kit(1)
+			KEY_Q: _change_level(-1)
+			KEY_E: _change_level(1)
 			KEY_W: _change_animation(-1)
 			KEY_S: _change_animation(1)
 			KEY_SPACE: _toggle_pause()

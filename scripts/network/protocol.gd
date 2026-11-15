@@ -16,7 +16,8 @@ extends RefCounted
 ## [code]gold[/code] no [code]me[/code] do snapshot (moedas, [JOGO-15]).
 ## v20: ferreiro ([JOGO-16]): [constant MSG_UPGRADE] / [constant MSG_UPGRADE_RESULT], nível e atributos no ItemView,
 ## [code]service[/code] no NpcSnapshot e [code]crit[/code] no evento de dano.
-const VERSION: int = 20
+## v21: [code]levels[/code] (nível de melhoria das peças) no PlayerInfo e no evento [code]look[/code]: brilho ([JOGO-17]).
+const VERSION: int = 21
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam

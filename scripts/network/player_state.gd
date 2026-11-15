@@ -44,6 +44,9 @@ var shield: float = 0.0
 var guard: float = 0.0
 ## O que veste: slot ("hand", "head", "chest", "feet") → itemId. Slot vazio não aparece. Ver [ART-02].
 var look: Dictionary[String, String] = {}
+## Nível de melhoria de cada peça vestida (slot → nível; sem chave = +0): o brilho que todos veem ([JOGO-17], [ItemGlow]).
+## ATENÇÃO: LookLevels em mmo-server/src/net/protocol.ts.
+var look_levels: Dictionary[String, int] = {}
 ## Corpo do personagem (qual modelo desenhar): [constant Protocol.BODY_MALE] ou [constant Protocol.BODY_FEMALE].
 ## Vem no PlayerInfo; bonecos/NPCs ficam com o padrão.
 var body: String = Protocol.BODY_MALE
@@ -83,7 +86,7 @@ static func from_snapshot(data: Dictionary, at_tick: int) -> PlayerState:
 	var state: PlayerState = PlayerState.new()
 	state.id = Protocol.read_string(data, "id")
 	state.name = Protocol.read_string(data, "name")
-	state.set_look(Protocol.read_dict(data, "look"))
+	state.set_look(Protocol.read_dict(data, "look"), Protocol.read_dict(data, "levels"))
 	var info_body: String = Protocol.read_string(data, "body")
 	if not info_body.is_empty():
 		state.body = info_body
@@ -100,15 +103,20 @@ static func from_snapshot(data: Dictionary, at_tick: int) -> PlayerState:
 
 
 ## Troca a aparência a partir do Look do servidor ({ hand, head, chest, feet: itemId ou null }).
-func set_look(data: Dictionary) -> void:
+func set_look(data: Dictionary, levels: Dictionary = {}) -> void:
 	var new_look: Dictionary[String, String] = {}
+	var new_levels: Dictionary[String, int] = {}
 	for slot: String in InventoryState.SLOTS:
 		var item_id: String = Protocol.read_string(data, slot)
 		if not item_id.is_empty():
 			new_look[slot] = item_id
-	if new_look == look:
+			var level: int = Protocol.read_int(levels, slot)
+			if level > 0:
+				new_levels[slot] = level
+	if new_look == look and new_levels == look_levels:
 		return
 	look = new_look
+	look_levels = new_levels
 	look_changed.emit()
 
 
