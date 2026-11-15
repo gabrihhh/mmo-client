@@ -27,12 +27,12 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
 - Números: **Dano 10** · alcance 11 m · lançamento **1,2 s** · recarga **1,2 s** · sem mana.
 - Como funciona: Toque no ⚔: fixa como alvo o **inimigo mais perto** (até 10 m) e o personagem passa a atacar sozinho a cada 1,2 s, até o alvo morrer ou você soltar (Desfocar). Segurar, arrastar até alguém e soltar escolhe o alvo. O personagem **não anda sozinho** até ele: começa a bater quando você para a até 11 m (+0,5 m de folga). Cada golpe tira 10 de vida depois de 1,2 s de lançamento (andar nesse tempo cancela).
 - Ao segurar (prévia): círculo dourado translúcido (1,5 m) que segue o dedo, com uma linha saindo do personagem; passando sobre um inimigo, aparece o marcador de alvo embaixo dele.
-- Os outros veem: projétil visual que sai da mão e chega junto com o dano. Animação: `attack_staff` (Meshy; genérica, também em 2 outras).
+- Os outros veem: projétil visual que sai da mão e chega junto com o dano. Animação: `shoot_rifle` (Meshy; genérica, também em 2 outras).
 - **Tempo da animação (Blender, 30 fps):**
   - **Momento do efeito** (golpe acerta / magia sai): **1,2 s = quadro 36** contando do início — é quando o servidor aplica o efeito (fim do lançamento).
   - O projétil visual **sai da mão em 0,95 s = quadro 28** (voa 0,25 s até o alvo).
   - Repete a cada **1,2 s**: a animação inteira deve terminar até **1,2 s = quadro 36** para emendar no próximo golpe.
-  - Hoje usa a genérica `attack_staff`: dura 1,1 s (quadro 33), golpe em 0,47 s (quadro 14) → o jogo toca a **×0,39** para o golpe cair em 1,2 s.
+  - Hoje usa a genérica `shoot_rifle`: dura 0,27 s (quadro 8), golpe em 0,07 s (quadro 2) → o jogo toca a **×0,25** para o golpe cair em 1,2 s.
   - Fazendo o golpe exatamente no quadro acima, ela toca na velocidade normal (×1). Se ficar em outro quadro, o jogo acelera ou desacelera (entre ×0,25 e ×4) desde que o golpe seja medido em `CharacterAnimator.HIT_TIMES` (`skill_crossbow_attack`).
 
 ### Habilidade 1: Virote certeiro — pasta `animation-skill-1/`
@@ -41,13 +41,13 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
 - Números: **Dano 22** · alcance 16 m · meia-largura 0,4 m · projétil 26 m/s (dá para desviar) · lançamento **0,6 s** · recarga **5 s** · mana **15**.
 - Como funciona: Arraste para apontar a linha (toque = na direção do alvo fixo ou para a frente) e solte; depois de 0,6 s de lançamento (andar nesse tempo cancela), um projétil a 26 m/s acerta o PRIMEIRO inimigo no caminho (até 16 m): tira 22 de vida.
 - Ao segurar (prévia): faixa dourada translúcida saindo do personagem na direção do dedo: 16 m de comprimento × 0,8 m de largura.
-- Os outros veem: aviso no chão (faixa) até o efeito; projétil voando de verdade. Animação: `cast_forward` (Meshy; genérica, também em 7 outras).
+- Os outros veem: aviso no chão (faixa) até o efeito; projétil voando de verdade. Animação: `shoot_rifle` (Meshy; genérica, também em 2 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/piercing_bolt.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Momento do efeito** (golpe acerta / magia sai): **0,6 s = quadro 18** contando do início — é quando o servidor aplica o efeito (fim do lançamento).
   - O projétil de verdade sai no momento do efeito (26 m/s).
   - Recarga 5 s (não repete em seguida): depois do efeito, uma volta curta ao repouso (~0,3–0,6 s) basta.
-  - Hoje usa a genérica `cast_forward`: dura 1,5 s (quadro 45), golpe em 0,9 s (quadro 27) → o jogo toca a **×1,5** para o golpe cair em 0,6 s.
+  - Hoje usa a genérica `shoot_rifle`: dura 0,27 s (quadro 8), golpe em 0,07 s (quadro 2) → o jogo toca a **×0,25** para o golpe cair em 0,6 s.
   - Fazendo o golpe exatamente no quadro acima, ela toca na velocidade normal (×1). Se ficar em outro quadro, o jogo acelera ou desacelera (entre ×0,25 e ×4) desde que o golpe seja medido em `CharacterAnimator.HIT_TIMES` (`skill_piercing_bolt`).
 
 ### Habilidade 2: Chuva de virotes — pasta `animation-skill-2/`
@@ -70,13 +70,13 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
 - Números: **Dano 14** · alcance 12 m · lançamento **0,3 s** · recarga **6 s** · mana **10**.
 - Como funciona: Com alvo fixo, um toque lança nele; sem alvo, arraste até um inimigo e solte. O alvo precisa estar a até 12 m no fim; tira 14 de vida depois de 0,3 s de lançamento (andar nesse tempo cancela).
 - Ao segurar (prévia): círculo dourado translúcido (1,5 m) que segue o dedo, com uma linha saindo do personagem; passando sobre um inimigo, aparece o marcador de alvo embaixo dele.
-- Os outros veem: projétil visual que sai da mão e chega junto com o dano. Animação: `cast_forward` (Meshy; genérica, também em 7 outras).
+- Os outros veem: projétil visual que sai da mão e chega junto com o dano. Animação: `shoot_rifle` (Meshy; genérica, também em 2 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/quick_shot.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Momento do efeito** (golpe acerta / magia sai): **0,3 s = quadro 9** contando do início — é quando o servidor aplica o efeito (fim do lançamento).
   - O projétil visual **sai da mão em 0,2 s = quadro 6** (voa 0,1 s até o alvo).
   - Recarga 6 s (não repete em seguida): depois do efeito, uma volta curta ao repouso (~0,3–0,6 s) basta.
-  - Hoje usa a genérica `cast_forward`: dura 1,5 s (quadro 45), golpe em 0,9 s (quadro 27) → o jogo toca a **×3** para o golpe cair em 0,3 s.
+  - Hoje usa a genérica `shoot_rifle`: dura 0,27 s (quadro 8), golpe em 0,07 s (quadro 2) → o jogo toca a **×0,25** para o golpe cair em 0,3 s.
   - Fazendo o golpe exatamente no quadro acima, ela toca na velocidade normal (×1). Se ficar em outro quadro, o jogo acelera ou desacelera (entre ×0,25 e ×4) desde que o golpe seja medido em `CharacterAnimator.HIT_TIMES` (`skill_quick_shot`).
 
 ## Anotações

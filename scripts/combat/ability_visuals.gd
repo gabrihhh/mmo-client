@@ -60,6 +60,13 @@ const ANIMATIONS: Dictionary[String, String] = {
 	"grace": "buff",
 	"aegis": "cast_up",
 	"light_steps": "buff",
+	# Monstros ([JOGO-18], MONSTER_ABILITIES no servidor): zumbi bate com a mão / cospe; chefe murro e pisão.
+	"zombie_punch": "attack_punch",
+	"zombie_bash": "heavy_strike",
+	"zombie_spit": "cast_forward",
+	"acid_glob": "cast_forward",
+	"boss_smash": "attack_punch",
+	"boss_stomp": "heavy_strike",
 }
 ## Cor dos efeitos (projétil, aviso no chão).
 const COLORS: Dictionary[String, Color] = {
@@ -96,6 +103,11 @@ const COLORS: Dictionary[String, Color] = {
 	"holy_shield": Color(1.0, 0.9, 0.5),
 	"grace": Color(1.0, 0.85, 0.4),
 	"aegis": Color(1.0, 0.9, 0.55),
+	"zombie_bash": Color(0.65, 0.85, 0.45),
+	"zombie_spit": Color(0.55, 0.85, 0.2),
+	"acid_glob": Color(0.5, 0.95, 0.2),
+	"boss_smash": Color(0.8, 0.5, 1.0),
+	"boss_stomp": Color(0.75, 0.35, 1.0),
 }
 const DEFAULT_COLOR: Color = Color(1.0, 0.85, 0.5)
 ## Golpes corpo a corpo com clarão no momento do golpe: alcance do clarão (m). Negativo = anel inteiro (ao redor).
@@ -110,6 +122,10 @@ const SLASH_REACH: Dictionary[String, float] = {
 	"dagger_attack": 1.5,
 	"backstab": 1.8,
 	"blade_flurry": -2.5,
+	"zombie_punch": 1.2,
+	"zombie_bash": 3.2,
+	"boss_smash": 2.2,
+	"boss_stomp": -5.0,
 }
 ## Magias que acendem um brilho na mão durante o lançamento (mostra aos outros que vem coisa aí).
 const CAST_GLOW: Array[String] = [
@@ -126,6 +142,7 @@ const HOMING_FLIGHT: Dictionary[String, float] = {
 	"arcane_attack": 0.3,
 	"crossbow_attack": 0.25,
 	"quick_shot": 0.1,
+	"zombie_spit": 0.35,
 }
 
 

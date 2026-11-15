@@ -6,6 +6,7 @@ extends Node3D
 ## [method Network.get_players] e depois segue [signal Network.player_added] / [signal Network.player_removed].
 ## O próprio player id vira o [LocalPlayer]; os outros, [RemotePlayer].
 ## Se a conexão cair (ou o jogador sair pelo menu), volta para a tela de login, que mostra o motivo.
+## Ao entrar numa zona de nível ([JOGO-18], [ZoneInfo]) mostra "Entrando em Nome (nv a-b)" no aviso do topo.
 
 const LOCAL_PLAYER_SCENE: PackedScene = preload("res://scenes/player/local_player.tscn")
 const REMOTE_PLAYER_SCENE: PackedScene = preload("res://scenes/player/remote_player.tscn")
@@ -38,6 +39,9 @@ var _last_level: int = -1
 var _last_xp: float = 0.0
 ## Moedas no snapshot anterior (−1 = ainda nenhum): subiu → "+N moedas" acima de você ([JOGO-15]).
 var _last_gold: int = -1
+## Zona de nível onde o jogador estava no último snapshot ([JOGO-18]); "" = nenhuma (praça). "?" = ainda não sabe
+## (a primeira vez não avisa: quem entra no jogo já está na praça).
+var _last_region: String = "?"
 
 ## Altura (m) de onde os projéteis voam (mais ou menos a mão de quem lança).
 const _PROJECTILE_HEIGHT: float = 1.3
@@ -415,6 +419,20 @@ func _on_snapshot(_tick: int, _ack: int) -> void:
 		_hud.set_nearby_players(network.get_nearby_players())
 	if own.dead:
 		_hud.show_toast("Você morreu · renasce em %d s" % ceili(network.respawn_in))
+	else:
+		_check_region(own)
+
+
+## Trocou de zona de nível ([JOGO-18]): aviso "Entrando em Nome (nv a-b)". Voltar para a praça não avisa.
+func _check_region(own: PlayerState) -> void:
+	var region: ZoneInfo.Region = ZoneInfo.region_at(own.x, own.z)
+	var key: String = region.name if region != null else ""
+	if key == _last_region:
+		return
+	var first: bool = _last_region == "?"
+	_last_region = key
+	if region != null and not first:
+		_hud.show_toast("Entrando em %s" % region.title())
 
 
 ## Distância máxima (m) do ferreiro para o botão aparecer. ATENÇÃO: = BLACKSMITH_RANGE em mmo-server/src/zones/Zone.ts

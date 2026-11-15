@@ -27,7 +27,7 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
 - Números: **Dano 10** · alcance 2,5 m · lançamento **1 s** · recarga **1 s** · sem mana.
 - Como funciona: Toque no ⚔: fixa como alvo o **inimigo mais perto** (até 10 m) e o personagem passa a atacar sozinho a cada 1 s, até o alvo morrer ou você soltar (Desfocar). Segurar, arrastar até alguém e soltar escolhe o alvo. O personagem **não anda sozinho** até ele: começa a bater quando você para a até 2,5 m (+0,5 m de folga). Cada golpe tira 10 de vida depois de 1 s de lançamento (andar nesse tempo cancela).
 - Ao segurar (prévia): círculo dourado translúcido (1,5 m) que segue o dedo, com uma linha saindo do personagem; passando sobre um inimigo, aparece o marcador de alvo embaixo dele.
-- Os outros veem: clarão do golpe à frente (1,8 m) no momento do efeito. Animação: `attack_sword` (Meshy; genérica, também em 1 outra).
+- Os outros veem: clarão do golpe à frente (1,8 m) no momento do efeito. Animação: `attack_sword` (Meshy; própria).
 - **Tempo da animação (Blender, 30 fps):**
   - **Momento do efeito** (golpe acerta / magia sai): **1 s = quadro 30** contando do início — é quando o servidor aplica o efeito (fim do lançamento).
   - Repete a cada **1 s**: a animação inteira deve terminar até **1 s = quadro 30** para emendar no próximo golpe.
@@ -40,7 +40,7 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
 - Números: **Dano 25** · raio 2,5 m · lançamento **0,5 s** · recarga **6 s** · mana **15**.
 - Como funciona: Toque e sai (não precisa mirar): depois de 0,5 s de lançamento (andar nesse tempo cancela), todos os inimigos em volta num raio de 2,5 m: tira 25 de vida.
 - Ao segurar (prévia): círculo dourado translúcido de raio 2,5 m em volta do personagem.
-- Os outros veem: **sem aviso no chão** (o servidor não manda o ponto do "ao redor"); clarão do golpe em anel de 2,5 m no momento do efeito. Animação: `heavy_strike` (Meshy; genérica, também em 3 outras).
+- Os outros veem: **sem aviso no chão** (o servidor não manda o ponto do "ao redor"); clarão do golpe em anel de 2,5 m no momento do efeito. Animação: `heavy_strike` (Meshy; genérica, também em 2 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/heavy_strike.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Momento do efeito** (golpe acerta / magia sai): **0,5 s = quadro 15** contando do início — é quando o servidor aplica o efeito (fim do lançamento).

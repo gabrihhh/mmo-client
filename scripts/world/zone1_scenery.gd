@@ -5,7 +5,8 @@ extends Node3D
 ##   praça, montanhas e o que o dono puser na coleção `Terreno`. Refazer: `python3 tools/blender/export_zone.py`.
 ##   As cores vêm por vértice; todas as malhas usam o material low poly de [LowPolyShapes];
 ## - campo florido por código por cima (flores e grama em MultiMesh, divididos em blocos para a câmera só desenhar os
-##   perto), na altura de [ZoneTerrain], fora da praça.
+##   perto), na altura de [ZoneTerrain], fora da praça e do chão dos acampamentos ([ZoneInfo]);
+## - fogo animado ([CampfireFlame]) em cima de cada fogueira dos acampamentos ([JOGO-18]).
 ## Só visual. Semente fixa ([constant SEED]): sai igual em todo aparelho.
 
 ## Mapa exportado do Blender.
@@ -31,6 +32,7 @@ func _ready() -> void:
 	ZoneTerrain.preload_heights()
 	_add_map()
 	_add_field()
+	_add_fires()
 
 
 ## Malhas do Blender, com o material de cor por vértice (o do .glb é só um marcador).
@@ -41,6 +43,17 @@ func _add_map() -> void:
 	var material: StandardMaterial3D = LowPolyShapes.material()
 	for node: Node in map.find_children("*", "MeshInstance3D", true, false):
 		(node as MeshInstance3D).material_override = material
+
+
+## Fogo animado em cima de cada fogueira dos acampamentos ([JOGO-18], [ZoneInfo]).
+func _add_fires() -> void:
+	var index: int = 0
+	for fire: ZoneInfo.Fire in ZoneInfo.fires():
+		var flame: CampfireFlame = CampfireFlame.new()
+		flame.setup(fire.size / 1.6, float(index) * 1.7)
+		flame.position = fire.position
+		add_child(flame)
+		index += 1
 
 
 # --- Campo florido ---
@@ -85,6 +98,9 @@ func _scatter(into: Dictionary[Vector2i, Array], count: int, patchy: bool) -> vo
 		var x: float = _rng.randf_range(-limit, limit)
 		var z: float = _rng.randf_range(-limit, limit)
 		if absf(x) < keep_out and absf(z) < keep_out:
+			continue
+		# Chão de terra dos acampamentos ([JOGO-18]): sem flores nem grama.
+		if ZoneInfo.is_camp_ground(x, z):
 			continue
 		# Manchas: mais flores onde o "ruído" é alto (campo com canteiros, não uniforme).
 		if patchy and _rng.randf() > 0.25 + 0.75 * clampf(sin(x * 0.12) * cos(z * 0.1) + 0.3, 0.0, 1.0):

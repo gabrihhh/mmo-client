@@ -15,9 +15,14 @@ O que sai (argumentos depois de `--`: <pasta do cliente> <pasta do servidor> <zo
    malhas soltas direto na coleção `Terreno` (não as de `Objetos`): raio de cima para baixo, o ponto mais alto.
 3. `assets/zones/<zona>/<zona>_map.png` (cliente): mapa do Menu ([CLI-11]) visto de cima, 1 pixel = MAP_STEP m de
    −MAP_HALF a +MAP_HALF: cor da face mais alta de tudo o que se vê no centro de cada pixel.
-4. `src/zones/maps/<zona>.json` (servidor): os cilindros da coleção `NPCs e zumbis`. Com Custom Property `nivel` =
-   monstro (`tipo`, `ataque` melee/ranged, `nivel`, `alcance_reset`, `percepcao`); com `(id)` no nome = NPC de teste
-   de `zones.ts` naquele lugar (ex. "Saco de pancadas (test_bag)").
+4. `src/zones/maps/<zona>.json` (servidor): os cilindros da coleção `NPCs e zumbis` (e das subcoleções dela, ex. uma
+   por acampamento). Com Custom Property `nivel` = monstro (`tipo`, `ataque` melee/ranged, `nivel`, `alcance_reset`,
+   `percepcao` e, opcionais, `chefe`, `escala`, `nome`); com `(id)` no nome = NPC de teste de `zones.ts` naquele
+   lugar (ex. "Saco de pancadas (test_bag)").
+5. `assets/zones/<zona>/<zona>_info.json` (cliente, [JOGO-18]): as **zonas de nível** (malhas planas da coleção
+   `Zonas de nível`, Custom Properties `nome`, `nivel_min`, `nivel_max`: contorno, buracos e onde vai o nome) para o
+   mapa do Menu e o aviso ao entrar; e as **fogueiras** (objetos `fogueira*` em `Terreno`: o fogo animado do jogo;
+   `limpa_raio` = sem flores em volta).
 
 Imprime `EXPORTADO <caminho> ...`, `AVISO ...` e `ERRO ...`.
 ATENÇÃO: grade da altura = ZoneTerrain (mmo-client/scripts/world/zone_terrain.gd); mapa = ZoneMap
@@ -40,6 +45,10 @@ VISUAL_COLLECTIONS = ("Jogo hoje",)
 TERRAIN_COLLECTION = "Terreno"
 COLLIDE_COLLECTION = "Objetos"
 MOBS_COLLECTION = "NPCs e zumbis"
+## Zonas de nível ([JOGO-18]): malhas planas (não aparecem no jogo; só contorno no mapa e aviso ao entrar).
+REGIONS_COLLECTION = "Zonas de nível"
+## Objeto em Terreno com nome começando assim = fogueira: o jogo põe o fogo animado no centro dele.
+FIRE_PREFIX = "fogueira"
 GROUND_OBJECTS = ("jogo_chao", "jogo_praca")
 COLLISION_SUFFIX = "_colisao"
 ## Grade da altura (m) e deslocamento (cm) para caber alturas negativas. ATENÇÃO: = ZoneTerrain.
@@ -295,10 +304,11 @@ def export_map(objects: list, path: str) -> int:
 
 
 def read_mobs() -> tuple:
-    """Monstros e NPCs de teste dos cilindros da coleção de mobs. Erro de dado → lista de erros (não exporta)."""
+    """Monstros e NPCs de teste dos cilindros da coleção de mobs (e subcoleções). Erro de dado → lista de erros (não
+    exporta)."""
     monsters, npcs, errors = [], [], []
-    for obj in sorted(collection_objects(MOBS_COLLECTION, False), key=lambda o: o.name):
-        if obj.type != "MESH":
+    for obj in sorted(collection_objects(MOBS_COLLECTION, True), key=lambda o: o.name):
+        if obj.type != "MESH" or obj.name.startswith("anel_"):
             continue
         x = round(obj.matrix_world.translation.x, 2)
         z = round(-obj.matrix_world.translation.y, 2)
@@ -319,9 +329,23 @@ def read_mobs() -> tuple:
                 errors.append(f"{obj.name}: nivel precisa ser inteiro, 0 ou mais ({level})")
             elif not all(isinstance(v, (int, float)) and v > 0 for v in (reset, perception)):
                 errors.append(f"{obj.name}: alcance_reset e percepcao precisam ser maiores que 0")
+            elif not isinstance(obj.get("escala", 1.0), (int, float)) or not 0.5 <= obj.get("escala", 1.0) <= 4.0:
+                errors.append(f"{obj.name}: escala precisa ir de 0.5 a 4 ({obj.get('escala')})")
+            elif len(str(obj.get("nome", ""))) > 40:
+                errors.append(f"{obj.name}: nome com mais de 40 letras")
             else:
-                monsters.append({"kind": ATTACK_KINDS[attack], "level": level, "x": x, "z": z,
-                                 "resetRange": round(float(reset), 2), "perception": round(float(perception), 2)})
+                monster = {"kind": ATTACK_KINDS[attack], "level": level, "x": x, "z": z,
+                           "resetRange": round(float(reset), 2), "perception": round(float(perception), 2)}
+                # Opcionais ([JOGO-18]): só vão quando fogem do padrão (JSON igual ao de antes para mob comum).
+                scale = round(float(obj.get("escala", 1.0)), 2)
+                if scale != 1.0:
+                    monster["scale"] = scale
+                if bool(obj.get("chefe", False)):
+                    monster["boss"] = True
+                name = str(obj.get("nome", "")).strip()
+                if name:
+                    monster["name"] = name
+                monsters.append(monster)
             continue
         match = NPC_ID.search(obj.name)
         if match is not None:
@@ -339,15 +363,119 @@ def read_mobs() -> tuple:
         if n["id"] in seen:
             errors.append(f"NPC {n['id']} aparece duas vezes")
         seen.add(n["id"])
-    ordered = [{"id": m["id"], "kind": m["kind"], "level": m["level"], "x": m["x"], "z": m["z"],
-                "resetRange": m["resetRange"], "perception": m["perception"]} for m in monsters]
+    keys = ("id", "kind", "level", "x", "z", "resetRange", "perception", "scale", "boss", "name")
+    ordered = [{k: m[k] for k in keys if k in m} for m in monsters]
     return ordered, sorted(npcs, key=lambda n: n["id"]), errors
+
+
+def boundary_loops(obj) -> list:
+    """Contornos da malha plana [obj] (espaço do mundo) em coordenadas do jogo [[x, z], ...]: as arestas de borda
+    encadeadas. Mais de um = buracos (o maior é o de fora)."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bm.transform(obj.matrix_world)
+    edges = [e for e in bm.edges if e.is_boundary]
+    nexts = {}
+    for e in edges:
+        a, b = e.verts
+        nexts.setdefault(a.index, []).append(b.index)
+        nexts.setdefault(b.index, []).append(a.index)
+    pos = {v.index: (round(v.co.x, 2), round(-v.co.y, 2)) for v in bm.verts}
+    bm.free()
+    loops, used = [], set()
+    for start in nexts:
+        if start in used:
+            continue
+        loop, prev, cur = [start], None, start
+        used.add(start)
+        while True:
+            options = [n for n in nexts[cur] if n != prev and (n not in used or (n == start and len(loop) > 2))]
+            if not options:
+                break
+            nxt = options[0]
+            if nxt == start:
+                break
+            loop.append(nxt)
+            used.add(nxt)
+            prev, cur = cur, nxt
+        if len(loop) >= 3:
+            loops.append([list(pos[i]) for i in loop])
+    return loops
+
+
+def polygon_area(points: list) -> float:
+    return 0.5 * sum(points[i][0] * points[(i + 1) % len(points)][1] - points[(i + 1) % len(points)][0] * points[i][1]
+                     for i in range(len(points)))
+
+
+def inside(point: tuple, poly: list) -> bool:
+    x, z = point
+    hit = False
+    j = len(poly) - 1
+    for i in range(len(poly)):
+        xi, zi = poly[i]
+        xj, zj = poly[j]
+        if (zi > z) != (zj > z) and x < (xj - xi) * (z - zi) / (zj - zi) + xi:
+            hit = not hit
+        j = i
+    return hit
+
+
+def read_regions() -> tuple:
+    """Zonas de nível ([JOGO-18]) da coleção REGIONS_COLLECTION. Devolve (zonas, erros)."""
+    regions, errors = [], []
+    for obj in sorted(collection_objects(REGIONS_COLLECTION, True), key=lambda o: o.name):
+        if obj.type != "MESH":
+            continue
+        name = str(obj.get("nome", "")).strip()
+        low, high = obj.get("nivel_min"), obj.get("nivel_max")
+        if not name or not isinstance(low, int) or not isinstance(high, int) or low < 0 or high < low:
+            errors.append(f"{obj.name}: zona de nível precisa de nome, nivel_min e nivel_max (inteiros, min ≤ max)")
+            continue
+        loops = boundary_loops(obj)
+        if not loops:
+            errors.append(f"{obj.name}: zona de nível sem contorno (malha plana com faces)")
+            continue
+        loops.sort(key=lambda l: abs(polygon_area(l)), reverse=True)
+        outer, holes = loops[0], loops[1:]
+        # Onde vai o nome: o meio da maior face que fique dentro (o centro de uma zona em anel cai no buraco).
+        best, best_area = None, -1.0
+        for poly in obj.data.polygons:
+            c = obj.matrix_world @ poly.center
+            if poly.area > best_area:
+                best, best_area = (round(c.x, 2), round(-c.y, 2)), poly.area
+        cx = sum(p[0] for p in outer) / len(outer)
+        cz = sum(p[1] for p in outer) / len(outer)
+        if inside((cx, cz), outer) and not any(inside((cx, cz), h) for h in holes):
+            best = (round(cx, 2), round(cz, 2))
+        label = obj.get("rotulo")
+        if label is not None and len(label) == 2:
+            best = (round(float(label[0]), 2), round(float(label[1]), 2))
+        regions.append({"name": name, "minLevel": low, "maxLevel": high, "outer": outer, "holes": holes,
+                        "label": list(best)})
+    return regions, errors
+
+
+def read_fires() -> list:
+    """Fogueiras: objetos `fogueira*` em Terreno (com as subcoleções). [x, altura, z] do centro, o tamanho (m) e
+    `clearRadius` (Custom Property `limpa_raio`, m): sem flores/grama nesse raio (o chão do acampamento)."""
+    fires = []
+    for obj in collection_objects(TERRAIN_COLLECTION, True):
+        if not obj.name.lower().startswith(FIRE_PREFIX):
+            continue
+        w = obj.matrix_world.translation
+        size = max(obj.dimensions.x, obj.dimensions.y, 0.5)
+        fires.append({"x": round(w.x, 2), "y": round(w.z, 2), "z": round(-w.y, 2), "size": round(size, 2),
+                      "clearRadius": round(float(obj.get("limpa_raio", 0.0)), 2)})
+    return sorted(fires, key=lambda f: (f["z"], f["x"]))
 
 
 def main() -> None:
     argv = sys.argv[sys.argv.index("--") + 1:]
     client, server, zone = argv[0], argv[1], argv[2]
     monsters, npcs, errors = read_mobs()
+    regions, region_errors = read_regions()
+    errors += region_errors
     if errors:
         for e in errors:
             print("ERRO " + e)
@@ -375,6 +503,12 @@ def main() -> None:
         json.dump({"monsters": monsters, "npcs": npcs}, f, ensure_ascii=False, indent=2)
         f.write("\n")
     print(f"EXPORTADO {data} {len(monsters)} monstros, {len(npcs)} NPCs ({', '.join(n['id'] for n in npcs)})")
+    info = os.path.join(out, f"{zone}_info.json")
+    fires = read_fires()
+    with open(info, "w", encoding="utf-8") as f:
+        json.dump({"regions": regions, "fires": fires}, f, ensure_ascii=False, indent=1)
+        f.write("\n")
+    print(f"EXPORTADO {info} {len(regions)} zonas de nível, {len(fires)} fogueiras")
 
 
 main()

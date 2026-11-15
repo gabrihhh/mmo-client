@@ -27,7 +27,7 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
 - Números: **Dano 7** · alcance 8 m · lançamento **1,2 s** · recarga **1,2 s** · sem mana.
 - Como funciona: Toque no ⚔: fixa como alvo o **inimigo mais perto** (até 10 m) e o personagem passa a atacar sozinho a cada 1,2 s, até o alvo morrer ou você soltar (Desfocar). Segurar, arrastar até alguém e soltar escolhe o alvo. O personagem **não anda sozinho** até ele: começa a bater quando você para a até 8 m (+0,5 m de folga). Cada golpe tira 7 de vida depois de 1,2 s de lançamento (andar nesse tempo cancela).
 - Ao segurar (prévia): círculo dourado translúcido (1,5 m) que segue o dedo, com uma linha saindo do personagem; passando sobre um inimigo, aparece o marcador de alvo embaixo dele.
-- Os outros veem: projétil visual que sai da mão e chega junto com o dano. Animação: `attack_staff` (Meshy; genérica, também em 2 outras).
+- Os outros veem: projétil visual que sai da mão e chega junto com o dano. Animação: `attack_staff` (Meshy; genérica, também em 1 outra).
 - **Tempo da animação (Blender, 30 fps):**
   - **Momento do efeito** (golpe acerta / magia sai): **1,2 s = quadro 36** contando do início — é quando o servidor aplica o efeito (fim do lançamento).
   - O projétil visual **sai da mão em 0,9 s = quadro 27** (voa 0,3 s até o alvo).
@@ -41,7 +41,7 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
 - Números: **Dano 20** · alcance 12 m · meia-largura 0,6 m · projétil 14 m/s (dá para desviar) · lançamento **0,6 s** · recarga **4 s** · mana **15**.
 - Como funciona: Arraste para apontar a linha (toque = na direção do alvo fixo ou para a frente) e solte; depois de 0,6 s de lançamento (andar nesse tempo cancela), um projétil a 14 m/s acerta o PRIMEIRO inimigo no caminho (até 12 m): tira 20 de vida.
 - Ao segurar (prévia): faixa dourada translúcida saindo do personagem na direção do dedo: 12 m de comprimento × 1,2 m de largura.
-- Os outros veem: brilho na mão durante o lançamento; aviso no chão (faixa) até o efeito; projétil voando de verdade. Animação: `cast_forward` (Meshy; genérica, também em 7 outras).
+- Os outros veem: brilho na mão durante o lançamento; aviso no chão (faixa) até o efeito; projétil voando de verdade. Animação: `cast_forward` (Meshy; genérica, também em 2 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/fireball.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Momento do efeito** (golpe acerta / magia sai): **0,6 s = quadro 18** contando do início — é quando o servidor aplica o efeito (fim do lançamento).
@@ -70,7 +70,7 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
 - Números: **Dano 18** · alcance 10 m · lançamento **0,4 s** · recarga **7 s** · mana **12**.
 - Como funciona: Com alvo fixo, um toque lança nele; sem alvo, arraste até um inimigo e solte. O alvo precisa estar a até 10 m no fim; tira 18 de vida depois de 0,4 s de lançamento (andar nesse tempo cancela).
 - Ao segurar (prévia): círculo dourado translúcido (1,5 m) que segue o dedo, com uma linha saindo do personagem; passando sobre um inimigo, aparece o marcador de alvo embaixo dele.
-- Os outros veem: brilho na mão durante o lançamento; projétil visual que sai da mão e chega junto com o dano. Animação: `cast_forward` (Meshy; genérica, também em 7 outras).
+- Os outros veem: brilho na mão durante o lançamento; projétil visual que sai da mão e chega junto com o dano. Animação: `cast_forward` (Meshy; genérica, também em 2 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/bolt.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Momento do efeito** (golpe acerta / magia sai): **0,4 s = quadro 12** contando do início — é quando o servidor aplica o efeito (fim do lançamento).

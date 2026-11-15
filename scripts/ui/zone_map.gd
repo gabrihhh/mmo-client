@@ -4,7 +4,10 @@ extends Control
 ## ([ART-10], imagem gerada pelo exportador) e **girada como a câmera** ([CLI-02], 45°): o que está para cima/direita
 ## no mapa está para cima/direita no joystick. Por cima, ao vivo: você (seta azul virada para onde você olha), monstros
 ## (vermelho), bonecos de treino e NPCs de teste (amarelo) e outros jogadores (verde). Mortos não aparecem, nem quem
-## está fora da área de interesse (o servidor só manda quem está perto, [INFRA-04]).
+## está fora da área de interesse (o servidor só manda quem está perto, [INFRA-04]). **Chefes** ([JOGO-18]) = quadrado
+## maior vermelho-escuro com borda dourada.
+## **Zonas de nível** ([JOGO-18], [ZoneInfo]): cada uma pintada por cima do mapa numa cor translúcida pela faixa de
+## nível (verde = fácil … roxo = difícil), com contorno e o nome + "nv a-b" (a letra cresce com o zoom).
 ## **Grupo** ([SOC-03]): os membros do meu grupo aparecem em rosa com o nome ao lado (o líder com uma coroa) MESMO
 ## LONGE: perto, a posição vem do snapshot; longe, de [constant Protocol.MSG_GROUP_POSITIONS] (2 Hz). Membro aparece
 ## também morto (é o lugar onde ele caiu).
@@ -32,6 +35,22 @@ const WHEEL_ZOOM_STEP: float = 1.15
 ## Quanto do mapa pode sair da área (px de folga): o centro do mapa não vai além da borda da área.
 const PAN_MARGIN_PX: float = 0.0
 
+## Cor de cada faixa de nível das zonas ([JOGO-18]); a faixa sai do nível mínimo da zona ([method region_band]).
+## ATENÇÃO: mesmas cores dos estandartes dos acampamentos (PALETTE "faixa_N" em workspace-blender/scripts/criar_acampamentos.py).
+const REGION_COLORS: Array[Color] = [
+	Color(0.45, 0.85, 0.35), Color(0.95, 0.85, 0.3), Color(0.95, 0.55, 0.2), Color(0.9, 0.25, 0.2), Color(0.7, 0.3, 0.9),
+]
+## Nível mínimo de cada faixa (a partir do 2º): menor que 5 = faixa 0, menor que 10 = 1, ...
+const REGION_BAND_LEVELS: Array[int] = [5, 10, 16, 26]
+## Transparência da cor da zona por cima do mapa e da linha de contorno.
+const REGION_FILL_ALPHA: float = 0.28
+const REGION_LINE_ALPHA: float = 0.9
+## Nome de zona maior que isto (letras) vai em duas linhas no mapa.
+const NAME_WRAP: int = 12
+## Chefe ([JOGO-18]): marcador maior, vermelho-escuro com borda dourada.
+const COLOR_BOSS: Color = Color(0.6, 0.08, 0.1)
+const BOSS_MARKER_SCALE: float = 1.6
+
 ## Cores dos marcadores e do contorno deles.
 const COLOR_SELF: Color = Color(0.35, 0.65, 1.0)
 const COLOR_MONSTER: Color = Color(0.92, 0.25, 0.2)
@@ -50,6 +69,8 @@ const MARKER_PX: float = 14.0
 const ARROW_PX: float = 18.0
 
 var _texture: ImageTexture = null
+## Camada das zonas de nível (mesmo tamanho e posição da imagem do mapa; transparente fora das zonas).
+var _regions_texture: ImageTexture = null
 ## Vista atual: zoom (1 = mapa inteiro), giro somado ao da câmera (rad) e deslocamento do centro (px).
 var _zoom: float = 1.0
 var _turn: float = 0.0
@@ -62,7 +83,9 @@ var _reset_button: Button = null
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	clip_contents = true
-	_texture = ImageTexture.create_from_image(build_image())
+	var image: Image = build_image()
+	_texture = ImageTexture.create_from_image(image)
+	_regions_texture = ImageTexture.create_from_image(build_regions_image(image.get_width()))
 	_reset_button = Button.new()
 	_reset_button.text = "Redefinir"
 	_reset_button.theme_type_variation = &"PixelButton"
@@ -191,6 +214,35 @@ static func build_image() -> Image:
 	return image
 
 
+## Faixa de cor (índice em [constant REGION_COLORS]) de uma zona que começa no nível [param min_level].
+static func region_band(min_level: int) -> int:
+	var band: int = 0
+	for threshold: int in REGION_BAND_LEVELS:
+		if min_level >= threshold:
+			band += 1
+	return band
+
+
+## Camada das zonas de nível ([JOGO-18]): imagem [param side] × [param side] na mesma grade do mapa (pixel (i, j) =
+## ponto x = −SHOW_HALF + (i + 0,5) × m, z = idem com j), com a cor translúcida da zona de cada ponto.
+static func build_regions_image(side: int) -> Image:
+	var image: Image = Image.create_empty(side, side, false, Image.FORMAT_RGBA8)
+	var regions: Array[ZoneInfo.Region] = ZoneInfo.regions()
+	if regions.is_empty():
+		return image
+	var step: float = SHOW_HALF * 2.0 / float(side)
+	for j: int in range(side):
+		var z: float = -SHOW_HALF + (float(j) + 0.5) * step
+		for i: int in range(side):
+			var x: float = -SHOW_HALF + (float(i) + 0.5) * step
+			var region: ZoneInfo.Region = ZoneInfo.region_at(x, z)
+			if region != null:
+				var color: Color = REGION_COLORS[region_band(region.min_level)]
+				color.a = REGION_FILL_ALPHA
+				image.set_pixel(i, j, color)
+	return image
+
+
 ## Ponto da tela (local deste Control) para o ponto (x, z) do mundo, com o giro da câmera e a vista atual.
 func world_to_map(x: float, z: float) -> Vector2:
 	return _map_center() + Vector2(x, z).rotated(_yaw()) * _pixels_per_meter()
@@ -226,11 +278,63 @@ func _draw() -> void:
 	var outline: float = 2.0 / scale_px
 	draw_rect(Rect2(-half_px - outline, -half_px - outline, half_px * 2.0 + outline * 2.0, half_px * 2.0 + outline * 2.0), OUTLINE)
 	draw_texture(_texture, Vector2(-half_px, -half_px))
+	if _regions_texture != null:
+		draw_texture(_regions_texture, Vector2(-half_px, -half_px))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	_draw_regions()
 	_draw_markers()
 	# Faixa da legenda por cima do mapa (com zoom o mapa passa por baixo dela).
 	draw_rect(Rect2(0.0, size.y - LEGEND_HEIGHT, size.x, LEGEND_HEIGHT), Color(0.09, 0.06, 0.04))
 	_draw_legend()
+
+
+## Contorno e nome + "nv a-b" de cada zona de nível ([JOGO-18]). A letra cresce com o zoom.
+func _draw_regions() -> void:
+	var font: Font = get_theme_default_font()
+	var font_size: int = clampi(int(13.0 + 3.0 * _zoom), 14, 30)
+	for region: ZoneInfo.Region in ZoneInfo.regions():
+		var color: Color = REGION_COLORS[region_band(region.min_level)]
+		var line: Color = color
+		line.a = REGION_LINE_ALPHA
+		var loops: Array[PackedVector2Array] = [region.outer]
+		loops.append_array(region.holes)
+		for loop: PackedVector2Array in loops:
+			var points: PackedVector2Array = PackedVector2Array()
+			for point: Vector2 in loop:
+				points.append(world_to_map(point.x, point.y))
+			points.append(points[0])
+			draw_polyline(points, line, 2.0)
+	# Nomes depois de todas as linhas (por cima delas).
+	for region: ZoneInfo.Region in ZoneInfo.regions():
+		var color: Color = REGION_COLORS[region_band(region.min_level)]
+		var at: Vector2 = world_to_map(region.label.x, region.label.y)
+		var lines: PackedStringArray = _wrap_name(region.name)
+		lines.append("nv %d-%d" % [region.min_level, region.max_level])
+		# Bloco centrado no ponto do nome; a última linha (nível) na cor da faixa.
+		var top: Vector2 = at - Vector2(0.0, font_size * 1.05 * (lines.size() - 1) / 2.0)
+		for k: int in range(lines.size()):
+			_draw_centered(font, top + Vector2(0.0, font_size * 1.05 * k), lines[k], font_size,
+				color if k == lines.size() - 1 else Color(1, 1, 1))
+
+
+## Nome comprido (mais de [constant NAME_WRAP] letras) em duas linhas, quebrando no espaço mais perto do meio: os nomes
+## das zonas vizinhas não se encostam no mapa inteiro.
+static func _wrap_name(name: String) -> PackedStringArray:
+	if name.length() <= NAME_WRAP or name.find(" ") < 0:
+		return PackedStringArray([name])
+	var best: int = -1
+	for i: int in range(name.length()):
+		if name[i] == " " and (best < 0 or absi(i - name.length() / 2) < absi(best - name.length() / 2)):
+			best = i
+	return PackedStringArray([name.substr(0, best), name.substr(best + 1)])
+
+
+## Texto centrado em [param at] com contorno escuro.
+func _draw_centered(font: Font, at: Vector2, text: String, font_size: int, color: Color) -> void:
+	var width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+	var pos: Vector2 = at - Vector2(width / 2.0, 0.0)
+	draw_string_outline(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, 6, OUTLINE)
+	draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
 
 
 func _draw_markers() -> void:
@@ -239,7 +343,10 @@ func _draw_markers() -> void:
 		return
 	for npc: PlayerState in network.get_npcs():
 		if not npc.dead and npc.in_view:
-			_draw_square(world_to_map(npc.x, npc.z), COLOR_MONSTER if npc.monster else COLOR_NPC)
+			if npc.boss:
+				_draw_boss(world_to_map(npc.x, npc.z))
+			else:
+				_draw_square(world_to_map(npc.x, npc.z), COLOR_MONSTER if npc.monster else COLOR_NPC)
 	var me: PlayerState = null
 	for player: PlayerState in network.get_players():
 		if player.id == network.player_id:
@@ -301,6 +408,14 @@ func _draw_square(at: Vector2, color: Color) -> void:
 	draw_rect(Rect2(at - Vector2(half, half), Vector2(MARKER_PX, MARKER_PX)), color)
 
 
+## Chefe ([JOGO-18]): quadrado maior vermelho-escuro com borda dourada.
+func _draw_boss(at: Vector2) -> void:
+	var half: float = MARKER_PX * BOSS_MARKER_SCALE / 2.0
+	draw_rect(Rect2(at - Vector2(half + 3.0, half + 3.0), Vector2(half * 2.0 + 6.0, half * 2.0 + 6.0)), OUTLINE)
+	draw_rect(Rect2(at - Vector2(half, half), Vector2(half * 2.0, half * 2.0)), COLOR_CROWN)
+	draw_rect(Rect2(at - Vector2(half - 3.0, half - 3.0), Vector2(half * 2.0 - 6.0, half * 2.0 - 6.0)), COLOR_BOSS)
+
+
 ## Seta apontando para onde [param rot_y] olha (rotY = 0 olha para −Z), girada como o mapa.
 func _draw_arrow(at: Vector2, rot_y: float) -> void:
 	var facing: Vector2 = Vector2(-sin(rot_y), -cos(rot_y)).rotated(_yaw())
@@ -315,7 +430,7 @@ func _draw_arrow(at: Vector2, rot_y: float) -> void:
 ## Legenda embaixo: quadradinho colorido + texto de cada tipo de marcador.
 func _draw_legend() -> void:
 	var font: Font = get_theme_default_font()
-	var entries: Array[Array] = [["Você", COLOR_SELF], ["Monstros", COLOR_MONSTER], ["Treino/NPCs", COLOR_NPC], ["Jogadores", COLOR_PLAYER]]
+	var entries: Array[Array] = [["Você", COLOR_SELF], ["Monstros", COLOR_MONSTER], ["Chefe", COLOR_BOSS], ["Treino/NPCs", COLOR_NPC], ["Jogadores", COLOR_PLAYER]]
 	# "Grupo" só quando estou num grupo ([SOC-03]).
 	if Network.instance != null and Network.instance.group != null:
 		entries.append(["Grupo", COLOR_GROUP])

@@ -27,11 +27,11 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
 - Números: **Cura 8** · alcance 9 m · lançamento **1,2 s** · recarga **1,2 s** · sem mana.
 - Como funciona: Toque no ⚔: fixa o **aliado mais perto** (até 10 m) e o personagem passa a curá-lo sozinho a cada 1,2 s (sem aliado por perto: só avisa "Nenhum aliado por perto" — não cura você). Segurar, arrastar até um aliado e soltar escolhe quem. Cada vez cura 8 depois de 1,2 s de lançamento (andar nesse tempo cancela); o aliado precisa estar a até 9 m.
 - Ao segurar (prévia): círculo dourado translúcido (1,5 m) que segue o dedo, com uma linha saindo do personagem; passando sobre um aliado, aparece o marcador de alvo embaixo dele.
-- Os outros veem: brilho na mão durante o lançamento. Animação: `cast_forward` (Meshy; genérica, também em 7 outras).
+- Os outros veem: brilho na mão durante o lançamento. Animação: `cast_heal` (Meshy; genérica, também em 2 outras).
 - **Tempo da animação (Blender, 30 fps):**
   - **Momento do efeito** (golpe acerta / magia sai): **1,2 s = quadro 36** contando do início — é quando o servidor aplica o efeito (fim do lançamento).
   - Repete a cada **1,2 s**: a animação inteira deve terminar até **1,2 s = quadro 36** para emendar no próximo golpe.
-  - Hoje usa a genérica `cast_forward`: dura 1,5 s (quadro 45), golpe em 0,9 s (quadro 27) → o jogo toca a **×0,75** para o golpe cair em 1,2 s.
+  - Hoje usa a genérica `cast_heal`: dura 1,6 s (quadro 48), golpe em 0,65 s (quadro 20) → o jogo toca a **×0,54** para o golpe cair em 1,2 s.
   - Fazendo o golpe exatamente no quadro acima, ela toca na velocidade normal (×1). Se ficar em outro quadro, o jogo acelera ou desacelera (entre ×0,25 e ×4) desde que o golpe seja medido em `CharacterAnimator.HIT_TIMES` (`skill_tome_attack`).
 
 ### Habilidade 1: Cura maior — pasta `animation-skill-1/`
@@ -40,12 +40,12 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
 - Números: **Cura 35** · alcance 10 m · lançamento **1 s** · recarga **8 s** · mana **20**.
 - Como funciona: Toque: no aliado em foco, ou em você se não houver. Arraste até um aliado e solte para escolher (ninguém na mira = você), até 10 m: cura 35 depois de 1 s de lançamento (andar nesse tempo cancela).
 - Ao segurar (prévia): círculo dourado translúcido (1,5 m) que segue o dedo, com uma linha saindo do personagem; passando sobre um aliado, aparece o marcador de alvo embaixo dele.
-- Os outros veem: brilho na mão durante o lançamento. Animação: `cast_forward` (Meshy; genérica, também em 7 outras).
+- Os outros veem: brilho na mão durante o lançamento. Animação: `cast_heal` (Meshy; genérica, também em 2 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/greater_heal.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Momento do efeito** (golpe acerta / magia sai): **1 s = quadro 30** contando do início — é quando o servidor aplica o efeito (fim do lançamento).
   - Recarga 8 s (não repete em seguida): depois do efeito, uma volta curta ao repouso (~0,3–0,6 s) basta.
-  - Hoje usa a genérica `cast_forward`: dura 1,5 s (quadro 45), golpe em 0,9 s (quadro 27) → o jogo toca a **×0,9** para o golpe cair em 1 s.
+  - Hoje usa a genérica `cast_heal`: dura 1,6 s (quadro 48), golpe em 0,65 s (quadro 20) → o jogo toca a **×0,65** para o golpe cair em 1 s.
   - Fazendo o golpe exatamente no quadro acima, ela toca na velocidade normal (×1). Se ficar em outro quadro, o jogo acelera ou desacelera (entre ×0,25 e ×4) desde que o golpe seja medido em `CharacterAnimator.HIT_TIMES` (`skill_greater_heal`).
 
 ### Habilidade 2: Círculo de cura — pasta `animation-skill-2/`
@@ -68,12 +68,12 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
 - Números: **Escudo 40** por 5 s · alcance 10 m · lançamento **0,3 s** · recarga **14 s** · mana **20**.
 - Como funciona: Toque: no aliado em foco, ou em você se não houver. Arraste até um aliado e solte para escolher (ninguém na mira = você), até 10 m: dá um escudo que absorve 40 de dano por 5 s depois de 0,3 s de lançamento (andar nesse tempo cancela).
 - Ao segurar (prévia): círculo dourado translúcido (1,5 m) que segue o dedo, com uma linha saindo do personagem; passando sobre um aliado, aparece o marcador de alvo embaixo dele.
-- Os outros veem: brilho na mão durante o lançamento. Animação: `cast_forward` (Meshy; genérica, também em 7 outras).
+- Os outros veem: brilho na mão durante o lançamento. Animação: `cast_heal` (Meshy; genérica, também em 2 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/holy_shield.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Momento do efeito** (golpe acerta / magia sai): **0,3 s = quadro 9** contando do início — é quando o servidor aplica o efeito (fim do lançamento).
   - Recarga 14 s (não repete em seguida): depois do efeito, uma volta curta ao repouso (~0,3–0,6 s) basta.
-  - Hoje usa a genérica `cast_forward`: dura 1,5 s (quadro 45), golpe em 0,9 s (quadro 27) → o jogo toca a **×3** para o golpe cair em 0,3 s.
+  - Hoje usa a genérica `cast_heal`: dura 1,6 s (quadro 48), golpe em 0,65 s (quadro 20) → o jogo toca a **×2,17** para o golpe cair em 0,3 s.
   - Fazendo o golpe exatamente no quadro acima, ela toca na velocidade normal (×1). Se ficar em outro quadro, o jogo acelera ou desacelera (entre ×0,25 e ×4) desde que o golpe seja medido em `CharacterAnimator.HIT_TIMES` (`skill_holy_shield`).
 
 ## Anotações

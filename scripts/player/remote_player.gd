@@ -4,7 +4,8 @@ extends Node3D
 ## Mostra "[nível] nome", barra de vida e os itens vestidos ([ART-02]); morto, o corpo cai e some até renascer ([JOGO-05]).
 ## Monstro ([JOGO-13]): só vida, o quadrado do nível ao lado dela e, acima, a barra de lançamento (enche enquanto ele
 ## carrega um golpe/habilidade: [method show_cast]); sem nome. Membro do meu grupo ([SOC-03], [method set_ally]):
-## nome e barra de vida em verde (cor de aliado).
+## nome e barra de vida em verde (cor de aliado). **Chefe** ([JOGO-18]): o corpo inteiro na escala que o servidor manda
+## (zumbi gigante), as barras sobem junto e o nome aparece em dourado acima da vida.
 ##
 ## Não simula nada: a cada frame pede ao [PlayerState] a posição no tick
 ## [method Network.render_tick] (alguns ticks no PASSADO), interpolando entre dois snapshots reais.
@@ -47,6 +48,9 @@ const SHIRT_COLOR: Color = Color(0.9, 0.3, 0.25)
 ## Cor da camisa dos monstros (zumbi: verde apagado), para não confundir com jogadores sem nome.
 const MONSTER_SHIRT_COLOR: Color = Color(0.35, 0.45, 0.3)
 
+## Cor do nome do chefe ([JOGO-18]).
+const BOSS_NAME_COLOR: Color = Color(1.0, 0.82, 0.3)
+
 ## Cor de aliado ([SOC-03]): nome e barra de vida de quem é do meu grupo.
 const ALLY_NAME_COLOR: Color = Color(0.45, 1.0, 0.5)
 const ALLY_HEALTH_COLOR: Color = Color(0.25, 0.8, 0.3)
@@ -80,9 +84,13 @@ func _ready() -> void:
 			model = CharacterBodies.swap(model, _state.body)
 		model.set_shirt_color(MONSTER_SHIRT_COLOR if _state != null and _state.monster else SHIRT_COLOR)
 		model.bind_look(_state)
-	# Username exatamente como foi cadastrado (o id é interno). Monstro: sem nome ([JOGO-13]).
+	# Username exatamente como foi cadastrado (o id é interno). Monstro: sem nome ([JOGO-13]); chefe: com nome.
 	_name_label.text = display_name
-	_name_label.visible = not is_monster()
+	_name_label.visible = not is_monster() or (_state != null and _state.boss)
+	if _state != null:
+		_apply_scale(_state.scale)
+		if _state.boss:
+			_name_label.modulate = BOSS_NAME_COLOR
 	_health_color = _health_bar.fill_color
 	if _ally:
 		_apply_ally_color()
@@ -142,6 +150,20 @@ func set_ally(ally: bool) -> void:
 func _apply_ally_color() -> void:
 	_name_label.modulate = ALLY_NAME_COLOR if _ally else _DEFAULT_NAME_COLOR
 	_health_bar.set_fill_color(ALLY_HEALTH_COLOR if _ally else _health_color)
+
+
+## Chefe maior ([JOGO-18]): o corpo cresce [param factor] vezes e as barras/nome sobem para cima da cabeça dele.
+func _apply_scale(factor: float) -> void:
+	if is_equal_approx(factor, 1.0):
+		return
+	_body.scale *= factor
+	var lift: float = 1.8 * (factor - 1.0)
+	for bar: Node3D in [_name_label, _health_bar, _mana_bar, _cast_bar]:
+		if bar != null:
+			bar.position.y += lift
+	# Nome acima da barra de lançamento (que fica no lugar do nome nos monstros).
+	if _state != null and _state.boss:
+		_name_label.position.y += 0.2
 
 
 ## true se é monstro (zumbi, [JOGO-13]).

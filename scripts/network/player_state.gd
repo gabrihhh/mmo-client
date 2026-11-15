@@ -61,6 +61,10 @@ var targetable: bool = true
 var level: int = 0
 ## Monstro (zumbi, [JOGO-13]): acima dele só vida, nível e barra de lançamento (sem nome). ATENÇÃO: NpcSnapshot.monster.
 var monster: bool = false
+## Tamanho do corpo (vezes o normal): o chefe é um zumbi maior ([JOGO-18]). ATENÇÃO: NpcSnapshot.scale.
+var scale: float = 1.0
+## Chefe ([JOGO-18]): nome à vista em dourado e marcador próprio no mapa. ATENÇÃO: NpcSnapshot.boss.
+var boss: bool = false
 ## Serviço do NPC ([JOGO-16]): "blacksmith" = ferreiro (perto dele aparece o botão Ferreiro); vazio = nenhum.
 ## ATENÇÃO: NpcSnapshot.service.
 var service: String = ""
@@ -98,6 +102,9 @@ static func from_snapshot(data: Dictionary, at_tick: int) -> PlayerState:
 	var monster_value: Variant = data.get("monster")
 	state.monster = monster_value is bool and monster_value == true
 	state.service = Protocol.read_string(data, "service")
+	state.scale = clampf(Protocol.read_float(data, "scale", 1.0), 0.5, 4.0)
+	var boss_value: Variant = data.get("boss")
+	state.boss = boss_value is bool and boss_value == true
 	state.apply_snapshot(data, at_tick)
 	return state
 
