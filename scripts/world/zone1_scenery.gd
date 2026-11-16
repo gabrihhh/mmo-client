@@ -7,7 +7,8 @@ extends Node3D
 ##   (`jogo_chao`), que leva a grama com textura de [GroundMaterial];
 ## - campo florido por código por cima (flores e grama em MultiMesh, divididos em blocos para a câmera só desenhar os
 ##   perto), na altura de [ZoneTerrain], fora da praça e do chão dos acampamentos ([ZoneInfo]);
-## - fogo animado ([CampfireFlame]) em cima de cada fogueira dos acampamentos ([JOGO-18]).
+## - fogo animado ([CampfireFlame]) em cima de cada fogueira dos acampamentos ([JOGO-18]);
+## - linhas no chão na cor de cada zona de nível ([RegionLines], [JOGO-22]).
 ## Só visual. Semente fixa ([constant SEED]): sai igual em todo aparelho.
 
 ## Mapa exportado do Blender.
@@ -34,6 +35,8 @@ func _ready() -> void:
 	_add_map()
 	_add_field()
 	_add_fires()
+	# Linhas no chão marcando as zonas de nível, na cor do mapa ([JOGO-22]).
+	add_child(RegionLines.new())
 
 
 ## Malhas do Blender, com o material de cor por vértice (o do .glb é só um marcador).

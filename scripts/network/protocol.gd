@@ -23,7 +23,8 @@ extends RefCounted
 ## [constant MSG_CHEST_OPEN] / [constant MSG_CHEST_TAKE] / [constant MSG_CHEST_LOOT].
 ## v24: fusão no ferreiro ([JOGO-20]): [constant MSG_FUSE] / [constant MSG_FUSE_RESULT], xp/xpNext/fusionXp no item.
 ## v25: tela de morte ([JOGO-21]): [constant MSG_DEATH_REPORT] e [constant MSG_RESPAWN].
-const VERSION: int = 25
+## v26: PvP ([JOGO-22]): [code]levelsLost[/code] no [constant MSG_DEATH_REPORT].
+const VERSION: int = 26
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam

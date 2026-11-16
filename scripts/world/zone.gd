@@ -128,8 +128,11 @@ func get_targetables() -> Array[RemotePlayer]:
 		if npc.is_alive() and (state == null or state.targetable):
 			result.append(npc)
 	if Network.instance.pvp:
+		# PvP ([JOGO-22]): só até 10 níveis de diferença e ninguém em cima das pedras da praça.
+		var me: PlayerState = Network.instance.get_player(Network.instance.player_id)
 		for remote: RemotePlayer in _remote_players.values():
-			if remote.is_alive() and not Network.instance.is_group_member(remote.session_id):
+			if remote.is_alive() and not Network.instance.is_group_member(remote.session_id) \
+					and PvpRules.can_attack(me, Network.instance.get_player(remote.session_id)):
 				result.append(remote)
 	return result
 
@@ -437,16 +440,22 @@ func _on_snapshot(_tick: int, _ack: int) -> void:
 		_check_region(own)
 
 
-## Trocou de zona de nível ([JOGO-18]): aviso "Entrando em Nome (nv a-b)". Voltar para a praça não avisa.
+## Trocou de zona de nível ([JOGO-18]): aviso "Entrando em Nome (nv a-b)"; subiu nas pedras da praça: "área segura"
+## ([JOGO-22]).
 func _check_region(own: PlayerState) -> void:
 	var region: ZoneInfo.Region = ZoneInfo.region_at(own.x, own.z)
-	var key: String = region.name if region != null else ""
+	var safe: bool = PvpRules.in_safe_zone(own.x, own.z)
+	var key: String = region.name if region != null else ("praça" if safe else "")
 	if key == _last_region:
 		return
 	var first: bool = _last_region == "?"
 	_last_region = key
-	if region != null and not first:
-		_hud.show_toast("Entrando em %s" % region.title())
+	if first:
+		return
+	if region != null:
+		_hud.show_toast("Entrando em %s · PvP liberado (até %d níveis de diferença)" % [region.title(), PvpRules.MAX_LEVEL_GAP])
+	elif safe:
+		_hud.show_toast("Praça: área segura (sem PvP)")
 
 
 ## Distância máxima (m) do baú aberto para o botão "Abrir baú" aparecer ([JOGO-19]). ATENÇÃO: = CHEST_RANGE em

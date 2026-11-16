@@ -304,6 +304,8 @@ func _draw_regions() -> void:
 				points.append(world_to_map(point.x, point.y))
 			points.append(points[0])
 			draw_polyline(points, line, 2.0)
+	# Praça: área segura (sem PvP, [JOGO-22]).
+	_draw_centered(font, world_to_map(0.0, 0.0) + Vector2(0.0, font_size * 1.4), "Área segura", font_size, Color(0.75, 0.9, 1.0))
 	# Nomes depois de todas as linhas (por cima delas).
 	for region: ZoneInfo.Region in ZoneInfo.regions():
 		var color: Color = REGION_COLORS[region_band(region.min_level)]

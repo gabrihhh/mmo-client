@@ -183,7 +183,11 @@ func _show_summary() -> void:
 	if not _report.killer.is_empty():
 		lines.append("Derrotado por %s" % _report.killer)
 	lines.append("− %s moedas" % InventoryView.format_gold(_report.gold_lost))
-	lines.append("− %s XP" % ("%d" % roundi(_report.xp_lost) if is_equal_approx(_report.xp_lost, roundf(_report.xp_lost)) else "%.1f" % _report.xp_lost))
+	# Morte para jogador ([JOGO-22]): perde nível (e as moedas foram para quem matou); para monstro: XP.
+	if _report.levels_lost > 0:
+		lines.append("− %d nível" % _report.levels_lost)
+	if _report.xp_lost > 0.0:
+		lines.append("− %s XP" % ("%d" % roundi(_report.xp_lost) if is_equal_approx(_report.xp_lost, roundf(_report.xp_lost)) else "%.1f" % _report.xp_lost))
 	_summary_lines.text = "\n".join(lines)
 	var piece: DeathReport.Piece = _report.picked()
 	if piece == null:

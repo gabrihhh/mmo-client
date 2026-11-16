@@ -13,6 +13,8 @@ class Piece:
 var killer: String = ""
 var gold_lost: int = 0
 var xp_lost: float = 0.0
+## Níveis perdidos (morte para jogador, [JOGO-22]).
+var levels_lost: int = 0
 ## Peças vestidas, na ordem dos slots (vazio = nada vestido: sem roleta).
 var equipped: Array[Piece] = []
 ## Slot sorteado ("" = nenhum) e se a peça quebrou.
@@ -35,6 +37,7 @@ static func from_dict(data: Dictionary) -> DeathReport:
 	report.killer = Protocol.read_string(data, "killer")
 	report.gold_lost = Protocol.read_int(data, "goldLost")
 	report.xp_lost = Protocol.read_float(data, "xpLost")
+	report.levels_lost = Protocol.read_int(data, "levelsLost")
 	for entry: Dictionary in Protocol.read_dict_array(data, "equipped"):
 		var piece: Piece = Piece.new()
 		piece.slot = Protocol.read_string(entry, "slot")
