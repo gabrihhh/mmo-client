@@ -38,6 +38,11 @@ class Item:
 	## Preço (moedas) e chance (0 a 1) da próxima melhoria, prontos do servidor.
 	var upgrade_cost: int = 0
 	var upgrade_chance: float = 1.0
+	## Fusão ([JOGO-20]): experiência juntada rumo ao próximo nível, quanto ele pede e quanto este item vale se for
+	## fundido em outro igual. ATENÇÃO: ItemView.xp/xpNext/fusionXp em mmo-server/src/net/protocol.ts.
+	var xp: float = 0.0
+	var xp_next: float = 0.0
+	var fusion_xp: float = 0.0
 
 	## Nome com o nível: "Espada Longa +3" (+0 = só o nome).
 	func display_name() -> String:
@@ -75,6 +80,9 @@ class Item:
 					item.upgrade_attributes.append(id as String)
 		item.upgrade_cost = Protocol.read_int(data, "upgradeCost")
 		item.upgrade_chance = Protocol.read_float(data, "upgradeChance", 1.0)
+		item.xp = Protocol.read_float(data, "xp")
+		item.xp_next = Protocol.read_float(data, "xpNext")
+		item.fusion_xp = Protocol.read_float(data, "fusionXp")
 		return item
 
 

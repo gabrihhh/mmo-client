@@ -21,7 +21,8 @@ extends RefCounted
 ## quem saiu da vista, [code]me[/code] parcial; posição em cm; eventos só de perto; limite da multidão.
 ## v23: baús dos acampamentos ([JOGO-19]): [code]chests[/code] no welcome, evento [code]chest[/code],
 ## [constant MSG_CHEST_OPEN] / [constant MSG_CHEST_TAKE] / [constant MSG_CHEST_LOOT].
-const VERSION: int = 23
+## v24: fusão no ferreiro ([JOGO-20]): [constant MSG_FUSE] / [constant MSG_FUSE_RESULT], xp/xpNext/fusionXp no item.
+const VERSION: int = 24
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
@@ -63,6 +64,9 @@ const MSG_UPGRADE: String = "upgrade"
 ## Abre o baú de um acampamento (perto e aberto): {chestId}. Resposta: [constant MSG_CHEST_LOOT] ou erro. [JOGO-19]
 ## ATENÇÃO: ClientMessageType.ChestOpen em mmo-server/src/net/protocol.ts.
 const MSG_CHEST_OPEN: String = "chest_open"
+## Funde no ferreiro um item da mochila em outro igual: {targetUid, materialUid}. Resposta: [constant MSG_FUSE_RESULT]
+## + inventário, ou erro (not_same_item, material_equipped, too_far). [JOGO-20]
+const MSG_FUSE: String = "fuse"
 ## Pega um item/moedas do baú: {chestId, lootId}. Resposta: [constant MSG_CHEST_LOOT] atualizado (+ inventário se item).
 const MSG_CHEST_TAKE: String = "chest_take"
 ## Fixa (ou limpa, com null) o alvo do ataque simples; o servidor bate sozinho quando em alcance.
@@ -133,6 +137,8 @@ const MSG_UPGRADE_RESULT: String = "upgrade_result"
 ## O que sobrou para você num baú: {chestId, entries: [{lootId, kind: "item", item: ItemView} | {lootId, kind: "gold",
 ## amount}]}. [JOGO-19] ATENÇÃO: ChestLootData em mmo-server/src/net/protocol.ts.
 const MSG_CHEST_LOOT: String = "chest_loot"
+## Resultado da fusão: {uid, levelsGained, xpGained, level, xp, xpNext}. [JOGO-20]
+const MSG_FUSE_RESULT: String = "fuse_result"
 ## Atributos de um jogador (resposta ao [constant MSG_INSPECT]). data: { id, name, level, maxHp, maxMana,
 ## power: { damage, healing, shield } (multiplicadores pelo nível, 1 = nível 0), equipped: { hand, head, chest, feet:
 ## { itemId, name, set } ou null } }. ATENÇÃO: AttributesView em mmo-server/src/net/protocol.ts; lido por

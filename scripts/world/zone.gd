@@ -64,6 +64,9 @@ func _ready() -> void:
 	# Ferreiro ([JOGO-16]): melhorar vai ao servidor; o resultado volta para a tela dele.
 	_hud.upgrade_requested.connect(Network.instance.send_upgrade)
 	Network.instance.upgrade_result.connect(_hud.show_upgrade_result)
+	# Fusão no ferreiro ([JOGO-20]).
+	_hud.fuse_requested.connect(Network.instance.send_fuse)
+	Network.instance.fuse_result.connect(_hud.show_fuse_result)
 	# Baús dos acampamentos ([JOGO-19]): abrir/pegar vão ao servidor; o que sobrou volta para a janela do baú.
 	_hud.chest_open_requested.connect(Network.instance.send_chest_open)
 	_hud.chest_take_requested.connect(Network.instance.send_chest_take)

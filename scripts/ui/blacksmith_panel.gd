@@ -19,11 +19,17 @@ extends PanelContainer
 ## └───────────────────────────────┘
 ## ```
 ## Preço e chance vêm prontos do servidor (no inventário); o servidor confere tudo e sorteia ([JOGO-16]).
+##
+## Duas abas no topo: **Melhorar** (moedas, sobe 1 nível com chance) e **Fundir** ([JOGO-20]): escolhido o item, a lista
+## mostra só os itens IGUAIS da mochila; tocar num deles mostra antes até onde o escolhido vai ("+9 → +10 · 37%");
+## "Fundir" sacrifica o igual e passa a experiência dele (sem moedas, sem falhar).
 ## "Melhorar" abre a forja ([UpgradeForge]): a carga demora ~1,8 s e o resultado (e o inventário novo, com o "+N") só
 ## aparece no ápice, mesmo que o servidor tenha respondido antes.
 
 ## Apertou "Melhorar": item [param uid] com o atributo [param attribute].
 signal upgrade_requested(uid: String, attribute: String)
+## Apertou "Fundir": sacrificar [param material_uid] (da mochila) em [param target_uid] (o mesmo item). [JOGO-20]
+signal fuse_requested(target_uid: String, material_uid: String)
 ## Apertou X ou Voltar.
 signal close_pressed
 
@@ -55,6 +61,15 @@ var _upgrade_button: Button = null
 var _result_label: Label = null
 var _pick_grid: GridContainer = null
 var _forge: UpgradeForge = null
+## Aba aberta ("upgrade" = Melhorar, "fuse" = Fundir) e, na Fundir, o item igual escolhido para sacrificar.
+var _mode: String = "upgrade"
+var _material_uid: String = ""
+var _tab_buttons: Dictionary[String, Button] = {}
+var _upgrade_section: VBoxContainer = null
+var _fuse_section: VBoxContainer = null
+var _fuse_hint: Label = null
+var _material_grid: GridContainer = null
+var _fuse_button: Button = null
 ## Guardados enquanto a forja anima: o inventário novo e a mensagem do resultado (aplicados no fim).
 var _pending_inventory: InventoryState = null
 var _pending_message: String = ""
@@ -104,6 +119,18 @@ func _ready() -> void:
 	gold_row.add_child(_gold_label)
 	column.add_child(gold_row)
 
+	# Abas: Melhorar (moedas) e Fundir (item igual, [JOGO-20]).
+	var tabs: HBoxContainer = HBoxContainer.new()
+	tabs.add_theme_constant_override("separation", 12)
+	for mode: String in ["upgrade", "fuse"]:
+		var tab: Button = PixelMenuPanel.make_button("Melhorar" if mode == "upgrade" else "Fundir")
+		tab.custom_minimum_size = Vector2(0.0, 72.0)
+		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tab.pressed.connect(_set_mode.bind(mode))
+		tabs.add_child(tab)
+		_tab_buttons[mode] = tab
+	column.add_child(tabs)
+
 	var selected: HBoxContainer = HBoxContainer.new()
 	selected.add_theme_constant_override("separation", 16)
 	_selected_slot = ItemSlot.new()
@@ -120,15 +147,33 @@ func _ready() -> void:
 	selected.add_child(texts)
 	column.add_child(selected)
 
-	column.add_child(_label("Escolha o que melhorar (novo = +1, reforçar = +2):", 20, Color(1, 1, 1, 0.6)))
+	_upgrade_section = VBoxContainer.new()
+	_upgrade_section.add_theme_constant_override("separation", 12)
+	column.add_child(_upgrade_section)
+	_upgrade_section.add_child(_label("Escolha o que melhorar (novo = +1, reforçar = +2):", 20, Color(1, 1, 1, 0.6)))
 	_attribute_box = VBoxContainer.new()
 	_attribute_box.add_theme_constant_override("separation", 8)
-	column.add_child(_attribute_box)
-
+	_upgrade_section.add_child(_attribute_box)
 	_upgrade_button = PixelMenuPanel.make_button("Melhorar")
 	_upgrade_button.custom_minimum_size = Vector2(0.0, UPGRADE_BUTTON_PX)
 	_upgrade_button.pressed.connect(_on_upgrade_pressed)
-	column.add_child(_upgrade_button)
+	_upgrade_section.add_child(_upgrade_button)
+
+	# Fundir ([JOGO-20]): itens iguais da mochila e o botão.
+	_fuse_section = VBoxContainer.new()
+	_fuse_section.add_theme_constant_override("separation", 12)
+	column.add_child(_fuse_section)
+	_fuse_hint = _label("", 20, Color(1, 1, 1, 0.75))
+	_fuse_section.add_child(_fuse_hint)
+	_material_grid = GridContainer.new()
+	_material_grid.columns = 5
+	_material_grid.add_theme_constant_override("h_separation", 12)
+	_material_grid.add_theme_constant_override("v_separation", 12)
+	_fuse_section.add_child(_material_grid)
+	_fuse_button = PixelMenuPanel.make_button("Fundir")
+	_fuse_button.custom_minimum_size = Vector2(0.0, UPGRADE_BUTTON_PX)
+	_fuse_button.pressed.connect(_on_fuse_pressed)
+	_fuse_section.add_child(_fuse_button)
 	_result_label = _label("", 24, SUCCESS_COLOR)
 	_result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(_result_label)
@@ -153,7 +198,7 @@ func _ready() -> void:
 	_forge = UpgradeForge.new()
 	_forge.finished.connect(_on_forge_finished)
 	add_child(_forge)
-	_refresh()
+	_set_mode("upgrade")
 
 
 ## Inventário novo (troca, melhoria): refaz a lista e mantém o item escolhido, se ainda existir.
@@ -272,6 +317,7 @@ func _refresh() -> void:
 func _select(uid: String) -> void:
 	if uid != _selected_uid:
 		_selected_attribute = ""
+		_material_uid = ""
 		_result_label.text = ""
 	_selected_uid = uid
 	_refresh()
@@ -295,6 +341,9 @@ func _refresh_selected() -> void:
 		if item.attrs.has(id):
 			parts.append("%s %d (%s)" % [ItemAttributes.title(id), item.attrs[id], ItemAttributes.effect_text(id, item.attrs[id])])
 	_selected_attrs.text = "Sem melhorias ainda." if parts.is_empty() else "\n".join(parts)
+	if item.xp_next > 0.0:
+		_selected_attrs.text += "\nExperiência %d / %d rumo ao +%d" % [roundi(item.xp), roundi(item.xp_next), item.level + 1]
+	_refresh_fuse()
 	for id: String in item.upgrade_attributes:
 		var have: int = item.attrs.get(id, 0)
 		var text: String = ("%s   %d → %d   (+2)" % [ItemAttributes.title(id), have, have + 2]) if have > 0 else ("%s   novo   (+1)" % ItemAttributes.title(id))
@@ -343,6 +392,124 @@ func _on_upgrade_pressed() -> void:
 	var item: InventoryState.Item = _find(_selected_uid)
 	_forge.start(ItemIcons.item(item.item_id) if item != null else null, ItemIcons.set_color(item.set_name) if item != null else GOLD_COLOR)
 	upgrade_requested.emit(_selected_uid, _selected_attribute)
+
+
+# --- Fundir ([JOGO-20]) ---
+
+## Experiência para ir do nível [param level] ao seguinte (50 no +0, 10% a mais por nível, inteiro).
+## ATENÇÃO: = levelXp/upgradeCost em mmo-server/src/items/fusion.ts e upgrade.ts (só para a prévia; o servidor decide).
+static func level_xp(level: int) -> int:
+	return roundi(50.0 * pow(1.1, maxi(level, 0)))
+
+
+## Onde [param item] fica depois de receber [param xp]: [nível, experiência guardada, níveis ganhos].
+static func preview_fusion(item: InventoryState.Item, xp: float) -> Array[float]:
+	var level: int = item.level
+	var banked: float = item.xp + xp
+	var gained: int = 0
+	while banked >= float(level_xp(level)):
+		banked -= float(level_xp(level))
+		level += 1
+		gained += 1
+	return [float(level), banked, float(gained)]
+
+
+func _set_mode(mode: String) -> void:
+	_mode = mode
+	_material_uid = ""
+	_result_label.text = ""
+	for key: String in _tab_buttons.keys():
+		var tab: Button = _tab_buttons[key]
+		tab.modulate = Color(1, 1, 1) if key == mode else Color(1, 1, 1, 0.5)
+		tab.text = ("✓ " if key == mode else "") + ("Melhorar" if key == "upgrade" else "Fundir")
+	_upgrade_section.visible = mode == "upgrade"
+	_fuse_section.visible = mode == "fuse"
+	_refresh()
+
+
+## Itens iguais ao escolhido na mochila (os que podem ser sacrificados).
+func _materials(item: InventoryState.Item) -> Array[InventoryState.Item]:
+	var result: Array[InventoryState.Item] = []
+	if item == null or _inventory == null:
+		return result
+	for other: InventoryState.Item in _inventory.bag:
+		if other.uid != item.uid and other.item_id == item.item_id:
+			result.append(other)
+	return result
+
+
+## Lista dos iguais, a prévia e o botão "Fundir".
+func _refresh_fuse() -> void:
+	if _fuse_section == null:
+		return
+	for child: Node in _material_grid.get_children():
+		child.queue_free()
+	var item: InventoryState.Item = _find(_selected_uid)
+	var materials: Array[InventoryState.Item] = _materials(item)
+	if _find(_material_uid) == null:
+		_material_uid = ""
+	for other: InventoryState.Item in materials:
+		var view: ItemSlot = ItemSlot.new()
+		view.custom_minimum_size = Vector2(PICK_SLOT_PX, PICK_SLOT_PX)
+		view.show_item(other)
+		view.drop_highlight = 1 if other.uid == _material_uid else 0
+		view.pressed.connect(_choose_material.bind(other.uid))
+		_material_grid.add_child(view)
+	_fuse_button.disabled = true
+	_fuse_button.text = "Fundir"
+	if item == null:
+		_fuse_hint.text = "Escolha o item que vai subir (lista de baixo)."
+		return
+	if materials.is_empty():
+		_fuse_hint.text = "Nenhum %s igual na mochila para fundir." % item.name
+		return
+	var material: InventoryState.Item = _find(_material_uid)
+	if material == null:
+		_fuse_hint.text = "Escolha o item igual que vai ser sacrificado:"
+		return
+	var after: Array[float] = preview_fusion(item, material.fusion_xp)
+	var level_after: int = int(after[0])
+	var percent: int = roundi(after[1] / float(level_xp(level_after)) * 100.0)
+	_fuse_hint.text = "%s some · +%d de experiência
+%s +%d → +%d · %d%% do caminho para o +%d" % [
+		material.display_name(), roundi(material.fusion_xp), item.name, item.level, level_after, percent, level_after + 1]
+	_fuse_button.text = "Fundir (%s some)" % material.display_name()
+	_fuse_button.disabled = _waiting
+
+
+func _choose_material(uid: String) -> void:
+	_material_uid = uid
+	_result_label.text = ""
+	_refresh_fuse()
+
+
+func _on_fuse_pressed() -> void:
+	if _selected_uid.is_empty() or _material_uid.is_empty() or _waiting:
+		return
+	_waiting = true
+	_result_label.text = ""
+	_pending_message = ""
+	_fuse_button.disabled = true
+	var item: InventoryState.Item = _find(_selected_uid)
+	_forge.start(ItemIcons.item(item.item_id) if item != null else null, ItemIcons.set_color(item.set_name) if item != null else GOLD_COLOR)
+	fuse_requested.emit(_selected_uid, _material_uid)
+
+
+## Resposta do servidor a uma fusão ([signal Network.fuse_result]).
+func show_fuse_result(uid: String, levels_gained: int, xp_gained: float, level: int, xp: float, xp_next: float) -> void:
+	var item: InventoryState.Item = _find(uid)
+	var item_name: String = item.name if item != null else "Item"
+	var detail: String = "%s +%d · experiência %d / %d" % [item_name, level, roundi(xp), roundi(xp_next)]
+	var big: String = ("+%d!" % level) if levels_gained > 0 else ("+%d exp" % roundi(xp_gained))
+	var message: String = ("Fundiu! %s (+%d nível%s)" % [detail, levels_gained, "" if levels_gained == 1 else "s"]) if levels_gained > 0 else "Fundiu! %s" % detail
+	_material_uid = ""
+	if _forge.is_running():
+		_forge.set_result(true, big, detail)
+		_pending_message = message
+		_pending_color = SUCCESS_COLOR
+		return
+	_waiting = false
+	_show_message(message, SUCCESS_COLOR)
 
 
 static func _label(text: String, font_size: int, color: Color) -> Label:

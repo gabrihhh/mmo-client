@@ -36,6 +36,8 @@ signal bag_move_requested(from: int, to: int)
 signal upgrade_requested(uid: String, attribute: String)
 ## Baú de acampamento ([JOGO-19]): apertou "Abrir baú" perto do baú [param chest_id] / tocou num item dele.
 signal chest_open_requested(chest_id: String)
+## Ferreiro → Fundir ([JOGO-20]): sacrificar [param material_uid] em [param target_uid].
+signal fuse_requested(target_uid: String, material_uid: String)
 signal chest_take_requested(chest_id: String, loot_id: String)
 ## Pediu os Atributos do jogador [param player_id] ([SOC-02]); a resposta volta por [method show_attributes].
 signal inspect_requested(player_id: String)
@@ -451,6 +453,7 @@ func _build_blacksmith_ui() -> void:
 	root.add_child(_blacksmith_panel)
 	_blacksmith_panel.close_pressed.connect(_open_panel.bind(null))
 	_blacksmith_panel.upgrade_requested.connect(upgrade_requested.emit)
+	_blacksmith_panel.fuse_requested.connect(fuse_requested.emit)
 	_blacksmith_button = PixelMenuPanel.make_button("⚒ Ferreiro")
 	_blacksmith_button.custom_minimum_size = Vector2(260.0, 84.0)
 	_blacksmith_button.visible = false
@@ -524,6 +527,11 @@ func show_chest_loot(chest: ChestInfo, entries: Array[LootEntry]) -> void:
 ## Resultado de uma tentativa no ferreiro ([signal Network.upgrade_result]).
 func show_upgrade_result(uid: String, success: bool, cost: int, attribute: String, level: int, points: int) -> void:
 	_blacksmith_panel.show_result(uid, success, cost, attribute, level, points)
+
+
+## Resultado de uma fusão no ferreiro ([signal Network.fuse_result], [JOGO-20]).
+func show_fuse_result(uid: String, levels_gained: int, xp_gained: float, level: int, xp: float, xp_next: float) -> void:
+	_blacksmith_panel.show_fuse_result(uid, levels_gained, xp_gained, level, xp, xp_next)
 
 
 ## Grupo ([SOC-03]): painel do Menu → Grupo, botão "Grupo" no Menu (cópia do de Jogadores Próximos, logo depois dele;

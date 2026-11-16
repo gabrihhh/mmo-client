@@ -41,6 +41,9 @@ signal inventory_changed(inventory: InventoryState)
 signal upgrade_result(uid: String, success: bool, cost: int, attribute: String, level: int, points: int)
 ## Baú de acampamento abriu ou fechou ([JOGO-19]); o estado fica em [member chests].
 signal chest_changed(chest_id: String, open: bool)
+## Resultado de uma fusão no ferreiro ([JOGO-20]): o item [param uid] ganhou [param levels_gained] níveis e
+## [param xp_gained] de experiência; agora está em [param level] com [param xp] de [param xp_next] rumo ao seguinte.
+signal fuse_result(uid: String, levels_gained: int, xp_gained: float, level: int, xp: float, xp_next: float)
 ## Chegou o que sobrou para você no baú [param chest_id] (resposta a abrir/pegar): itens e moedas.
 signal chest_loot_received(chest_id: String, entries: Array[LootEntry])
 ## Um boneco/monstro está na zona (vem no welcome). [param state] é atualizado ao vivo.
@@ -504,6 +507,12 @@ func send_chest_take(chest_id: String, loot_id: String) -> void:
 		_send(Protocol.MSG_CHEST_TAKE, {"chestId": chest_id, "lootId": loot_id})
 
 
+## Pede para fundir [param material_uid] (da mochila) em [param target_uid] (o mesmo item), perto do ferreiro.
+func send_fuse(target_uid: String, material_uid: String) -> void:
+	if _authenticated:
+		_send(Protocol.MSG_FUSE, {"targetUid": target_uid, "materialUid": material_uid})
+
+
 func send_upgrade(uid: String, attribute: String) -> void:
 	if _authenticated:
 		_send(Protocol.MSG_UPGRADE, {"uid": uid, "attribute": attribute})
@@ -675,6 +684,10 @@ func _handle_message(text: String) -> void:
 		Protocol.MSG_INVENTORY:
 			inventory = InventoryState.from_dict(data)
 			inventory_changed.emit(inventory)
+		Protocol.MSG_FUSE_RESULT:
+			fuse_result.emit(Protocol.read_string(data, "uid"), Protocol.read_int(data, "levelsGained"),
+				Protocol.read_float(data, "xpGained"), Protocol.read_int(data, "level"), Protocol.read_float(data, "xp"),
+				Protocol.read_float(data, "xpNext"))
 		Protocol.MSG_CHEST_LOOT:
 			var entries: Array[LootEntry] = []
 			for entry: Dictionary in Protocol.read_dict_array(data, "entries"):
