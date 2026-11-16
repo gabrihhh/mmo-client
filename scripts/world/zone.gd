@@ -64,6 +64,11 @@ func _ready() -> void:
 	# Ferreiro ([JOGO-16]): melhorar vai ao servidor; o resultado volta para a tela dele.
 	_hud.upgrade_requested.connect(Network.instance.send_upgrade)
 	Network.instance.upgrade_result.connect(_hud.show_upgrade_result)
+	# Baús dos acampamentos ([JOGO-19]): abrir/pegar vão ao servidor; o que sobrou volta para a janela do baú.
+	_hud.chest_open_requested.connect(Network.instance.send_chest_open)
+	_hud.chest_take_requested.connect(Network.instance.send_chest_take)
+	Network.instance.chest_loot_received.connect(_on_chest_loot)
+	Network.instance.chest_changed.connect(_on_chest_changed)
 	# Atributos de outro jogador (Menu → Jogadores Próximos, [SOC-02]).
 	_hud.inspect_requested.connect(Network.instance.send_inspect)
 	Network.instance.attributes_received.connect(_hud.show_attributes)
@@ -99,6 +104,8 @@ func _ready() -> void:
 	_hud.set_social_settings(Network.instance.social_friend_requests, Network.instance.social_group_invites)
 	for npc: PlayerState in Network.instance.get_npcs():
 		_spawn_npc(npc)
+	for chest: ChestInfo in Network.instance.chests.values():
+		_spawn_chest(chest)
 	Network.instance.combat_event.connect(_on_combat_event)
 	Network.instance.snapshot_received.connect(_on_snapshot)
 	_update_online_status()
@@ -414,6 +421,7 @@ func _on_snapshot(_tick: int, _ack: int) -> void:
 	_last_gold = network.gold
 	_hud.set_gold(network.gold)
 	_hud.set_blacksmith_near(not own.dead and _near_blacksmith(network, own))
+	_hud.set_chest_near("" if own.dead else _near_open_chest(network, own))
 	# Jogadores Próximos aberto: a lista acompanha quem chega, sai ou sobe de nível ([SOC-02]).
 	if _hud.is_nearby_open():
 		_hud.set_nearby_players(network.get_nearby_players())
@@ -433,6 +441,52 @@ func _check_region(own: PlayerState) -> void:
 	_last_region = key
 	if region != null and not first:
 		_hud.show_toast("Entrando em %s" % region.title())
+
+
+## Distância máxima (m) do baú aberto para o botão "Abrir baú" aparecer ([JOGO-19]). ATENÇÃO: = CHEST_RANGE em
+## mmo-server/src/zones/Zone.ts (lá soma o corpo, 0,4 m: o botão aparece antes do limite do servidor, nunca depois).
+const CHEST_RANGE: float = 3.0
+
+## Baús no mundo ([ChestVisual]), por id.
+var _chests: Dictionary[String, ChestVisual] = {}
+
+
+## Põe o baú [param chest] em cima da fogueira do acampamento dele.
+func _spawn_chest(chest: ChestInfo) -> void:
+	var visual: ChestVisual = ChestVisual.new()
+	visual.name = "Chest_%s" % chest.id
+	visual.setup(chest, ZoneTerrain.height_at(chest.x, chest.z))
+	add_child(visual)
+	_chests[chest.id] = visual
+
+
+## Baú abriu/fechou: a tampa acompanha; fechou com a janela dele aberta, a janela some (o botão some no snapshot).
+func _on_chest_changed(chest_id: String, open: bool) -> void:
+	if _chests.has(chest_id):
+		_chests[chest_id].set_open(open)
+	if not open and chest_id == _near_chest_id():
+		_hud.set_chest_near("")
+
+
+func _near_chest_id() -> String:
+	var network: Network = Network.instance
+	var own: PlayerState = network.get_player(network.player_id)
+	return "" if own == null else _near_open_chest(network, own)
+
+
+## O que sobrou para mim no baú: abre/atualiza a janela dele.
+func _on_chest_loot(chest_id: String, entries: Array[LootEntry]) -> void:
+	var chest: ChestInfo = Network.instance.chests.get(chest_id)
+	if chest != null:
+		_hud.show_chest_loot(chest, entries)
+
+
+## Baú ABERTO a até [constant CHEST_RANGE] m de [param own] ("" = nenhum).
+static func _near_open_chest(network: Network, own: PlayerState) -> String:
+	for chest: ChestInfo in network.chests.values():
+		if chest.open and Vector2(chest.x - own.x, chest.z - own.z).length() <= CHEST_RANGE:
+			return chest.id
+	return ""
 
 
 ## Distância máxima (m) do ferreiro para o botão aparecer. ATENÇÃO: = BLACKSMITH_RANGE em mmo-server/src/zones/Zone.ts

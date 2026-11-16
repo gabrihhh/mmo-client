@@ -19,7 +19,9 @@ extends RefCounted
 ## v21: [code]levels[/code] (nível de melhoria das peças) no PlayerInfo e no evento [code]look[/code]: brilho ([JOGO-17]).
 ## v22: snapshot por diferença ([INFRA-11]): cada entrada traz só os campos que mudaram, [code]gone[/code] lista
 ## quem saiu da vista, [code]me[/code] parcial; posição em cm; eventos só de perto; limite da multidão.
-const VERSION: int = 22
+## v23: baús dos acampamentos ([JOGO-19]): [code]chests[/code] no welcome, evento [code]chest[/code],
+## [constant MSG_CHEST_OPEN] / [constant MSG_CHEST_TAKE] / [constant MSG_CHEST_LOOT].
+const VERSION: int = 23
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
@@ -58,6 +60,11 @@ const MSG_BAG_MOVE: String = "bag_move"
 ## Tenta melhorar um item no ferreiro (perto dele, com moedas). data: { uid, attribute: id de [ItemAttributes] }.
 ## Resposta: [constant MSG_UPGRADE_RESULT] (+ inventário se subiu) ou erro (not_enough_gold, too_far...). [JOGO-16]
 const MSG_UPGRADE: String = "upgrade"
+## Abre o baú de um acampamento (perto e aberto): {chestId}. Resposta: [constant MSG_CHEST_LOOT] ou erro. [JOGO-19]
+## ATENÇÃO: ClientMessageType.ChestOpen em mmo-server/src/net/protocol.ts.
+const MSG_CHEST_OPEN: String = "chest_open"
+## Pega um item/moedas do baú: {chestId, lootId}. Resposta: [constant MSG_CHEST_LOOT] atualizado (+ inventário se item).
+const MSG_CHEST_TAKE: String = "chest_take"
 ## Fixa (ou limpa, com null) o alvo do ataque simples; o servidor bate sozinho quando em alcance.
 ## data: { targetId: String ou null }. Ver mmo-docs [JOGO-05].
 const MSG_ATTACK: String = "attack"
@@ -123,6 +130,9 @@ const MSG_INVENTORY: String = "inventory"
 ## Resultado da melhoria no ferreiro. data: { uid, success, cost, attribute, level, points }. ATENÇÃO:
 ## UpgradeResultData em mmo-server/src/net/protocol.ts. [JOGO-16]
 const MSG_UPGRADE_RESULT: String = "upgrade_result"
+## O que sobrou para você num baú: {chestId, entries: [{lootId, kind: "item", item: ItemView} | {lootId, kind: "gold",
+## amount}]}. [JOGO-19] ATENÇÃO: ChestLootData em mmo-server/src/net/protocol.ts.
+const MSG_CHEST_LOOT: String = "chest_loot"
 ## Atributos de um jogador (resposta ao [constant MSG_INSPECT]). data: { id, name, level, maxHp, maxMana,
 ## power: { damage, healing, shield } (multiplicadores pelo nível, 1 = nível 0), equipped: { hand, head, chest, feet:
 ## { itemId, name, set } ou null } }. ATENÇÃO: AttributesView em mmo-server/src/net/protocol.ts; lido por

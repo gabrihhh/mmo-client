@@ -34,6 +34,9 @@ signal unequip_requested(slot: String, index: int)
 signal bag_move_requested(from: int, to: int)
 ## Ferreiro ([JOGO-16]): apertou "Melhorar" no item [param uid] com o atributo [param attribute].
 signal upgrade_requested(uid: String, attribute: String)
+## Baú de acampamento ([JOGO-19]): apertou "Abrir baú" perto do baú [param chest_id] / tocou num item dele.
+signal chest_open_requested(chest_id: String)
+signal chest_take_requested(chest_id: String, loot_id: String)
 ## Pediu os Atributos do jogador [param player_id] ([SOC-02]); a resposta volta por [method show_attributes].
 signal inspect_requested(player_id: String)
 ## Convidar [param player_id] para o grupo ([SOC-03]).
@@ -150,6 +153,10 @@ var _menu_base_height: float = 0.0
 var _friends_panel: FriendsPanel = null
 ## Ferreiro ([JOGO-16]): tela de melhoria e o botão que aparece perto dele.
 var _blacksmith_panel: BlacksmithPanel = null
+## Baú do acampamento ([JOGO-19]): botão "Abrir baú" (perto de um baú aberto), a janela e o baú de perto ("" = nenhum).
+var _chest_panel: ChestPanel = null
+var _chest_button: Button = null
+var _near_chest: String = ""
 var _blacksmith_button: Button = null
 var _friends_button: Button = null
 var _friends: FriendList = FriendList.new()
@@ -433,6 +440,7 @@ func _build_social_panels() -> void:
 	_build_social_settings()
 	_build_perf_setting()
 	_build_blacksmith_ui()
+	_build_chest_ui()
 
 
 ## Ferreiro ([JOGO-16]): botão "Ferreiro" acima da moldura dos controles (só aparece perto dele,
@@ -468,6 +476,49 @@ func set_blacksmith_near(near: bool) -> void:
 	if not near and _blacksmith_panel.visible:
 		_open_panel(null)
 		show_toast("Você se afastou do ferreiro")
+
+
+## Baú ([JOGO-19]): botão "Abrir baú" no mesmo lugar do "Ferreiro" (os dois nunca aparecem juntos: o ferreiro fica
+## na praça e os baús nos acampamentos) e a janela do baú.
+func _build_chest_ui() -> void:
+	var root: Control = $Root
+	_chest_panel = ChestPanel.new()
+	root.add_child(_chest_panel)
+	_chest_panel.close_pressed.connect(_open_panel.bind(null))
+	_chest_panel.back_pressed.connect(_open_panel.bind(null))
+	_chest_panel.take_requested.connect(chest_take_requested.emit)
+	_chest_button = PixelMenuPanel.make_button("Abrir baú")
+	_chest_button.custom_minimum_size = Vector2(260.0, 84.0)
+	_chest_button.visible = false
+	_chest_button.pressed.connect(func() -> void: chest_open_requested.emit(_near_chest))
+	root.add_child(_chest_button)
+	root.move_child(_chest_button, _menu_dimmer.get_index())
+	_controls_frame.resized.connect(_place_chest_button)
+	_place_chest_button()
+
+
+func _place_chest_button() -> void:
+	var view: Vector2 = ($Root as Control).size
+	_chest_button.size = _chest_button.custom_minimum_size
+	_chest_button.position = Vector2((view.x - _chest_button.size.x) / 2.0, _controls_frame.position.y - _chest_button.size.y - 16.0)
+
+
+## Perto (ou longe) de um baú ABERTO ([param chest_id]; "" = nenhum): mostra/esconde "Abrir baú"; longe, fecha a janela.
+func set_chest_near(chest_id: String) -> void:
+	if chest_id == _near_chest:
+		return
+	_near_chest = chest_id
+	_chest_button.visible = not chest_id.is_empty()
+	_place_chest_button()
+	if _chest_panel.visible and _chest_panel.chest_id() != chest_id:
+		_open_panel(null)
+
+
+## Chegou o que sobrou para você no baú [param chest] (resposta a abrir/pegar): abre a janela (ou atualiza).
+func show_chest_loot(chest: ChestInfo, entries: Array[LootEntry]) -> void:
+	_chest_panel.show_loot(chest, entries)
+	if not _chest_panel.visible:
+		_open_panel(_chest_panel)
 
 
 ## Resultado de uma tentativa no ferreiro ([signal Network.upgrade_result]).
@@ -759,7 +810,7 @@ func _on_player_option(option_id: String) -> void:
 
 ## Todos os painéis do menu (um aberto por vez).
 func _all_panels() -> Array[PanelContainer]:
-	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel, _blacksmith_panel]
+	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel, _blacksmith_panel, _chest_panel]
 
 
 ## Abre [param panel] e fecha os outros; null fecha tudo. Com menu aberto, os controles do jogo param.

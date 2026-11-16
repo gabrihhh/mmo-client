@@ -39,6 +39,10 @@ signal inventory_changed(inventory: InventoryState)
 ## Resultado de uma tentativa de melhoria no ferreiro ([JOGO-16]): [param success] = subiu para [param level];
 ## pagou [param cost] moedas; o atributo ganhou [param points] (0 se falhou).
 signal upgrade_result(uid: String, success: bool, cost: int, attribute: String, level: int, points: int)
+## Baú de acampamento abriu ou fechou ([JOGO-19]); o estado fica em [member chests].
+signal chest_changed(chest_id: String, open: bool)
+## Chegou o que sobrou para você no baú [param chest_id] (resposta a abrir/pegar): itens e moedas.
+signal chest_loot_received(chest_id: String, entries: Array[LootEntry])
 ## Um boneco/monstro está na zona (vem no welcome). [param state] é atualizado ao vivo.
 signal npc_added(npc_id: String, state: PlayerState)
 ## Evento de combate do tick (dano, morte, renascimento). Ver [constant Protocol.MSG_SNAPSHOT].
@@ -173,6 +177,9 @@ var attack_target: String = ""
 ## Golpe em andamento segundo o servidor: alvo ("" = nenhum) e segundos que faltam.
 var casting_target: String = ""
 var casting_remaining: float = 0.0
+
+## Baús dos acampamentos da zona ([JOGO-19]): id → estado (vem no welcome; o evento `chest` muda o aberto/fechado).
+var chests: Dictionary[String, ChestInfo] = {}
 
 ## Estimativa do tick atual do servidor (fracionário), avançada pelo tempo local e ajustada a cada snapshot.
 var _clock_tick: float = 0.0
@@ -485,6 +492,18 @@ func send_unequip(slot: String, index: int = -1) -> void:
 
 ## Tenta melhorar o item [param uid] no ferreiro escolhendo o atributo [param attribute] ([JOGO-16]). A resposta vem em
 ## [signal upgrade_result] (ou erro).
+## Pede o que há para você no baú [param chest_id] (perto dele e aberto, [JOGO-19]).
+func send_chest_open(chest_id: String) -> void:
+	if is_in_zone():
+		_send(Protocol.MSG_CHEST_OPEN, {"chestId": chest_id})
+
+
+## Pega [param loot_id] do baú [param chest_id].
+func send_chest_take(chest_id: String, loot_id: String) -> void:
+	if is_in_zone():
+		_send(Protocol.MSG_CHEST_TAKE, {"chestId": chest_id, "lootId": loot_id})
+
+
 func send_upgrade(uid: String, attribute: String) -> void:
 	if _authenticated:
 		_send(Protocol.MSG_UPGRADE, {"uid": uid, "attribute": attribute})
@@ -638,6 +657,11 @@ func _handle_message(text: String) -> void:
 					npc_state.in_view = false
 					_npcs[npc_state.id] = npc_state
 					npc_added.emit(npc_state.id, npc_state)
+			chests.clear()
+			for chest_data: Dictionary in Protocol.read_dict_array(data, "chests"):
+				var chest: ChestInfo = ChestInfo.from_dict(chest_data)
+				if chest != null:
+					chests[chest.id] = chest
 			# Lista primeiro: quem reagir ao joined_zone já encontra os jogadores em get_players().
 			for info: Dictionary in Protocol.read_dict_array(data, "players"):
 				_add_player(info)
@@ -651,6 +675,13 @@ func _handle_message(text: String) -> void:
 		Protocol.MSG_INVENTORY:
 			inventory = InventoryState.from_dict(data)
 			inventory_changed.emit(inventory)
+		Protocol.MSG_CHEST_LOOT:
+			var entries: Array[LootEntry] = []
+			for entry: Dictionary in Protocol.read_dict_array(data, "entries"):
+				var parsed: LootEntry = LootEntry.from_dict(entry)
+				if parsed != null:
+					entries.append(parsed)
+			chest_loot_received.emit(Protocol.read_string(data, "chestId"), entries)
 		Protocol.MSG_UPGRADE_RESULT:
 			var success_value: Variant = data.get("success")
 			upgrade_result.emit(Protocol.read_string(data, "uid"), success_value is bool and success_value == true,
@@ -802,6 +833,13 @@ func _apply_snapshot(data: Dictionary) -> void:
 	_sync_clock(server_tick)
 	snapshot_received.emit(server_tick, Protocol.read_int(data, "ack"))
 	for event: Dictionary in Protocol.read_dict_array(data, "events"):
+		if Protocol.read_string(event, "type") == "chest":
+			var chest_id: String = Protocol.read_string(event, "id")
+			var open_value: Variant = event.get("open")
+			if chests.has(chest_id) and open_value is bool:
+				chests[chest_id].open = open_value
+				chest_changed.emit(chest_id, open_value)
+			continue
 		if Protocol.read_string(event, "type") == "look":
 			# Jogador ou NPC humano (o atirador de teste troca de roupa, [JOGO-11]).
 			var who: PlayerState = get_entity(Protocol.read_string(event, "id"))
@@ -883,6 +921,7 @@ func _on_closed() -> void:
 	social_friend_requests = Protocol.SOCIAL_ALWAYS
 	social_group_invites = Protocol.SOCIAL_ALWAYS
 	_npcs.clear()
+	chests.clear()
 	attack_target = ""
 	set_process(false)
 

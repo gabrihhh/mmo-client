@@ -18,7 +18,8 @@ O que sai (argumentos depois de `--`: <pasta do cliente> <pasta do servidor> <zo
 4. `src/zones/maps/<zona>.json` (servidor): os cilindros da coleção `NPCs e zumbis` (e das subcoleções dela, ex. uma
    por acampamento). Com Custom Property `nivel` = monstro (`tipo`, `ataque` melee/ranged, `nivel`, `alcance_reset`,
    `percepcao` e, opcionais, `chefe`, `escala`, `nome`); com `(id)` no nome = NPC de teste de `zones.ts` naquele
-   lugar (ex. "Saco de pancadas (test_bag)").
+   lugar (ex. "Saco de pancadas (test_bag)"). Monstro na subcoleção "Acampamento <id>" leva `camp`, e o JSON ganha
+   `camps` (id + lugar da `fogueira_<id>`): o baú do acampamento ([JOGO-19]).
 5. `assets/zones/<zona>/<zona>_info.json` (cliente, [JOGO-18]): as **zonas de nível** (malhas planas da coleção
    `Zonas de nível`, Custom Properties `nome`, `nivel_min`, `nivel_max`: contorno, buracos e onde vai o nome) para o
    mapa do Menu e o aviso ao entrar; e as **fogueiras** (objetos `fogueira*` em `Terreno`: o fogo animado do jogo;
@@ -309,10 +310,51 @@ def export_map(objects: list, path: str) -> int:
     return side
 
 
+CAMP_PREFIX = "Acampamento "
+LOOSE_CAMP = "soltos"
+
+
+def camp_membership() -> dict:
+    """Nome do objeto → id do acampamento ([JOGO-19]): os cilindros da subcoleção "Acampamento <id>" de
+    MOBS_COLLECTION (menos "Acampamento soltos"). Quem não está em nenhuma é solto."""
+    result = {}
+    root = bpy.data.collections.get(MOBS_COLLECTION)
+    if root is None:
+        return result
+    for child in root.children_recursive:
+        if not child.name.startswith(CAMP_PREFIX):
+            continue
+        camp_id = child.name[len(CAMP_PREFIX):].split(".")[0]
+        if camp_id == LOOSE_CAMP:
+            continue
+        for obj in child.all_objects:
+            result[obj.name] = camp_id
+    return result
+
+
+def read_camps(monsters: list) -> tuple:
+    """Acampamentos com baú: um por id usado pelos monstros, no lugar do objeto `fogueira_<id>` (sem fogueira: o meio
+    dos monstros dele, com AVISO). Devolve (acampamentos, erros)."""
+    camps, errors = [], []
+    for camp_id in sorted({m["camp"] for m in monsters if m.get("camp")}):
+        fire = bpy.data.objects.get(f"{FIRE_PREFIX}_{camp_id}")
+        if fire is not None:
+            w = fire.matrix_world.translation
+            x, z = round(w.x, 2), round(-w.y, 2)
+        else:
+            mine = [m for m in monsters if m.get("camp") == camp_id]
+            x = round(sum(m["x"] for m in mine) / len(mine), 2)
+            z = round(sum(m["z"] for m in mine) / len(mine), 2)
+            print(f"AVISO acampamento {camp_id}: sem {FIRE_PREFIX}_{camp_id}; baú no meio dos monstros")
+        camps.append({"id": camp_id, "x": x, "z": z})
+    return camps, errors
+
+
 def read_mobs() -> tuple:
     """Monstros e NPCs de teste dos cilindros da coleção de mobs (e subcoleções). Erro de dado → lista de erros (não
     exporta)."""
     monsters, npcs, errors = [], [], []
+    camp_of = camp_membership()
     for obj in sorted(collection_objects(MOBS_COLLECTION, True), key=lambda o: o.name):
         if obj.type != "MESH" or obj.name.startswith("anel_"):
             continue
@@ -351,6 +393,8 @@ def read_mobs() -> tuple:
                 name = str(obj.get("nome", "")).strip()
                 if name:
                     monster["name"] = name
+                if obj.name in camp_of:
+                    monster["camp"] = camp_of[obj.name]
                 monsters.append(monster)
             continue
         match = NPC_ID.search(obj.name)
@@ -369,7 +413,7 @@ def read_mobs() -> tuple:
         if n["id"] in seen:
             errors.append(f"NPC {n['id']} aparece duas vezes")
         seen.add(n["id"])
-    keys = ("id", "kind", "level", "x", "z", "resetRange", "perception", "scale", "boss", "name")
+    keys = ("id", "kind", "level", "x", "z", "resetRange", "perception", "scale", "boss", "name", "camp")
     ordered = [{k: m[k] for k in keys if k in m} for m in monsters]
     return ordered, sorted(npcs, key=lambda n: n["id"]), errors
 
@@ -482,6 +526,8 @@ def main() -> None:
     monsters, npcs, errors = read_mobs()
     regions, region_errors = read_regions()
     errors += region_errors
+    camps, camp_errors = read_camps(monsters)
+    errors += camp_errors
     if errors:
         for e in errors:
             print("ERRO " + e)
@@ -506,9 +552,10 @@ def main() -> None:
     os.makedirs(data_dir, exist_ok=True)
     data = os.path.join(data_dir, f"{zone}.json")
     with open(data, "w", encoding="utf-8") as f:
-        json.dump({"monsters": monsters, "npcs": npcs}, f, ensure_ascii=False, indent=2)
+        json.dump({"monsters": monsters, "npcs": npcs, "camps": camps}, f, ensure_ascii=False, indent=2)
         f.write("\n")
-    print(f"EXPORTADO {data} {len(monsters)} monstros, {len(npcs)} NPCs ({', '.join(n['id'] for n in npcs)})")
+    print(f"EXPORTADO {data} {len(monsters)} monstros, {len(npcs)} NPCs ({', '.join(n['id'] for n in npcs)}), "
+          f"{len(camps)} acampamentos com baú")
     info = os.path.join(out, f"{zone}_info.json")
     fires = read_fires()
     with open(info, "w", encoding="utf-8") as f:
