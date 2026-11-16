@@ -30,6 +30,8 @@ const FAIL_SHAKE_PX: float = 16.0
 const GOLD: Color = Color(1.0, 0.82, 0.3)
 const FAIL_RED: Color = Color(1.0, 0.35, 0.3)
 const BACKDROP: Color = Color(0.03, 0.02, 0.01, 0.82)
+## Texto embaixo enquanto o anel enche (a tela de morte troca, [DeathScreen]).
+var charge_text: String = "Martelando"
 
 ## Uma faísca (quadradinho pixel art que voa e apaga).
 class Spark:
@@ -214,7 +216,7 @@ func _draw() -> void:
 	var text_y: float = center.y + RING_RADIUS_PX + 90.0
 	if charging:
 		var dots: String = ".".repeat(1 + int(_time * 3.0) % 3)
-		_draw_centered(font, "Martelando" + dots, text_y, 34, Color(1, 1, 1, 0.85))
+		_draw_centered(font, charge_text + dots, text_y, 34, Color(1, 1, 1, 0.85))
 	else:
 		_draw_centered(font, _title, text_y, 64, GOLD if _success else FAIL_RED)
 		_draw_centered(font, _subtitle, text_y + 56.0, 28, Color(1, 1, 1, 0.85))

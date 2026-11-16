@@ -36,6 +36,8 @@ signal bag_move_requested(from: int, to: int)
 signal upgrade_requested(uid: String, attribute: String)
 ## Baú de acampamento ([JOGO-19]): apertou "Abrir baú" perto do baú [param chest_id] / tocou num item dele.
 signal chest_open_requested(chest_id: String)
+## Tela de morte → "Renascer" ([JOGO-21]).
+signal respawn_requested
 ## Ferreiro → Fundir ([JOGO-20]): sacrificar [param material_uid] em [param target_uid].
 signal fuse_requested(target_uid: String, material_uid: String)
 signal chest_take_requested(chest_id: String, loot_id: String)
@@ -159,6 +161,8 @@ var _blacksmith_panel: BlacksmithPanel = null
 var _chest_panel: ChestPanel = null
 var _chest_button: Button = null
 var _near_chest: String = ""
+## Tela de morte ([JOGO-21]), por cima de tudo.
+var _death_screen: DeathScreen = null
 var _blacksmith_button: Button = null
 var _friends_button: Button = null
 var _friends: FriendList = FriendList.new()
@@ -443,6 +447,10 @@ func _build_social_panels() -> void:
 	_build_perf_setting()
 	_build_blacksmith_ui()
 	_build_chest_ui()
+	_death_screen = DeathScreen.new()
+	_death_screen.respawn_pressed.connect(respawn_requested.emit)
+	# Último filho da HUD: fica por cima de painéis, joystick e cartas.
+	add_child(_death_screen)
 
 
 ## Ferreiro ([JOGO-16]): botão "Ferreiro" acima da moldura dos controles (só aparece perto dele,
@@ -515,6 +523,23 @@ func set_chest_near(chest_id: String) -> void:
 	_place_chest_button()
 	if _chest_panel.visible and _chest_panel.chest_id() != chest_id:
 		_open_panel(null)
+
+
+## Morreu ([JOGO-21]): fecha o que estiver aberto e começa a tela de morte com o relatório do servidor.
+func show_death(report: DeathReport) -> void:
+	_open_panel(null)
+	_death_screen.start(report)
+
+
+## Está morto (snapshot): garante a tela (sem o relatório ainda, só "Você morreu" e o botão) e o tempo para renascer.
+func set_dead(dead: bool, respawn_in: float) -> void:
+	if dead:
+		if not _death_screen.is_showing():
+			_open_panel(null)
+			_death_screen.start_without_report()
+		_death_screen.set_respawn_in(respawn_in)
+	elif _death_screen.is_showing():
+		_death_screen.finish()
 
 
 ## Chegou o que sobrou para você no baú [param chest] (resposta a abrir/pegar): abre a janela (ou atualiza).

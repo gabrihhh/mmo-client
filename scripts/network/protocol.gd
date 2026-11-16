@@ -22,7 +22,8 @@ extends RefCounted
 ## v23: baús dos acampamentos ([JOGO-19]): [code]chests[/code] no welcome, evento [code]chest[/code],
 ## [constant MSG_CHEST_OPEN] / [constant MSG_CHEST_TAKE] / [constant MSG_CHEST_LOOT].
 ## v24: fusão no ferreiro ([JOGO-20]): [constant MSG_FUSE] / [constant MSG_FUSE_RESULT], xp/xpNext/fusionXp no item.
-const VERSION: int = 24
+## v25: tela de morte ([JOGO-21]): [constant MSG_DEATH_REPORT] e [constant MSG_RESPAWN].
+const VERSION: int = 25
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
@@ -67,6 +68,8 @@ const MSG_CHEST_OPEN: String = "chest_open"
 ## Funde no ferreiro um item da mochila em outro igual: {targetUid, materialUid}. Resposta: [constant MSG_FUSE_RESULT]
 ## + inventário, ou erro (not_same_item, material_equipped, too_far). [JOGO-20]
 const MSG_FUSE: String = "fuse"
+## Tela de morte → "Renascer": renasce no spawn agora (sem payload). [JOGO-21]
+const MSG_RESPAWN: String = "respawn"
 ## Pega um item/moedas do baú: {chestId, lootId}. Resposta: [constant MSG_CHEST_LOOT] atualizado (+ inventário se item).
 const MSG_CHEST_TAKE: String = "chest_take"
 ## Fixa (ou limpa, com null) o alvo do ataque simples; o servidor bate sozinho quando em alcance.
@@ -139,6 +142,9 @@ const MSG_UPGRADE_RESULT: String = "upgrade_result"
 const MSG_CHEST_LOOT: String = "chest_loot"
 ## Resultado da fusão: {uid, levelsGained, xpGained, level, xp, xpNext}. [JOGO-20]
 const MSG_FUSE_RESULT: String = "fuse_result"
+## Você morreu: {killer, goldLost, xpLost, equipped: [{slot, item}], pickedSlot, broken, autoRespawnSeconds}. [JOGO-21]
+## ATENÇÃO: DeathReportData em mmo-server/src/net/protocol.ts.
+const MSG_DEATH_REPORT: String = "death_report"
 ## Atributos de um jogador (resposta ao [constant MSG_INSPECT]). data: { id, name, level, maxHp, maxMana,
 ## power: { damage, healing, shield } (multiplicadores pelo nível, 1 = nível 0), equipped: { hand, head, chest, feet:
 ## { itemId, name, set } ou null } }. ATENÇÃO: AttributesView em mmo-server/src/net/protocol.ts; lido por

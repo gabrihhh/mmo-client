@@ -64,6 +64,9 @@ func _ready() -> void:
 	# Ferreiro ([JOGO-16]): melhorar vai ao servidor; o resultado volta para a tela dele.
 	_hud.upgrade_requested.connect(Network.instance.send_upgrade)
 	Network.instance.upgrade_result.connect(_hud.show_upgrade_result)
+	# Tela de morte ([JOGO-21]): o relatório começa a roleta; "Renascer" vai ao servidor.
+	Network.instance.death_report_received.connect(_hud.show_death)
+	_hud.respawn_requested.connect(Network.instance.send_respawn)
 	# Fusão no ferreiro ([JOGO-20]).
 	_hud.fuse_requested.connect(Network.instance.send_fuse)
 	Network.instance.fuse_result.connect(_hud.show_fuse_result)
@@ -428,9 +431,9 @@ func _on_snapshot(_tick: int, _ack: int) -> void:
 	# Jogadores Próximos aberto: a lista acompanha quem chega, sai ou sobe de nível ([SOC-02]).
 	if _hud.is_nearby_open():
 		_hud.set_nearby_players(network.get_nearby_players())
-	if own.dead:
-		_hud.show_toast("Você morreu · renasce em %d s" % ceili(network.respawn_in))
-	else:
+	# Tela de morte ([JOGO-21]): aparece morto, some ao renascer.
+	_hud.set_dead(own.dead, network.respawn_in)
+	if not own.dead:
 		_check_region(own)
 
 
