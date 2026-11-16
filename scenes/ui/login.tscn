@@ -152,6 +152,17 @@ theme_type_variation = &"PixelButton"
 theme_override_font_sizes/font_size = 32
 text = "Entrar como convidado"
 
+[node name="ForgotButton" type="Button" parent="Center/Panel/VBox/LoginForm"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.965, 0.77, 0.32, 1)
+theme_override_colors/font_hover_color = Color(1, 0.88, 0.55, 1)
+theme_override_colors/font_pressed_color = Color(1, 0.88, 0.55, 1)
+theme_override_font_sizes/font_size = 28
+text = "Esqueci a senha"
+flat = true
+
 [node name="ToRegisterButton" type="Button" parent="Center/Panel/VBox/LoginForm"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 80)
@@ -223,4 +234,91 @@ theme_override_colors/font_hover_color = Color(1, 0.88, 0.55, 1)
 theme_override_colors/font_pressed_color = Color(1, 0.88, 0.55, 1)
 theme_override_font_sizes/font_size = 28
 text = "Já tem conta? Entrar"
+flat = true
+
+[node name="ResetForm" type="VBoxContainer" parent="Center/Panel/VBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="ResetLoginField" type="LineEdit" parent="Center/Panel/VBox/ResetForm"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+theme_type_variation = &"PixelLineEdit"
+theme_override_font_sizes/font_size = 32
+placeholder_text = "Usuário ou e-mail da conta"
+
+[node name="ResetSendButton" type="Button" parent="Center/Panel/VBox/ResetForm"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 110)
+layout_mode = 2
+theme_type_variation = &"PixelButton"
+theme_override_font_sizes/font_size = 40
+text = "Enviar código"
+
+[node name="ResetCodeStep" type="VBoxContainer" parent="Center/Panel/VBox/ResetForm"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="ResetCodeField" type="LineEdit" parent="Center/Panel/VBox/ResetForm/ResetCodeStep"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+theme_type_variation = &"PixelLineEdit"
+theme_override_font_sizes/font_size = 32
+placeholder_text = "Código do e-mail (6 números)"
+virtual_keyboard_type = 2
+
+[node name="ResetPasswordField" type="LineEdit" parent="Center/Panel/VBox/ResetForm/ResetCodeStep"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+theme_type_variation = &"PixelLineEdit"
+theme_override_font_sizes/font_size = 32
+placeholder_text = "Senha nova (mín. 8)"
+secret = true
+virtual_keyboard_type = 6
+
+[node name="ResetConfirmField" type="LineEdit" parent="Center/Panel/VBox/ResetForm/ResetCodeStep"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+theme_type_variation = &"PixelLineEdit"
+theme_override_font_sizes/font_size = 32
+placeholder_text = "Confirmar senha nova"
+secret = true
+virtual_keyboard_type = 6
+
+[node name="ResetConfirmButton" type="Button" parent="Center/Panel/VBox/ResetForm/ResetCodeStep"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 110)
+layout_mode = 2
+theme_type_variation = &"PixelButton"
+theme_override_font_sizes/font_size = 40
+text = "Trocar senha"
+
+[node name="ResetResendButton" type="Button" parent="Center/Panel/VBox/ResetForm/ResetCodeStep"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.965, 0.77, 0.32, 1)
+theme_override_colors/font_hover_color = Color(1, 0.88, 0.55, 1)
+theme_override_colors/font_pressed_color = Color(1, 0.88, 0.55, 1)
+theme_override_font_sizes/font_size = 28
+text = "Não chegou? Enviar de novo"
+flat = true
+
+[node name="ResetBackButton" type="Button" parent="Center/Panel/VBox/ResetForm"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.965, 0.77, 0.32, 1)
+theme_override_colors/font_hover_color = Color(1, 0.88, 0.55, 1)
+theme_override_colors/font_pressed_color = Color(1, 0.88, 0.55, 1)
+theme_override_font_sizes/font_size = 28
+text = "Voltar para entrar"
 flat = true

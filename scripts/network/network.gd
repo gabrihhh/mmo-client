@@ -113,10 +113,14 @@ var _worst_frame_at_ms: int = 0
 signal body_choice_needed
 ## O servidor salvou o corpo escolhido; o Network já pediu para entrar na zona.
 signal body_chosen(body: String)
+## Esqueci a senha ([INFRA-13]): o servidor recebeu o pedido (se a conta existe, o código foi para o e-mail dela).
+signal password_reset_sent
+## Senha trocada com o código do e-mail; agora é entrar com ela ([method login]).
+signal password_reset_done
 ## Códigos de erro que são resposta a cadastro/login/sessão (viram [signal auth_failed]).
 const _AUTH_ERROR_CODES: Array[String] = [
 	"invalid_username", "invalid_email", "invalid_password", "username_taken", "email_taken",
-	"invalid_credentials", "invalid_session", "too_many_attempts", "version_mismatch",
+	"invalid_credentials", "invalid_session", "too_many_attempts", "version_mismatch", "invalid_reset_code",
 ]
 
 ## Tela que baixa e carrega o pacote novo com o jogo aberto. ATENÇÃO: igual a LiveUpdater.SCENE.
@@ -267,6 +271,23 @@ func register(new_username: String, email: String, password: String) -> void:
 		"username": new_username.strip_edges(),
 		"email": email.strip_edges(),
 		"password": password,
+	})
+
+
+## Esqueci a senha ([INFRA-13]): pede o código para o e-mail da conta ([param login_name] = username ou e-mail).
+## Resposta em [signal password_reset_sent].
+func request_password_reset(login_name: String) -> void:
+	_request_auth(Protocol.MSG_PASSWORD_RESET_REQUEST, {
+		"version": Protocol.VERSION, "client": PackInfo.client_build(), "login": login_name.strip_edges(),
+	})
+
+
+## Troca a senha com o [param code] do e-mail. Resposta em [signal password_reset_done] ou [signal auth_failed]
+## ([code]invalid_reset_code[/code], [code]invalid_password[/code]).
+func confirm_password_reset(login_name: String, code: String, password: String) -> void:
+	_request_auth(Protocol.MSG_PASSWORD_RESET_CONFIRM, {
+		"version": Protocol.VERSION, "client": PackInfo.client_build(), "login": login_name.strip_edges(),
+		"code": code.strip_edges(), "password": password,
 	})
 
 
@@ -654,6 +675,10 @@ func _handle_message(text: String) -> void:
 				body_choice_needed.emit()
 			else:
 				_send(Protocol.MSG_JOIN, {"zone": NetworkConfig.ZONE_ID})
+		Protocol.MSG_PASSWORD_RESET_SENT:
+			password_reset_sent.emit()
+		Protocol.MSG_PASSWORD_RESET_DONE:
+			password_reset_done.emit()
 		Protocol.MSG_BODY_CHOSEN:
 			body = Protocol.read_string(data, "body")
 			body_chosen.emit(body)

@@ -6,6 +6,7 @@ extends Control
 ## - "Entrar": username OU e-mail + senha.
 ## - "Criar conta": username (exibido no jogo exatamente como digitado), e-mail, senha e confirmação.
 ## - "Entrar como convidado" (TESTE): cada toque cria uma conta NOVA, com dados gerados pelo cliente.
+## - "Esqueci a senha" ([INFRA-13]): usuário/e-mail → código no e-mail → código + senha nova → entra com ela.
 ## As regras são conferidas aqui para avisar na hora ([Protocol]), mas quem decide é o servidor.
 ## Esperando o servidor ("Entrando...", "Criando conta..."): os campos e botões SOMEM e fica só a mensagem com o
 ## carregando pixel art ([PixelLoader]); erro → volta o formulário de onde veio. Visual pixel art: [CLI-05].
@@ -48,14 +49,35 @@ var _reconnect_timer: SceneTreeTimer = null
 @onready var _confirm_field: LineEdit = %ConfirmField
 @onready var _register_button: Button = %RegisterButton
 @onready var _to_login_button: Button = %ToLoginButton
+@onready var _forgot_button: Button = %ForgotButton
+## Esqueci a senha: 1ª etapa (usuário/e-mail) e 2ª ([member _reset_code_step]: código + senha nova).
+@onready var _reset_form: Control = %ResetForm
+@onready var _reset_login_field: LineEdit = %ResetLoginField
+@onready var _reset_send_button: Button = %ResetSendButton
+@onready var _reset_code_step: Control = %ResetCodeStep
+@onready var _reset_code_field: LineEdit = %ResetCodeField
+@onready var _reset_password_field: LineEdit = %ResetPasswordField
+@onready var _reset_confirm_field: LineEdit = %ResetConfirmField
+@onready var _reset_confirm_button: Button = %ResetConfirmButton
+@onready var _reset_resend_button: Button = %ResetResendButton
+@onready var _reset_back_button: Button = %ResetBackButton
+
+## Formulários da tela.
+const FORM_LOGIN: String = "login"
+const FORM_REGISTER: String = "register"
+const FORM_RESET: String = "reset"
 
 ## Nome do --dev-user ("" = desligado) e se já tentou criar a conta dele.
 var _dev_user: String = ""
 var _dev_registering: bool = false
 ## Cadastro de convidado em andamento (se o nome sorteado já existir, sorteia outro).
 var _pending_guest: Dictionary = {}
-## Formulário em uso: true = criar conta, false = entrar (é o que volta depois de um erro).
-var _register_mode: bool = false
+## Formulário em uso ([constant FORM_LOGIN], [constant FORM_REGISTER], [constant FORM_RESET]): é o que volta depois de
+## um erro.
+var _form: String = FORM_LOGIN
+## Esqueci a senha: o código já foi pedido (mostra a 2ª etapa) e a senha nova, para entrar com ela no fim.
+var _reset_code_sent: bool = false
+var _reset_new_password: String = ""
 
 
 func _ready() -> void:
@@ -74,14 +96,22 @@ func _ready() -> void:
 	_guest_button.pressed.connect(_on_guest_pressed)
 	network.authenticated.connect(_on_authenticated)
 	_register_button.pressed.connect(_on_register_pressed)
-	_to_register_button.pressed.connect(_show_form.bind(true))
-	_to_login_button.pressed.connect(_show_form.bind(false))
+	_to_register_button.pressed.connect(_show_form.bind(FORM_REGISTER))
+	_to_login_button.pressed.connect(_show_form.bind(FORM_LOGIN))
+	_forgot_button.pressed.connect(_on_forgot_pressed)
+	_reset_back_button.pressed.connect(_show_form.bind(FORM_LOGIN))
+	_reset_send_button.pressed.connect(_on_reset_send_pressed)
+	_reset_resend_button.pressed.connect(_on_reset_send_pressed)
+	_reset_confirm_button.pressed.connect(_on_reset_confirm_pressed)
+	_reset_confirm_field.text_submitted.connect(func(_text: String) -> void: _on_reset_confirm_pressed())
+	network.password_reset_sent.connect(_on_reset_sent)
+	network.password_reset_done.connect(_on_reset_done)
 	_password_field.text_submitted.connect(func(_text: String) -> void: _on_login_pressed())
 	_confirm_field.text_submitted.connect(func(_text: String) -> void: _on_register_pressed())
 
 	_dev_user = _read_dev_user()
 	_status_label.text = network.last_error
-	_show_form(false)
+	_show_form(FORM_LOGIN)
 
 	# Caiu sem pedir (servidor reiniciou, Wi-Fi piscou): reconecta sozinho com a sessão salva.
 	if network.should_reconnect and network.has_saved_session():
@@ -139,6 +169,61 @@ func _on_register_pressed() -> void:
 	Network.instance.register(new_username, _email_field.text, _new_password_field.text)
 
 
+## "Esqueci a senha": abre a 1ª etapa já com o que estava digitado em usuário/e-mail.
+func _on_forgot_pressed() -> void:
+	_reset_code_sent = false
+	_reset_login_field.text = _login_field.text.strip_edges()
+	_status_label.text = "Digite o usuário ou e-mail da conta: mandamos um código para o e-mail dela."
+	_show_form(FORM_RESET)
+
+
+## Pede o código (ou de novo, pelo "Enviar de novo").
+func _on_reset_send_pressed() -> void:
+	if _reset_login_field.text.strip_edges().is_empty():
+		_show_error("Digite o usuário ou e-mail da conta.")
+		return
+	_set_busy("Enviando código...")
+	Network.instance.request_password_reset(_reset_login_field.text)
+
+
+## O servidor recebeu o pedido: mostra a 2ª etapa (código + senha nova). Não diz se a conta existe.
+func _on_reset_sent() -> void:
+	_reset_code_sent = true
+	_status_label.text = "Se a conta existe, mandamos um código para o e-mail dela (vale 15 minutos). Olhe também o spam."
+	_show_form(FORM_RESET)
+	_reset_code_field.grab_focus()
+
+
+func _on_reset_confirm_pressed() -> void:
+	var code: String = _reset_code_field.text.strip_edges()
+	var problem: String = "" if code.length() == 6 and code.is_valid_int() else "O código tem 6 números."
+	if problem.is_empty():
+		problem = Protocol.password_problem(_reset_password_field.text)
+	if problem.is_empty() and _reset_password_field.text != _reset_confirm_field.text:
+		problem = "As senhas não conferem."
+	if not problem.is_empty():
+		_show_error(problem)
+		return
+	_reset_new_password = _reset_password_field.text
+	_set_busy("Trocando a senha...")
+	Network.instance.confirm_password_reset(_reset_login_field.text, code, _reset_new_password)
+
+
+## Senha trocada: entra direto com ela (na mesma conexão).
+func _on_reset_done() -> void:
+	var login_name: String = _reset_login_field.text.strip_edges()
+	_login_field.text = login_name
+	_password_field.text = ""
+	_reset_code_field.text = ""
+	_reset_password_field.text = ""
+	_reset_confirm_field.text = ""
+	_reset_code_sent = false
+	_form = FORM_LOGIN
+	_set_busy("Senha trocada! Entrando...")
+	Network.instance.login(login_name, _reset_new_password)
+	_reset_new_password = ""
+
+
 ## Primeira entrada da conta: abre a escolha de personagem. Com --dev-user escolhe sozinho (--body=, padrão male).
 func _on_body_choice_needed() -> void:
 	if not _dev_user.is_empty():
@@ -168,7 +253,10 @@ func _on_auth_failed(code: String, message: String) -> void:
 		Network.instance.register(_dev_user, "%s@dev.local" % _dev_user.to_lower(), DEV_PASSWORD)
 		return
 	# Sessão salva não vale mais: mostra o formulário de entrar.
-	_show_form(code in ["username_taken", "email_taken", "invalid_username", "invalid_email", "invalid_password"] and _register_mode)
+	if _form == FORM_REGISTER and not code in ["username_taken", "email_taken", "invalid_username", "invalid_email", "invalid_password"]:
+		_form = FORM_LOGIN
+	elif _form == FORM_RESET and not code in ["invalid_reset_code", "invalid_password"]:
+		_form = FORM_LOGIN
 	_show_error(message)
 
 
@@ -204,11 +292,16 @@ func _try_reconnect() -> void:
 	network.resume_session()
 
 
-## Mostra o formulário de cadastro ([param register] = true) ou o de entrar.
-func _show_form(register: bool) -> void:
-	_register_mode = register
-	_register_form.visible = register
-	_login_form.visible = not register
+## Mostra o formulário [param form] ([constant FORM_LOGIN], [constant FORM_REGISTER] ou [constant FORM_RESET]; no de
+## recuperar, a 2ª etapa só depois de pedir o código).
+func _show_form(form: String) -> void:
+	_form = form
+	_register_form.visible = form == FORM_REGISTER
+	_login_form.visible = form == FORM_LOGIN
+	_reset_form.visible = form == FORM_RESET
+	_reset_code_step.visible = _reset_code_sent
+	_reset_send_button.visible = not _reset_code_sent
+	_reset_login_field.editable = not _reset_code_sent
 	_loader.visible = false
 	_set_enabled(true)
 
@@ -216,7 +309,7 @@ func _show_form(register: bool) -> void:
 ## Mostra a mensagem de erro e devolve o formulário em uso (some o carregando).
 func _show_error(message: String) -> void:
 	_status_label.text = message
-	_show_form(_register_mode)
+	_show_form(_form)
 
 
 ## Esconde os formulários (nada para tocar) e mostra só a mensagem com o carregando (entrando/criando conta).
@@ -224,6 +317,7 @@ func _set_busy(message: String) -> void:
 	_status_label.text = message
 	_login_form.visible = false
 	_register_form.visible = false
+	_reset_form.visible = false
 	_loader.visible = true
 	# Fecha o teclado do celular, se estava aberto num campo.
 	var focused: Control = get_viewport().gui_get_focus_owner()
@@ -234,7 +328,8 @@ func _set_busy(message: String) -> void:
 
 ## Botões ativos só quando não há pedido em andamento (evita mandar duas vezes).
 func _set_enabled(enabled: bool) -> void:
-	for button: Button in [_login_button, _register_button, _to_register_button, _to_login_button, _guest_button]:
+	for button: Button in [_login_button, _register_button, _to_register_button, _to_login_button, _guest_button,
+			_forgot_button, _reset_send_button, _reset_confirm_button, _reset_resend_button, _reset_back_button]:
 		button.disabled = not enabled
 
 

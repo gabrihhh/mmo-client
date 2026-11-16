@@ -24,7 +24,8 @@ extends RefCounted
 ## v24: fusão no ferreiro ([JOGO-20]): [constant MSG_FUSE] / [constant MSG_FUSE_RESULT], xp/xpNext/fusionXp no item.
 ## v25: tela de morte ([JOGO-21]): [constant MSG_DEATH_REPORT] e [constant MSG_RESPAWN].
 ## v26: PvP ([JOGO-22]): [code]levelsLost[/code] no [constant MSG_DEATH_REPORT].
-const VERSION: int = 26
+## v27: recuperar senha ([INFRA-13]): [constant MSG_PASSWORD_RESET_REQUEST]/[constant MSG_PASSWORD_RESET_CONFIRM].
+const VERSION: int = 27
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
@@ -36,6 +37,13 @@ const MSG_LOGIN: String = "login"
 const MSG_RESUME: String = "resume"
 ## Encerra a sessão deste aparelho e fecha a conexão. data: {}.
 const MSG_LOGOUT: String = "logout"
+## Esqueci a senha ([INFRA-13]): manda um código para o e-mail da conta. data: { version, client, login (username ou
+## e-mail) }. Resposta: sempre [constant MSG_PASSWORD_RESET_SENT] (não diz se a conta existe).
+## ATENÇÃO: ClientMessageType.PasswordResetRequest em mmo-server/src/net/protocol.ts.
+const MSG_PASSWORD_RESET_REQUEST: String = "password_reset_request"
+## Troca a senha com o código do e-mail. data: { version, client, login, code, password }. Resposta:
+## [constant MSG_PASSWORD_RESET_DONE] ou erro [code]invalid_reset_code[/code] / [code]invalid_password[/code].
+const MSG_PASSWORD_RESET_CONFIRM: String = "password_reset_confirm"
 ## Sinal de vida do celular parado ([INFRA-12]): vazio, a cada ~100 ms sem outros envios, para o Wi-Fi do Android não
 ## entrar em economia de energia. ATENÇÃO: ClientMessageType.KeepAlive em mmo-server/src/net/protocol.ts.
 const MSG_KEEP_ALIVE: String = "ka"
@@ -113,6 +121,10 @@ const SOCIAL_HIDE: String = "hide"
 const MSG_AUTH_OK: String = "auth_ok"
 ## Corpo escolhido e salvo (resposta ao [constant MSG_CHOOSE_BODY]). data: { body }.
 const MSG_BODY_CHOSEN: String = "body_chosen"
+## "Se a conta existe, mandamos o código" ([INFRA-13]). data: {}.
+const MSG_PASSWORD_RESET_SENT: String = "password_reset_sent"
+## Senha trocada; todas as sessões da conta caíram (entrar com a senha nova). data: {}.
+const MSG_PASSWORD_RESET_DONE: String = "password_reset_done"
 ## Entrada na zona aceita. data: { playerId, zone, tick: int, sim: { tickRate, moveSpeed, zoneHalfSize },
 ## players: Array[PlayerInfo] } (PlayerInfo = PlayerSnapshot + name + look + body). look = { hand, head, chest, feet:
 ## itemId ou null } (o que veste; [ART-02]). ATENÇÃO: Look em mmo-server/src/net/protocol.ts.
