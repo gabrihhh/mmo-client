@@ -692,6 +692,14 @@ func send_upgrade(uid: String, attribute: String) -> void:
 		_send(Protocol.MSG_UPGRADE, {"uid": uid, "attribute": attribute})
 
 
+## Destrói para sempre o item [param uid] (vestido ou na mochila, [JOGO-24]). A resposta vem em
+## [signal inventory_changed] (ou erro).
+## ATENÇÃO: espelha `item_destroy` em mmo-server/src/net/protocol.ts.
+func send_item_destroy(uid: String) -> void:
+	if _authenticated:
+		_send(Protocol.MSG_ITEM_DESTROY, {"uid": uid})
+
+
 ## Pede para trocar de lugar os itens das vagas [param from] e [param to] da mochila (vaga livre = leva para o fim).
 func send_bag_move(from: int, to: int) -> void:
 	if _authenticated:

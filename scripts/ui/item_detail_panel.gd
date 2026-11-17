@@ -3,13 +3,16 @@ extends PanelContainer
 ## Ficha de um item ([CLI-10]): abre ao tocar num item do inventário. Mostra o ícone, nome, conjunto, slot e a
 ## descrição; depois o ataque simples (armas) e cada habilidade com a imagem dela e os números: dano, cura,
 ## escudo e quanto dura, alcance, raio, tempo de lançamento, recarga e mana ([method AbilityView.stats]).
-## Embaixo: "Vestir" (item da mochila) ou "Tirar" (item vestido) e "Voltar". Item melhorado ([JOGO-16]): nome com "+N"
+## Embaixo: "Vestir" (item da mochila) ou "Tirar" (item vestido), "Destruir" e "Voltar". "Destruir" troca os botões
+## pela pergunta "Você deseja destruir…?" com Sim / Não ([JOGO-24]). Item melhorado ([JOGO-16]): nome com "+N"
 ## e uma etiqueta por atributo com os pontos e o efeito (valem para o personagem enquanto o item está vestido).
 ##
 ## Montada em código a cada [method show_item]; os números vêm do servidor (só exibição, [JOGO-04]).
 
 ## Apertou "Vestir" ([param equipped] false: item da mochila) ou "Tirar" ([param equipped] true).
 signal action_pressed(item: InventoryState.Item, equipped: bool)
+## Confirmou "Sim" em "Você deseja destruir…?" ([JOGO-24]): o item some para sempre.
+signal destroy_confirmed(item: InventoryState.Item)
 ## Apertou "Voltar" (volta para o inventário).
 signal back_pressed
 
@@ -40,6 +43,8 @@ const ABILITY_ICON_PX: float = 84.0
 var _item: InventoryState.Item = null
 var _equipped: bool = false
 var _content: VBoxContainer = null
+## Linha de baixo (botões ou a pergunta de destruir), trocada sem refazer a ficha.
+var _footer: VBoxContainer = null
 
 
 func _ready() -> void:
@@ -73,15 +78,57 @@ func show_item(item: InventoryState.Item, equipped: bool, replaces: InventorySta
 
 	if not equipped and replaces != null:
 		_content.add_child(_label("Vestir troca com: %s" % replaces.name, 20, Color(1, 0.9, 0.7, 0.8)))
+	_footer = VBoxContainer.new()
+	_footer.add_theme_constant_override("separation", 12)
+	_content.add_child(_footer)
+	_show_buttons()
+
+
+## Botões normais: Vestir/Tirar, Destruir e Voltar.
+func _show_buttons() -> void:
+	_clear_footer()
 	var buttons: HBoxContainer = HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 16)
-	var action: Button = _button("Tirar" if equipped else "Vestir")
+	var action: Button = _button("Tirar" if _equipped else "Vestir")
 	action.pressed.connect(func() -> void: action_pressed.emit(_item, _equipped))
+	var destroy: Button = _button("Destruir")
+	destroy.add_theme_color_override("font_color", Color(1, 0.45, 0.4))
+	destroy.add_theme_color_override("font_hover_color", Color(1, 0.55, 0.5))
+	destroy.pressed.connect(_ask_destroy)
 	var back: Button = _button("Voltar")
 	back.pressed.connect(back_pressed.emit)
 	buttons.add_child(action)
+	buttons.add_child(destroy)
 	buttons.add_child(back)
-	_content.add_child(buttons)
+	_footer.add_child(buttons)
+
+
+## Troca os botões pela pergunta "Você deseja destruir X?" com Sim / Não ([JOGO-24]).
+func _ask_destroy() -> void:
+	_clear_footer()
+	var question: Label = _label("Você deseja destruir %s?" % _item.display_name(), 26, Color(1, 0.75, 0.7))
+	question.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_footer.add_child(question)
+	if _item.level > 0:
+		var warning: Label = _label("O nível +%d e os atributos serão perdidos." % _item.level, 20, Color(1, 1, 1, 0.7))
+		warning.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_footer.add_child(warning)
+	var buttons: HBoxContainer = HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", 16)
+	var yes: Button = _button("Sim")
+	yes.add_theme_color_override("font_color", Color(1, 0.45, 0.4))
+	yes.pressed.connect(func() -> void: destroy_confirmed.emit(_item))
+	var no: Button = _button("Não")
+	no.pressed.connect(_show_buttons)
+	buttons.add_child(yes)
+	buttons.add_child(no)
+	_footer.add_child(buttons)
+
+
+func _clear_footer() -> void:
+	for child: Node in _footer.get_children():
+		_footer.remove_child(child)
+		child.queue_free()
 
 
 ## Ícone grande + nome, "Conjunto · Slot" na cor do conjunto e a descrição.

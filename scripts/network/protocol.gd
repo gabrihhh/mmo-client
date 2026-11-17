@@ -41,7 +41,8 @@ extends RefCounted
 ## [constant MSG_TRADE_OFFER] / [constant MSG_TRADE_CONFIRM] / [constant MSG_TRADE_CANCEL] → [constant MSG_TRADE_REQUESTED]
 ## / [constant MSG_TRADE_STATE] / [constant MSG_TRADE_DONE] / [constant MSG_TRADE_NOTICE]; tradeRequests na
 ## Configuração social.
-const VERSION: int = 34
+## v35: [constant MSG_ITEM_DESTROY] (botão Destruir da ficha do item, [JOGO-24]).
+const VERSION: int = 35
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
@@ -84,6 +85,8 @@ const MSG_UNEQUIP: String = "unequip"
 ## Organiza a mochila: troca o item da vaga [code]from[/code] com o da vaga [code]to[/code] (vaga livre = vai para o
 ## fim). data: { from: int, to: int }. Ver mmo-docs [JOGO-04], [CLI-10].
 const MSG_BAG_MOVE: String = "bag_move"
+## Destrói um item para sempre: { uid } ([JOGO-24]). Responde com o [code]inventory[/code] novo.
+const MSG_ITEM_DESTROY: String = "item_destroy"
 ## Tenta melhorar um item no ferreiro (perto dele, com moedas). data: { uid, attribute: id de [ItemAttributes] }.
 ## Resposta: [constant MSG_UPGRADE_RESULT] (+ inventário se subiu) ou erro (not_enough_gold, too_far...). [JOGO-16]
 const MSG_UPGRADE: String = "upgrade"

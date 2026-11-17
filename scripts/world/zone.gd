@@ -61,6 +61,7 @@ func _ready() -> void:
 	_hud.equip_requested.connect(Network.instance.send_equip)
 	_hud.unequip_requested.connect(Network.instance.send_unequip)
 	_hud.bag_move_requested.connect(Network.instance.send_bag_move)
+	_hud.item_destroy_requested.connect(Network.instance.send_item_destroy)
 	# Ferreiro ([JOGO-16]): melhorar vai ao servidor; o resultado volta para a tela dele.
 	_hud.upgrade_requested.connect(Network.instance.send_upgrade)
 	Network.instance.upgrade_result.connect(_hud.show_upgrade_result)

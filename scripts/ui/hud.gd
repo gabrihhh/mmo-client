@@ -33,6 +33,8 @@ signal play_area_changed
 signal unequip_requested(slot: String, index: int)
 ## Arrastou um item da mochila da vaga [param from] para a [param to] ([CLI-10]).
 signal bag_move_requested(from: int, to: int)
+## Confirmou destruir o item [param uid] na ficha ([JOGO-24]).
+signal item_destroy_requested(uid: String)
 ## Ferreiro ([JOGO-16]): apertou "Melhorar" no item [param uid] com o atributo [param attribute].
 signal upgrade_requested(uid: String, attribute: String)
 ## Baú de acampamento ([JOGO-19]): apertou "Abrir baú" perto do baú [param chest_id] / tocou num item dele.
@@ -255,6 +257,7 @@ func _ready() -> void:
 	_inventory_view.bag_move_requested.connect(bag_move_requested.emit)
 	_item_detail.back_pressed.connect(_open_panel.bind(_inventory_panel))
 	_item_detail.action_pressed.connect(_on_item_action)
+	_item_detail.destroy_confirmed.connect(_on_item_destroy)
 	_menu_dimmer.gui_input.connect(_on_dimmer_input)
 	_setup_safe_margins()
 	_vitals_frame.resized.connect(play_area_changed.emit)
@@ -382,6 +385,12 @@ func _on_item_action(item: InventoryState.Item, equipped: bool) -> void:
 		unequip_requested.emit(item.slot, -1)
 	else:
 		equip_requested.emit(item.uid)
+	_open_panel(_inventory_panel)
+
+
+## "Sim" em destruir: pede ao servidor e volta para o inventário (o item some quando o inventário novo chegar).
+func _on_item_destroy(item: InventoryState.Item) -> void:
+	item_destroy_requested.emit(item.uid)
 	_open_panel(_inventory_panel)
 
 
