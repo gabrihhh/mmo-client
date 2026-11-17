@@ -1,23 +1,23 @@
 class_name RegionLines
 extends Node3D
 ## Linhas no chão marcando as zonas de nível ([JOGO-22]), na mesma cor de cada zona no mapa do Menu ([ZoneMap],
-## [JOGO-18]). Cada zona desenha **meia linha**: uma faixa de [constant WIDTH] m que começa EM CIMA da divisa (o miolo
-## brilhante) e se espalha só para dentro dela (a auréola). Onde duas zonas se encontram as metades se encostam: uma
-## linha só, com as duas cores, cada lado brilhando na cor da sua zona. Seguem a altura do chão ([ZoneTerrain]).
+## [JOGO-18]). Cada zona desenha a própria linha, de [constant WIDTH] m, começando EXATAMENTE na divisa e entrando nela:
+## onde duas zonas se encontram as duas linhas ficam **lado a lado, encostadas** (sem vão), cada uma na cor da sua
+## zona (dá para ver de que lado é cada uma). Seguem a altura do chão ([ZoneTerrain]).
 ## Trechos dentro das montanhas (perto da borda do mapa) não são desenhados.
 ##
-## **Neon** (pedido do dono em 2026-11-17): shader [constant NEON_SHADER] — miolo fino quase branco + auréola na cor
-## da zona espalhada pelo chão, somada à luz da cena (aditivo, sem glow de tela) e uma pulsação leve correndo pela linha.
+## **Neon** (pedido do dono em 2026-11-17): shader [constant NEON_SHADER] — miolo claro no meio + auréola na cor da
+## zona até a borda da linha, somada à luz da cena (aditivo, sem glow de tela) e uma pulsação leve correndo pela linha.
 ##
-## Leve: uma malha por zona, faixas planas (cor por vértice; UV.x = 0 na divisa → 1 dentro da zona, UV.y = metros ao
-## longo da linha),
+## Leve: uma malha por zona, faixas planas (cor por vértice; UV.x atravessa a faixa de 0 a 1, UV.y = metros ao longo
+## da linha),
 ## cortadas em pedaços de [constant SEGMENT] m.
 
 ## Shader da linha neon.
 const NEON_SHADER: Shader = preload("res://assets/shaders/neon_line.gdshader")
-## Largura (m) da meia linha (miolo na divisa + auréola para dentro) e a altura acima do chão (m). O meio da faixa fica
-## [constant INSET] m para dentro da zona, então a borda dela cai exatamente na divisa.
-const WIDTH: float = 0.9
+## Largura (m) da linha e a altura acima do chão (m). O meio da faixa fica [constant INSET] m para dentro da zona, então
+## a borda dela cai exatamente na divisa e encosta na linha da zona vizinha.
+const WIDTH: float = 0.5
 const INSET: float = WIDTH / 2.0
 const LIFT: float = 0.08
 ## Pedaço (m) da linha que segue o chão (mais curto = acompanha melhor os degraus).
@@ -36,10 +36,10 @@ func _ready() -> void:
 		var any: bool = false
 		# Contorno de fora encolhido para dentro; buracos (a praça no meio da Campina) crescidos (dentro da zona = fora do buraco).
 		for loop: PackedVector2Array in Geometry2D.offset_polygon(region.outer, -INSET):
-			any = _add_loop(st, loop, color, region) or any
+			any = _add_loop(st, loop, color) or any
 		for hole: PackedVector2Array in region.holes:
 			for loop: PackedVector2Array in Geometry2D.offset_polygon(hole, INSET):
-				any = _add_loop(st, loop, color, region) or any
+				any = _add_loop(st, loop, color) or any
 		if not any:
 			continue
 		var instance: MeshInstance3D = MeshInstance3D.new()
@@ -50,9 +50,9 @@ func _ready() -> void:
 		add_child(instance)
 
 
-## Faixa ao longo do polígono fechado [param loop] (x, z, o meio da faixa, já [constant INSET] m para dentro de
-## [param region]). Devolve true se desenhou algum trecho.
-func _add_loop(st: SurfaceTool, loop: PackedVector2Array, color: Color, region: ZoneInfo.Region) -> bool:
+## Faixa ao longo do polígono fechado [param loop] (x, z; o meio da faixa, já [constant INSET] m para dentro da zona).
+## Devolve true se desenhou algum trecho.
+func _add_loop(st: SurfaceTool, loop: PackedVector2Array, color: Color) -> bool:
 	var drew: bool = false
 	# Metros já percorridos no contorno (UV.y: a pulsação corre contínua de um trecho para o outro).
 	var along: float = 0.0
@@ -67,10 +67,6 @@ func _add_loop(st: SurfaceTool, loop: PackedVector2Array, color: Color, region: 
 			continue
 		var steps: int = maxi(1, ceili(length / SEGMENT))
 		var side: Vector2 = (b - a).normalized().orthogonal() * (WIDTH / 2.0)
-		# Qual lado da faixa é a divisa (UV.x = 0) e qual é dentro da zona (UV.x = 1): o sentido do contorno varia.
-		var mid: Vector2 = (a + b) / 2.0
-		var plus_inside: bool = _inside(region, mid + side * 2.0)
-		var uv_plus: float = 1.0 if plus_inside else 0.0
 		for k: int in range(steps):
 			var p: Vector2 = a.lerp(b, float(k) / float(steps))
 			var q: Vector2 = a.lerp(b, float(k + 1) / float(steps))
@@ -80,9 +76,9 @@ func _add_loop(st: SurfaceTool, loop: PackedVector2Array, color: Color, region: 
 			var p2: Vector3 = _ground(p - side)
 			var q1: Vector3 = _ground(q + side)
 			var q2: Vector3 = _ground(q - side)
-			# (vértice, UV): UV.x = 0 no lado da divisa, 1 no lado de dentro da zona.
-			var corners: Array[Array] = [[p1, Vector2(uv_plus, pv)], [q1, Vector2(uv_plus, qv)], [q2, Vector2(1.0 - uv_plus, qv)],
-				[p1, Vector2(uv_plus, pv)], [q2, Vector2(1.0 - uv_plus, qv)], [p2, Vector2(1.0 - uv_plus, pv)]]
+			# (vértice, UV): UV.x = 0 de um lado da faixa, 1 do outro.
+			var corners: Array[Array] = [[p1, Vector2(0.0, pv)], [q1, Vector2(0.0, qv)], [q2, Vector2(1.0, qv)],
+				[p1, Vector2(0.0, pv)], [q2, Vector2(1.0, qv)], [p2, Vector2(1.0, pv)]]
 			for corner: Array in corners:
 				var vertex: Vector3 = corner[0]
 				var uv: Vector2 = corner[1]
@@ -92,16 +88,6 @@ func _add_loop(st: SurfaceTool, loop: PackedVector2Array, color: Color, region: 
 		along += length
 		drew = true
 	return drew
-
-
-## Ponto (x, z) dentro de [param region]: no contorno de fora e fora dos buracos (a praça no meio da Campina).
-static func _inside(region: ZoneInfo.Region, point: Vector2) -> bool:
-	if not Geometry2D.is_point_in_polygon(point, region.outer):
-		return false
-	for hole: PackedVector2Array in region.holes:
-		if Geometry2D.is_point_in_polygon(point, hole):
-			return false
-	return true
 
 
 func _ground(point: Vector2) -> Vector3:
