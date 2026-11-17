@@ -33,7 +33,8 @@ extends RefCounted
 ## v30: guilda ([SOC-06]): [constant MSG_GUILD_CREATE] etc. → [constant MSG_GUILD] / [constant MSG_GUILD_INVITED] /
 ## [constant MSG_GUILD_NOTICE]; [constant MSG_PLAYER_GUILD]; guildId/guildTag no PlayerInfo; guildInvites na
 ## Configuração social.
-const VERSION: int = 30
+## v31: rankings ([SOC-07]): [constant MSG_RANKING_REQUEST] → [constant MSG_RANKING].
+const VERSION: int = 31
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
@@ -119,6 +120,8 @@ const MSG_GUILD_LEAVE: String = "guild_leave"
 const MSG_GUILD_KICK: String = "guild_kick"
 ## Líder muda o cargo de um membro. data: { playerId, role: [constant GuildState.ROLE_OFFICER] | ROLE_MEMBER }.
 const MSG_GUILD_ROLE: String = "guild_role"
+## Pede uma tabela de ranking ([SOC-07]). data: { category, period } ([RankingData] CATEGORY_* / PERIOD_*).
+const MSG_RANKING_REQUEST: String = "ranking_request"
 ## Moedas para criar uma guilda. ATENÇÃO: GUILD_CREATE_COST em mmo-server/src/net/protocol.ts.
 const GUILD_CREATE_COST: int = 1000
 ## Pede amizade a um jogador online (ou fake de teste). data: { playerId }. Resposta: aviso [constant MSG_FRIEND_NOTICE]
@@ -211,6 +214,9 @@ const MSG_GUILD_INVITED: String = "guild_invited"
 const MSG_GUILD_NOTICE: String = "guild_notice"
 ## A guilda de um jogador da zona mudou (tag no nome, cor de guildeiro). data: { id, guildId, guildTag } (null = sem).
 const MSG_PLAYER_GUILD: String = "player_guild"
+## Uma tabela de ranking ([SOC-07]). data: { category, period, rows: Array[{ rank, id, name, value }], me (ou null),
+## resetsIn (s), age (s) }. Lido por [RankingData].
+const MSG_RANKING: String = "ranking"
 ## Onde estão os membros do MEU grupo que ficaram FORA da minha área de interesse (não vêm no snapshot), para o mapa do
 ## Menu ([CLI-11]). data: { members: Array[{ id, x, z }] } (m, 1 casa decimal). Só para quem está em grupo, a
 ## [constant GROUP_POSITIONS_HZ] Hz, e só quando há membro longe (v17). ATENÇÃO: GroupPositionsData em

@@ -108,6 +108,9 @@ func _ready() -> void:
 	Network.instance.guild_invited.connect(_hud.show_guild_invite)
 	Network.instance.guild_notice.connect(_on_group_notice)
 	Network.instance.player_guild_changed.connect(_on_player_guild_changed)
+	# Ranking ([SOC-07]): a HUD pede a tabela; a resposta volta para ela.
+	_hud.ranking_requested.connect(Network.instance.send_ranking_request)
+	Network.instance.ranking_received.connect(_hud.show_ranking)
 	# Recusas que não são de login (ex.: mochila cheia) viram aviso na tela.
 	Network.instance.server_error.connect(_on_server_error)
 

@@ -72,6 +72,8 @@ signal guild_leave_requested
 signal guild_kick_requested(player_id: String)
 ## Líder muda o cargo de [param player_id] para [param role] (GuildState.ROLE_*).
 signal guild_role_requested(player_id: String, role: String)
+## Pediu a tabela de ranking [param category] / [param period] ([SOC-07]); a resposta volta por [method show_ranking].
+signal ranking_requested(category: String, period: String)
 
 ## Quantas cartas de habilidade a HUD mostra ([JOGO-01]: 3 da arma + cabeça + peito + pés).
 const CARD_COUNT: int = 6
@@ -172,7 +174,7 @@ var _group: GroupState = null
 var _own_id: String = ""
 ## De onde as opções do jogador foram abertas (Jogadores Próximos ou Grupo): é para lá que o "Voltar" leva.
 var _actions_origin: PanelContainer = null
-## Altura do Menu com os botões da cena (px); os botões criados por código ("Amigos", "Guilda" e, com grupo, "Grupo") somam
+## Altura do Menu com os botões da cena (px); os botões criados por código ("Amigos", "Guilda", "Ranking" e, com grupo, "Grupo") somam
 ## uma linha cada ([method _refresh_menu_height]).
 var _menu_base_height: float = 0.0
 ## Amizade ([SOC-04]): painel do Menu → Amigos, o botão "Amigos" do Menu e a lista atual (vinda da [Zone]).
@@ -181,6 +183,9 @@ var _friends_panel: FriendsPanel = null
 var _guild_panel: GuildPanel = null
 var _guild_button: Button = null
 var _guild: GuildState = null
+## Menu → Ranking ([SOC-07]).
+var _ranking_panel: RankingPanel = null
+var _ranking_button: Button = null
 ## Ferreiro ([JOGO-16]): tela de melhoria e o botão que aparece perto dele.
 var _blacksmith_panel: BlacksmithPanel = null
 ## Baú do acampamento ([JOGO-19]): botão "Abrir baú" (perto de um baú aberto), a janela e o baú de perto ("" = nenhum).
@@ -470,6 +475,7 @@ func _build_social_panels() -> void:
 	_build_group_ui()
 	_build_friends_ui()
 	_build_guild_ui()
+	_build_ranking_ui()
 	_build_social_settings()
 	_build_perf_setting()
 	_build_blacksmith_ui()
@@ -651,6 +657,30 @@ func _build_guild_ui() -> void:
 	_refresh_menu_height()
 
 
+## Ranking ([SOC-07]): painel do Menu → Ranking e o botão "Ranking" (sempre visível, logo depois de "Guilda").
+func _build_ranking_ui() -> void:
+	var root: Control = $Root
+	_ranking_panel = RankingPanel.new()
+	root.add_child(_ranking_panel)
+	_ranking_panel.close_pressed.connect(_open_panel.bind(null))
+	_ranking_panel.back_pressed.connect(_open_panel.bind(_menu_panel))
+	_ranking_panel.ranking_requested.connect(func(category: String, period: String) -> void: ranking_requested.emit(category, period))
+	var players_button: Button = %PlayersButton
+	_ranking_button = players_button.duplicate() as Button
+	_ranking_button.name = "RankingButton"
+	_ranking_button.unique_name_in_owner = false
+	_ranking_button.text = "Ranking"
+	_ranking_button.visible = true
+	_guild_button.add_sibling(_ranking_button)
+	_ranking_button.pressed.connect(_open_panel.bind(_ranking_panel))
+	_refresh_menu_height()
+
+
+## Chegou uma tabela de ranking: mostra se o painel ainda está naquela aba.
+func show_ranking(ranking: RankingData) -> void:
+	_ranking_panel.show_ranking(ranking, _guild != null)
+
+
 ## Minha guilda mudou ([param guild] null = sem guilda; [param own_id] = meu id): atualiza o painel; se as opções
 ## abertas eram de alguém que saiu da guilda, volta para a lista. Entrar numa guilda descarta os outros convites.
 func set_guild(guild: GuildState, own_id: String) -> void:
@@ -797,9 +827,9 @@ func _refresh_social_buttons() -> void:
 		button.modulate = Color(1, 1, 1) if selected else Color(1, 1, 1, 0.5)
 
 
-## Altura do Menu: os botões da cena + "Amigos" + "Guilda" + "Grupo" (só com grupo), centralizado.
+## Altura do Menu: os botões da cena + "Amigos" + "Guilda" + "Ranking" + "Grupo" (só com grupo), centralizado.
 func _refresh_menu_height() -> void:
-	var extra_rows: int = (1 if _friends_button != null else 0) + (1 if _guild_button != null else 0) + (1 if _group != null else 0)
+	var extra_rows: int = (1 if _friends_button != null else 0) + (1 if _guild_button != null else 0) + (1 if _ranking_button != null else 0) + (1 if _group != null else 0)
 	var height: float = _menu_base_height + extra_rows * (PixelMenuPanel.BUTTON_HEIGHT_PX + 20.0)
 	_menu_panel.offset_top = -height / 2.0
 	_menu_panel.offset_bottom = height / 2.0
@@ -959,7 +989,7 @@ func _on_player_option(option_id: String) -> void:
 
 ## Todos os painéis do menu (um aberto por vez).
 func _all_panels() -> Array[PanelContainer]:
-	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel, _guild_panel, _blacksmith_panel, _chest_panel]
+	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel, _guild_panel, _ranking_panel, _blacksmith_panel, _chest_panel]
 
 
 ## Abre [param panel] e fecha os outros; null fecha tudo. Com menu aberto, os controles do jogo param.

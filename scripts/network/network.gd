@@ -81,6 +81,8 @@ signal guild_invited(from_id: String, from_name: String, guild_title: String, ex
 signal guild_notice(code: String, message: String)
 ## A guilda do jogador [param id] da zona mudou (tag no nome e cor de guildeiro).
 signal player_guild_changed(id: String)
+## Chegou uma tabela de ranking ([SOC-07]), resposta ao [method send_ranking_request].
+signal ranking_received(ranking: RankingData)
 
 ## Margem de desenho ([INFRA-12]): os outros (jogadores, monstros) são desenhados este número de ticks antes do tick
 ## atual estimado do servidor. Pequena porque passou do último snapshot o desenho **extrapola** (PlayerState): a
@@ -522,6 +524,12 @@ func send_guild_role(target_id: String, role: String) -> void:
 		_send(Protocol.MSG_GUILD_ROLE, {"playerId": target_id, "role": role})
 
 
+## Pede a tabela de ranking [param category] / [param period] ([RankingData] CATEGORY_* / PERIOD_*, [SOC-07]).
+func send_ranking_request(category: String, period: String) -> void:
+	if _authenticated:
+		_send(Protocol.MSG_RANKING_REQUEST, {"category": category, "period": period})
+
+
 ## true se [param id] é OUTRO jogador da minha guilda que está na zona (não é alvo de ataque, cor azul, [SOC-06]).
 func is_guild_member(id: String) -> bool:
 	if guild == null or id == player_id or not _players.has(id):
@@ -829,6 +837,8 @@ func _handle_message(text: String) -> void:
 					Protocol.read_float(data, "expiresIn", 30.0))
 		Protocol.MSG_GUILD_NOTICE:
 			guild_notice.emit(Protocol.read_string(data, "code"), Protocol.read_string(data, "message"))
+		Protocol.MSG_RANKING:
+			ranking_received.emit(RankingData.from_dict(data))
 		Protocol.MSG_PLAYER_GUILD:
 			var guild_player_id: String = Protocol.read_string(data, "id")
 			if _players.has(guild_player_id):
