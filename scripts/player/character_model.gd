@@ -53,6 +53,19 @@ var _glow_total: float = 0.0
 
 ## Raio máximo (m) do brilho de lançamento.
 const GLOW_RADIUS: float = 0.13
+## Margem (m) em volta do personagem que já conta como "na tela": quem está fora da tela + margem dorme (não anima,
+## sem IK nem mãos/roupa sendo recalculadas) e acorda ao entrar na margem, antes de aparecer — o jogador nunca vê
+## ninguém congelado. A 5 m/s (corrida) são ~0,6 s de folga. Desenho fora da tela o Godot já corta sozinho.
+const SCREEN_MARGIN_M: float = 3.0
+## Altura (m) da caixa do personagem para o teste de tela (corpo + chapéu/arma erguida).
+const SCREEN_BOX_HEIGHT_M: float = 2.4
+## Grupo de todos os personagens na árvore (o medidor de desempenho conta os acordados, [PerfOverlay]).
+const GROUP: StringName = &"character_models"
+
+## Detecta quando a caixa do personagem (+ margem) entra/sai da tela ([constant SCREEN_MARGIN_M]).
+var _screen_notifier: VisibleOnScreenNotifier3D = null
+## false = dormindo (fora da tela + margem).
+var _awake: bool = true
 
 
 func _ready() -> void:
@@ -79,6 +92,40 @@ func _ready() -> void:
 	_equipment.animator = _animator
 	# Visual de anime ([ART-12]): corpo com cel shading e contorno (os itens são convertidos ao vestir).
 	ToonMaterials.apply(self)
+	_setup_screen_sleep()
+
+
+## Sono fora da tela ([constant SCREEN_MARGIN_M]): o notificador avisa ao entrar/sair; quem já nasce fora da tela
+## dorme depois do primeiro quadro desenhado (antes disso o notificador ainda não sabe).
+func _setup_screen_sleep() -> void:
+	add_to_group(GROUP)
+	var m: float = SCREEN_MARGIN_M
+	_screen_notifier = VisibleOnScreenNotifier3D.new()
+	_screen_notifier.name = "ScreenNotifier"
+	_screen_notifier.aabb = AABB(Vector3(-m, -m, -m), Vector3(2.0 * m, SCREEN_BOX_HEIGHT_M + 2.0 * m, 2.0 * m))
+	_screen_notifier.screen_entered.connect(_set_awake.bind(true))
+	_screen_notifier.screen_exited.connect(_set_awake.bind(false))
+	add_child(_screen_notifier)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if is_instance_valid(_screen_notifier):
+		_set_awake(_screen_notifier.is_on_screen())
+
+
+## Acorda/adormece as partes que gastam por quadro (animação, esqueleto e IK, equipamento). O próprio modelo continua
+## (brilho de lançamento) e os nós continuam visíveis: fora da tela o Godot não desenha mesmo.
+func _set_awake(awake: bool) -> void:
+	if awake == _awake:
+		return
+	_awake = awake
+	for child: Node in get_children():
+		if child != _screen_notifier:
+			child.process_mode = Node.PROCESS_MODE_INHERIT if awake else Node.PROCESS_MODE_DISABLED
+
+
+## true se está acordado (na tela + margem, [constant SCREEN_MARGIN_M]).
+func is_awake() -> bool:
+	return _awake
 
 
 ## Cor da camisa (azul = você, vermelho = os outros). Sem efeito se [member tint_shirt] for false.

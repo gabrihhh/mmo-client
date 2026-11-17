@@ -2,7 +2,8 @@ class_name PerfOverlay
 extends Label
 ## Medidor de desempenho na HUD ([INFRA-12], ligado em Configuração → "Medidor de desempenho"): uma linha pequena com
 ## o ping (de mandar um passo até o servidor confirmar), a variação da rede, a margem de interpolação dos outros e o
-## FPS com o pior quadro dos últimos 10 s. Cor do ping: verde até 80 ms, amarelo até 150, vermelho acima.
+## FPS com o pior quadro dos últimos 10 s e quantos personagens estão acordados (na tela + margem) do total carregado
+## ([member CharacterModel.SCREEN_MARGIN_M]). Cor do ping: verde até 80 ms, amarelo até 150, vermelho acima.
 ## Só lê o [Network]; atualiza 4 vezes por segundo.
 
 const REFRESH_SECONDS: float = 0.25
@@ -28,8 +29,14 @@ func _process(delta: float) -> void:
 	var network: Network = Network.instance
 	var ping: String = "—" if network.ping_ms < 0.0 else "%d ms" % int(network.ping_ms)
 	var delay_ms: int = int(network.interpolation_delay_ticks * 1000.0 / network.tick_rate)
-	text = "Ping %s · Rede ±%d ms · Margem %d ms · %d FPS (pior %d ms)" % [
-		ping, int(network.jitter_ms), delay_ms, Engine.get_frames_per_second(), network.worst_frame_window_ms]
+	var models: Array[Node] = get_tree().get_nodes_in_group(CharacterModel.GROUP)
+	var awake: int = 0
+	for node: Node in models:
+		if (node as CharacterModel).is_awake() and (node as CharacterModel).is_visible_in_tree():
+			awake += 1
+	text = "Ping %s · Rede ±%d ms · Margem %d ms · %d FPS (pior %d ms) · Bonecos %d/%d" % [
+		ping, int(network.jitter_ms), delay_ms, Engine.get_frames_per_second(), network.worst_frame_window_ms,
+		awake, models.size()]
 	var color: Color = COLOR_GOOD
 	if network.ping_ms > 150.0:
 		color = COLOR_BAD
