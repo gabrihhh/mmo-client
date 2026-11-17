@@ -230,6 +230,9 @@ func _ready() -> void:
 	(%CloseMenuButton as Button).pressed.connect(_open_panel.bind(null))
 	(%InventoryBackButton as Button).pressed.connect(_open_panel.bind(_menu_panel))
 	(%CloseInventoryButton as Button).pressed.connect(_open_panel.bind(null))
+	# X vermelho em pixel art nos botões de fechar das cenas (a fonte não tem "✕").
+	for close_name: String in ["CloseMapButton", "CloseMenuButton", "CloseInventoryButton"]:
+		PixelMenuPanel.style_close_button(get_node("%" + close_name) as Button)
 	(%SettingsBackButton as Button).pressed.connect(_open_panel.bind(_menu_panel))
 	_logout_button.pressed.connect(_on_logout_pressed)
 	_inventory_view.item_pressed.connect(_show_item_detail)

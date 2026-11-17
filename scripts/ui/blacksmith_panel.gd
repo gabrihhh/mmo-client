@@ -98,9 +98,7 @@ func _ready() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	header.add_child(title)
-	var close: Button = PixelMenuPanel.make_button("✕")
-	close.custom_minimum_size = Vector2(72.0, 72.0)
-	close.clip_text = false
+	var close: Button = PixelMenuPanel.make_close_button()
 	close.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	close.offset_left = -72.0
 	close.offset_bottom = 72.0

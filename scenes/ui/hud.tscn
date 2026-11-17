@@ -405,7 +405,7 @@ offset_left = -72.0
 offset_bottom = 72.0
 grow_horizontal = 0
 theme_override_font_sizes/font_size = 34
-text = "✕"
+text = ""
 theme_type_variation = &"PixelButton"
 
 [node name="InventoryButton" type="Button" parent="Root/MenuPanel/VBox"]
@@ -515,7 +515,7 @@ offset_left = -72.0
 offset_bottom = 72.0
 grow_horizontal = 0
 theme_override_font_sizes/font_size = 34
-text = "✕"
+text = ""
 theme_type_variation = &"PixelButton"
 
 [node name="ZoneMap" type="Control" parent="Root/MapPanel/VBox"]
@@ -575,7 +575,7 @@ offset_left = -72.0
 offset_bottom = 72.0
 grow_horizontal = 0
 theme_override_font_sizes/font_size = 34
-text = "✕"
+text = ""
 theme_type_variation = &"PixelButton"
 
 [node name="InventoryView" type="VBoxContainer" parent="Root/InventoryPanel/VBox"]

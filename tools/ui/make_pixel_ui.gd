@@ -2,7 +2,8 @@ extends SceneTree
 ## Gera as peças pixel art da HUD ([CLI-08]) em `assets/ui/pixel/`: moldura das barras/controles (e a versão opaca
 ## dos painéis do Menu), fundo das cartas
 ## e do Menu (normal e apertado), botão redondo
-## (ataque e "Desfocar"), espada, espada riscada, os ícones do menu (☰, mochila, mapa, engrenagem, sair) e as peças da
+## (ataque e "Desfocar"), espada, espada riscada, os ícones do menu (☰, mochila, mapa, engrenagem, sair), o **X vermelho**
+## dos botões de fechar ([method PixelMenuPanel.make_close_button]) e as peças da
 ## tela de login ([CLI-05]): campo de texto (normal e selecionado) e o piso de pedra do fundo.
 ##
 ## Tudo é desenhado pixel a pixel aqui (sem Meshy, sem imagem de fora): mudar uma cor ou um desenho e rodar de novo.
@@ -45,6 +46,7 @@ const PALETTE: Dictionary[String, Color] = {
 	"r": Color8(200, 56, 48),
 	"R": Color8(130, 30, 30),
 	"x": Color8(240, 236, 226),
+	"o": Color8(255, 128, 104),
 }
 
 ## Espada na diagonal, ponta para cima/direita (16×16). w/s = lâmina clara/sombra, g/G = guarda e pomo, b/B = cabo.
@@ -84,6 +86,21 @@ const CROSS: Array[String] = [
 	".............rr.",
 	"................",
 	"................",
+]
+## X vermelho dos botões de fechar (12×12): o = brilho em cima/esquerda, r = vermelho, R = sombra embaixo/direita.
+const ICON_CLOSE: Array[String] = [
+	"............",
+	".oo......oo.",
+	".orr....orR.",
+	"..orr..orR..",
+	"...orrorR...",
+	"....orrR....",
+	"....orrR....",
+	"...orRRrR...",
+	"..orR..rrR..",
+	".orR....rrR.",
+	".RR......RR.",
+	"............",
 ]
 ## ☰ do botão Menu.
 const ICON_MENU: Array[String] = [
@@ -214,6 +231,7 @@ func _init() -> void:
 	_save(_outlined(_from_map(ICON_GEAR)), "icon_gear")
 	_save(_outlined(_from_map(ICON_EXIT)), "icon_exit")
 	_save(_outlined(_from_map(ICON_PLAYERS)), "icon_players")
+	_save(_outlined(_from_map(ICON_CLOSE)), "icon_close")
 	_save(_round_button(32, false), "round_button")
 	_save(_round_button(32, true), "round_button_pressed")
 	for pressed: bool in [false, true]:

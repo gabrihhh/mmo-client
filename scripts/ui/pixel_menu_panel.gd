@@ -12,6 +12,8 @@ signal close_pressed
 ## Tocou em "Voltar": volta para o painel anterior (a [Hud] decide qual).
 signal back_pressed
 
+## X vermelho dos botões de fechar ([method make_close_button]).
+const CLOSE_ICON: Texture2D = preload("res://assets/ui/pixel/icon_close.png")
 ## Largura do painel (px no espaço de referência 720×1280), igual à do Menu.
 const PANEL_WIDTH_PX: float = 640.0
 ## Altura dos botões de lista/ação (px), igual à dos botões do Menu.
@@ -61,8 +63,7 @@ func _init(height_px: float = 0.0) -> void:
 	_title.offset_left = 76.0
 	_title.offset_right = -76.0
 	header.add_child(_title)
-	var close: Button = make_button("✕")
-	close.custom_minimum_size = Vector2(72.0, 72.0)
+	var close: Button = make_close_button()
 	close.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	close.offset_left = -72.0
 	close.offset_bottom = 72.0
@@ -100,6 +101,26 @@ static func make_button(text: String, align_left: bool = false) -> Button:
 
 
 ## Texto de conteúdo (quebra linha se não couber).
+## Botão de fechar (72×72 px) com o X vermelho em pixel art (`icon_close.png`, gerado por
+## `tools/ui/make_pixel_ui.gd`). A fonte pixel art não tem o caractere "✕" (o botão aparecia vazio).
+static func make_close_button() -> Button:
+	var button: Button = make_button("")
+	style_close_button(button)
+	return button
+
+
+## Põe o X vermelho num botão de fechar que já existe (os das cenas: Menu, Mapa, Inventário).
+static func style_close_button(button: Button) -> void:
+	button.text = ""
+	button.icon = CLOSE_ICON
+	button.expand_icon = true
+	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+	button.add_theme_constant_override("icon_max_width", 40)
+	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	button.custom_minimum_size = Vector2(72.0, 72.0)
+
+
 static func make_label(text: String, color: Color = Color(1, 1, 1)) -> Label:
 	var label: Label = Label.new()
 	label.text = text
