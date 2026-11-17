@@ -1,7 +1,7 @@
 class_name PlayerActionsPanel
 extends PixelMenuPanel
 ## Opções sobre um jogador ([SOC-02]): o título é o "[nível] nome" dele e cada opção é um botão. Genérico de
-## propósito: Jogadores Próximos usa Atributos / Solicitar amizade / Convidar para o grupo, o painel do Grupo
+## propósito: Jogadores Próximos usa Atributos / Solicitar amizade / Convidar para o grupo / Trocar ([SOC-05]), o painel do Grupo
 ## ([SOC-03]) reaproveita com Expulsar e o de Amigos ([SOC-04]) com Remover amigo. Opção desligada aparece apagada,
 ## com o motivo entre parênteses.
 
@@ -38,6 +38,8 @@ const OPTION_GUILD_INVITE: String = "guild_invite"
 const OPTION_GUILD_KICK: String = "guild_kick"
 const OPTION_GUILD_PROMOTE: String = "guild_promote"
 const OPTION_GUILD_DEMOTE: String = "guild_demote"
+## Troca ([SOC-05]).
+const OPTION_TRADE: String = "trade"
 
 ## Jogador das opções abertas agora.
 var player_id: String = ""

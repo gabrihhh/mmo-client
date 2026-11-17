@@ -17,7 +17,8 @@ extends CanvasLayer
 ## Convidar para o grupo se ele está na minha zona; Remover amigo). Convite de grupo e pedido de amizade recebidos:
 ## janela Aceitar/Recusar no alto ([RequestPanel]), sem pausar o jogo. Configuração: "Solicitações de amizade" e
 ## "Convites de grupo", cada um Sempre/Ocultar (salvo na conta pelo servidor). Esses painéis são feitos por código
-## ([PixelMenuPanel]) e criados no [method _ready].
+## ([PixelMenuPanel]) e criados no [method _ready]. Troca ([SOC-05], [TradePanel]): "Trocar" nas opções de Jogadores
+## Próximos (a até 10 m), pedido recebido na mesma janela Aceitar/Recusar e a janela da troca, que fechar = cancelar.
 ##
 ## Só mostra e repassa toques: quem decide o que fazer com ataque/cartas é o [CombatController].
 
@@ -59,7 +60,7 @@ signal friend_answered(from_id: String, accept: bool)
 signal friend_remove_requested(player_id: String)
 ## Mudou a Configuração social ([constant Protocol.SOCIAL_ALWAYS] / [constant Protocol.SOCIAL_HIDE]; [param profile] =
 ## PROFILE_*, [SOC-08]); o servidor salva.
-signal social_settings_requested(friend_requests: String, group_invites: String, guild_invites: String, profile: String)
+signal social_settings_requested(friend_requests: String, group_invites: String, guild_invites: String, profile: String, trade_requests: String)
 ## Criar a guilda [param guild_name] / [param tag] ([SOC-06]).
 signal guild_create_requested(guild_name: String, tag: String, description: String)
 ## Procurar guilda ([SOC-06]): pedir a lista / a ficha / enviar solicitação.
@@ -81,6 +82,14 @@ signal guild_kick_requested(player_id: String)
 signal guild_role_requested(player_id: String, role: String)
 ## Pediu a tabela de ranking [param category] / [param period] ([SOC-07]); a resposta volta por [method show_ranking].
 signal ranking_requested(category: String, period: String)
+## Troca ([SOC-05]): pedir para trocar com [param player_id] / responder ao pedido de [param from_id].
+signal trade_request_requested(player_id: String)
+signal trade_answered(from_id: String, accept: bool)
+## Mudou a minha oferta (inteira): itens da mochila [param uids] e [param gold] moedas.
+signal trade_offer_changed(uids: Array[String], gold: int)
+## Apertou "Confirmar" / fechou a janela de troca (Cancelar, X ou tocando fora).
+signal trade_confirm_requested
+signal trade_cancel_requested
 
 ## Quantas cartas de habilidade a HUD mostra ([JOGO-01]: 3 da arma + cabeça + peito + pés).
 const CARD_COUNT: int = 6
@@ -96,6 +105,7 @@ const _SOCIAL_ROWS: Dictionary[String, String] = {
 	"groupInvites": "Convites de grupo",
 	"guildInvites": "Convites de guilda",
 	"profile": "Perfil (quem vê seus Atributos)",
+	"tradeRequests": "Pedidos de troca",
 }
 ## Botões de cada linha da Configuração social: valor → texto (Perfil tem três, [SOC-08]).
 const _SOCIAL_OPTIONS: Dictionary[String, Dictionary] = {
@@ -103,6 +113,7 @@ const _SOCIAL_OPTIONS: Dictionary[String, Dictionary] = {
 	"groupInvites": {Protocol.SOCIAL_ALWAYS: "Sempre", Protocol.SOCIAL_HIDE: "Ocultar"},
 	"guildInvites": {Protocol.SOCIAL_ALWAYS: "Sempre", Protocol.SOCIAL_HIDE: "Ocultar"},
 	"profile": {Protocol.PROFILE_PUBLIC: "Público", Protocol.PROFILE_FRIENDS: "Amigos", Protocol.PROFILE_NOBODY: "Ninguém"},
+	"tradeRequests": {Protocol.SOCIAL_ALWAYS: "Sempre", Protocol.SOCIAL_HIDE: "Ocultar"},
 }
 
 @onready var _health_bar: ProgressBar = %HealthBar
@@ -201,12 +212,14 @@ var _chest_button: Button = null
 var _near_chest: String = ""
 ## Tela de morte ([JOGO-21]), por cima de tudo.
 var _death_screen: DeathScreen = null
+## Janela da troca ([SOC-05]): abre com o primeiro estado da troca, fecha quando ela acaba.
+var _trade_panel: TradePanel = null
 var _blacksmith_button: Button = null
 var _friends_button: Button = null
 var _friends: FriendList = FriendList.new()
 ## Configuração social ([SOC-04]): opção atual de cada linha ("friendRequests"/"groupInvites" → SOCIAL_*) e os
 ## botões Sempre/Ocultar de cada uma (chave "linha|opção").
-var _social: Dictionary[String, String] = {"friendRequests": Protocol.SOCIAL_ALWAYS, "groupInvites": Protocol.SOCIAL_ALWAYS, "guildInvites": Protocol.SOCIAL_ALWAYS, "profile": Protocol.PROFILE_PUBLIC}
+var _social: Dictionary[String, String] = {"friendRequests": Protocol.SOCIAL_ALWAYS, "groupInvites": Protocol.SOCIAL_ALWAYS, "guildInvites": Protocol.SOCIAL_ALWAYS, "profile": Protocol.PROFILE_PUBLIC, "tradeRequests": Protocol.SOCIAL_ALWAYS}
 var _social_buttons: Dictionary[String, Button] = {}
 
 
@@ -337,6 +350,7 @@ func set_inventory(inventory: InventoryState) -> void:
 	_inventory = inventory
 	_inventory_view.show_inventory(inventory)
 	_blacksmith_panel.show_inventory(inventory)
+	_trade_panel.show_inventory(inventory)
 	# A ficha aberta mostrava o inventário antigo: volta para a tela do inventário.
 	if _item_detail.visible:
 		_open_panel(_inventory_panel)
@@ -346,6 +360,7 @@ func set_inventory(inventory: InventoryState) -> void:
 func set_gold(amount: int) -> void:
 	_inventory_view.set_gold(amount)
 	_blacksmith_panel.set_gold(amount)
+	_trade_panel.set_gold(amount)
 
 
 ## Abre a ficha de [param item] ([param equipped] = está vestido).
@@ -490,6 +505,7 @@ func _build_social_panels() -> void:
 	_build_perf_setting()
 	_build_blacksmith_ui()
 	_build_chest_ui()
+	_build_trade_ui()
 	_death_screen = DeathScreen.new()
 	_death_screen.respawn_pressed.connect(respawn_requested.emit)
 	# Último filho da HUD: fica por cima de painéis, joystick e cartas.
@@ -694,6 +710,41 @@ func _build_ranking_ui() -> void:
 	_refresh_menu_height()
 
 
+## Troca ([SOC-05]): a janela da troca (no ciclo dos painéis: pausa os controles enquanto aberta).
+func _build_trade_ui() -> void:
+	_trade_panel = TradePanel.new()
+	$Root.add_child(_trade_panel)
+	_trade_panel.offer_changed.connect(func(uids: Array[String], gold: int) -> void: trade_offer_changed.emit(uids, gold))
+	_trade_panel.confirm_pressed.connect(trade_confirm_requested.emit)
+	_trade_panel.cancel_pressed.connect(_open_panel.bind(null))
+
+
+## Chegou um pedido de troca: janela Aceitar/Recusar no alto da tela ([RequestPanel]).
+func show_trade_request(from_id: String, from_name: String, expires_in: float) -> void:
+	_invite_panel.add_request(RequestPanel.KIND_TRADE, from_id, from_name, expires_in)
+
+
+## Chegou o estado da minha troca: abre a janela (fechando o que estiver aberto) ou atualiza. Abrir descarta os outros
+## pedidos de troca (só uma troca por vez).
+func show_trade(state: TradeState) -> void:
+	var opening: bool = not _trade_panel.is_active()
+	_trade_panel.show_state(state)
+	if opening:
+		_invite_panel.clear_kind(RequestPanel.KIND_TRADE)
+	if not _trade_panel.visible:
+		_open_panel(_trade_panel)
+
+
+## A troca acabou ([param message] = aviso: aconteceu, cancelada, longe...): fecha a janela sem mandar "cancelar".
+func end_trade(message: String) -> void:
+	var was_open: bool = _trade_panel.visible
+	_trade_panel.clear()
+	if was_open:
+		_open_panel(null)
+	if not message.is_empty():
+		show_toast(message)
+
+
 ## Chegou uma tabela de ranking: mostra se o painel ainda está naquela aba.
 func show_ranking(ranking: RankingData) -> void:
 	_ranking_panel.show_ranking(ranking, _guild != null)
@@ -832,11 +883,12 @@ func _on_social_option(key: String, value: String) -> void:
 		return
 	var changed: Dictionary[String, String] = _social.duplicate()
 	changed[key] = value
-	social_settings_requested.emit(changed["friendRequests"], changed["groupInvites"], changed["guildInvites"], changed["profile"])
+	social_settings_requested.emit(changed["friendRequests"], changed["groupInvites"], changed["guildInvites"], changed["profile"], changed["tradeRequests"])
 
 
 ## A Configuração social salva na conta mudou (auth_ok ou confirmação do servidor): acende a opção de cada linha.
-func set_social_settings(friend_requests: String, group_invites: String, guild_invites: String, profile: String) -> void:
+func set_social_settings(friend_requests: String, group_invites: String, guild_invites: String, profile: String, trade_requests: String) -> void:
+	_social["tradeRequests"] = trade_requests
 	_social["friendRequests"] = friend_requests
 	_social["groupInvites"] = group_invites
 	_social["guildInvites"] = guild_invites
@@ -869,6 +921,8 @@ func _on_request_answered(kind: String, from_id: String, accept: bool) -> void:
 		friend_answered.emit(from_id, accept)
 	elif kind == RequestPanel.KIND_GUILD:
 		guild_answered.emit(from_id, accept)
+	elif kind == RequestPanel.KIND_TRADE:
+		trade_answered.emit(from_id, accept)
 	else:
 		group_answered.emit(from_id, accept)
 
@@ -973,9 +1027,24 @@ func _on_nearby_player_chosen(player_id: String, title: String) -> void:
 		options.append(PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_GROUP_INVITE, "Convidar para o grupo"))
 	if _can_guild_invite(player_id):
 		options.append(PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_GUILD_INVITE, "Convidar para a guilda"))
+	# Troca ([SOC-05]): só a até 10 m (o servidor confere de novo); longe aparece apagada com o motivo.
+	if player_id != _own_id:
+		var near: bool = _distance_to(player_id) <= Protocol.TRADE_RANGE
+		options.append(PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_TRADE, "Trocar", near, "" if near else "chegue perto"))
 	_actions_origin = _nearby_panel
 	_actions_panel.show_options(player_id, title, options)
 	_open_panel(_actions_panel)
+
+
+## Distância (m, no chão) entre mim e o jogador [param player_id] pelo último snapshot; INF se algum não está na vista.
+func _distance_to(player_id: String) -> float:
+	if Network.instance == null:
+		return INF
+	var me: PlayerState = Network.instance.get_player(Network.instance.player_id)
+	var other: PlayerState = Network.instance.get_player(player_id)
+	if me == null or other == null:
+		return INF
+	return Vector2(me.x - other.x, me.z - other.z).length()
 
 
 func _on_player_option(option_id: String) -> void:
@@ -997,6 +1066,10 @@ func _on_player_option(option_id: String) -> void:
 			# A resposta ("X aceitou/recusou") chega depois como aviso.
 			friend_request_requested.emit(target)
 			show_toast("Pedido de amizade enviado.")
+		PlayerActionsPanel.OPTION_TRADE:
+			# Aceitou: a janela da troca abre sozinha (trade_state); recusou/expirou: aviso.
+			trade_request_requested.emit(target)
+			show_toast("Pedido de troca enviado.")
 		PlayerActionsPanel.OPTION_GUILD_INVITE:
 			guild_invite_requested.emit(target)
 			show_toast("Convite para a guilda enviado.")
@@ -1017,11 +1090,15 @@ func _on_player_option(option_id: String) -> void:
 
 ## Todos os painéis do menu (um aberto por vez).
 func _all_panels() -> Array[PanelContainer]:
-	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel, _guild_panel, _ranking_panel, _blacksmith_panel, _chest_panel]
+	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel, _guild_panel, _ranking_panel, _blacksmith_panel, _chest_panel, _trade_panel]
 
 
 ## Abre [param panel] e fecha os outros; null fecha tudo. Com menu aberto, os controles do jogo param.
 func _open_panel(panel: PanelContainer) -> void:
+	# Fechar a janela de uma troca em andamento (X, Cancelar, tocar fora, morrer) cancela a troca ([SOC-05]).
+	if _trade_panel != null and _trade_panel.visible and panel != _trade_panel and _trade_panel.is_active():
+		_trade_panel.clear()
+		trade_cancel_requested.emit()
 	for candidate: PanelContainer in _all_panels():
 		candidate.visible = candidate == panel
 	var playing: bool = panel == null

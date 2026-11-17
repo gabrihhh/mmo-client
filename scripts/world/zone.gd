@@ -118,6 +118,16 @@ func _ready() -> void:
 	# Ranking ([SOC-07]): a HUD pede a tabela; a resposta volta para ela.
 	_hud.ranking_requested.connect(Network.instance.send_ranking_request)
 	Network.instance.ranking_received.connect(_hud.show_ranking)
+	# Troca ([SOC-05]): pedir/responder/oferta/confirmar/cancelar vão ao servidor; pedido, estado e fim voltam para a HUD.
+	_hud.trade_request_requested.connect(Network.instance.send_trade_request)
+	_hud.trade_answered.connect(Network.instance.send_trade_answer)
+	_hud.trade_offer_changed.connect(Network.instance.send_trade_offer)
+	_hud.trade_confirm_requested.connect(Network.instance.send_trade_confirm)
+	_hud.trade_cancel_requested.connect(Network.instance.send_trade_cancel)
+	Network.instance.trade_requested.connect(_hud.show_trade_request)
+	Network.instance.trade_changed.connect(_hud.show_trade)
+	Network.instance.trade_done.connect(func(partner_name: String) -> void: _hud.end_trade("Troca com %s feita!" % partner_name))
+	Network.instance.trade_notice.connect(func(_code: String, message: String) -> void: _hud.end_trade(message))
 	# Recusas que não são de login (ex.: mochila cheia) viram aviso na tela.
 	Network.instance.server_error.connect(_on_server_error)
 
@@ -131,7 +141,7 @@ func _ready() -> void:
 	_on_guild_changed(Network.instance.guild)
 	_hud.set_friends(Network.instance.friends)
 	_hud.set_social_settings(Network.instance.social_friend_requests, Network.instance.social_group_invites,
-			Network.instance.social_guild_invites, Network.instance.social_profile)
+			Network.instance.social_guild_invites, Network.instance.social_profile, Network.instance.social_trade_requests)
 	# NPCs: só o ferreiro agora; os outros nascem quando entram na vista ([INFRA-11], _spawn_npcs_in_view).
 	_spawn_npcs_in_view(-1)
 	for chest: ChestInfo in Network.instance.chests.values():

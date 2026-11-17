@@ -37,7 +37,11 @@ extends RefCounted
 ## v32: Procurar guilda e solicitações ([SOC-06]): [constant MSG_GUILD_LIST], [constant MSG_GUILD_INFO],
 ## [constant MSG_GUILD_REQUEST], [constant MSG_GUILD_REQUEST_ANSWER], [constant MSG_GUILD_DESCRIPTION].
 ## v33: busca no Procurar guilda: [constant MSG_GUILD_LIST] com { query } (nome ou tag; acha também as cheias).
-const VERSION: int = 33
+## v34: troca entre jogadores ([SOC-05]): [constant MSG_TRADE_REQUEST] / [constant MSG_TRADE_ANSWER] /
+## [constant MSG_TRADE_OFFER] / [constant MSG_TRADE_CONFIRM] / [constant MSG_TRADE_CANCEL] → [constant MSG_TRADE_REQUESTED]
+## / [constant MSG_TRADE_STATE] / [constant MSG_TRADE_DONE] / [constant MSG_TRADE_NOTICE]; tradeRequests na
+## Configuração social.
+const VERSION: int = 34
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
@@ -123,6 +127,21 @@ const MSG_GUILD_LEAVE: String = "guild_leave"
 const MSG_GUILD_KICK: String = "guild_kick"
 ## Líder muda o cargo de um membro. data: { playerId, role: [constant GuildState.ROLE_OFFICER] | ROLE_MEMBER }.
 const MSG_GUILD_ROLE: String = "guild_role"
+## Troca ([SOC-05]): pede para trocar com um jogador a até [constant TRADE_RANGE] m. data: { playerId }. O outro recebe
+## [constant MSG_TRADE_REQUESTED]; a resposta volta como [constant MSG_TRADE_STATE] (abriu) ou [constant MSG_TRADE_NOTICE].
+const MSG_TRADE_REQUEST: String = "trade_request"
+## Responde a um pedido de troca. data: { fromId, accept: bool }.
+const MSG_TRADE_ANSWER: String = "trade_answer"
+## Troca a MINHA oferta inteira. data: { uids: Array[String] (itens da mochila), gold: int }. Zera as confirmações.
+const MSG_TRADE_OFFER: String = "trade_offer"
+## Confirma a troca como está (só [constant TRADE_CONFIRM_DELAY] s depois da última mudança). data: {}.
+const MSG_TRADE_CONFIRM: String = "trade_confirm"
+## Fecha a janela de troca (cancela para os dois). data: {}.
+const MSG_TRADE_CANCEL: String = "trade_cancel"
+## Distância máxima (m) para pedir/manter a troca. ATENÇÃO: TRADE_RANGE em mmo-server/src/net/protocol.ts.
+const TRADE_RANGE: float = 10.0
+## Segundos depois da última mudança até "Confirmar" valer. ATENÇÃO: TRADE_CONFIRM_DELAY_SECONDS no servidor.
+const TRADE_CONFIRM_DELAY: float = 2.0
 ## Pede uma tabela de ranking ([SOC-07]). data: { category, period } ([RankingData] CATEGORY_* / PERIOD_*).
 const MSG_RANKING_REQUEST: String = "ranking_request"
 ## Procurar guilda: pede a lista (data { query }: vazio = as que não estão cheias; com texto = busca por nome/tag, cheias
@@ -148,8 +167,8 @@ const MSG_FRIEND_ANSWER: String = "friend_answer"
 ## Desfaz uma amizade (dos dois lados). data: { playerId }.
 const MSG_FRIEND_REMOVE: String = "friend_remove"
 ## Configuração social, nos DOIS sentidos: o cliente manda a mudança, o servidor salva na conta e responde com a
-## mesma mensagem (confirmação). data: { friendRequests, groupInvites: [constant SOCIAL_ALWAYS] | [constant SOCIAL_HIDE],
-## profile: [constant PROFILE_PUBLIC] | [constant PROFILE_FRIENDS] | [constant PROFILE_NOBODY] }.
+## mesma mensagem (confirmação). data: { friendRequests, groupInvites, guildInvites, tradeRequests: [constant SOCIAL_ALWAYS]
+## | [constant SOCIAL_HIDE], profile: [constant PROFILE_PUBLIC] | [constant PROFILE_FRIENDS] | [constant PROFILE_NOBODY] }.
 const MSG_SOCIAL_SETTINGS: String = "social_settings"
 ## Opções da Configuração social: mostrar os pedidos/convites, ou recusar sozinho sem mostrar nada.
 ## ATENÇÃO: espelho de SOCIAL_VISIBILITIES em mmo-server/src/net/protocol.ts.
@@ -254,6 +273,17 @@ const MSG_FRIEND_NOTICE: String = "friend_notice"
 ## o [LiveUpdater], que baixa e entra de novo sozinho. Ver mmo-docs [INFRA-08].
 ## ATENÇÃO: contrato ESTÁVEL entre versões do protocolo (UpdateRequired em mmo-server/src/net/protocol.ts).
 const MSG_UPDATE_REQUIRED: String = "update_required"
+## Troca ([SOC-05]): alguém quer trocar comigo (janela Aceitar/Recusar). data: { fromId, fromName, expiresIn (s) }.
+const MSG_TRADE_REQUESTED: String = "trade_requested"
+## Estado da MINHA troca aberta, a cada mudança. data: { partnerId, partnerName, mine/theirs: { items: Array[ItemView],
+## gold }, myConfirmed, theirConfirmed, confirmIn (s), countdown (s ou null), problem (texto ou null) }. ATENÇÃO:
+## TradeStateData em mmo-server/src/net/protocol.ts; lido por [TradeState].
+const MSG_TRADE_STATE: String = "trade_state"
+## A troca aconteceu (logo depois vêm o inventory e as moedas no me). data: { partnerName }.
+const MSG_TRADE_DONE: String = "trade_done"
+## Aviso de troca (a janela fecha): data: { code ("rejected" | "expired" | "busy" | "cancelled" | "too_far" | "damaged" |
+## "left" | "failed"), name, message }.
+const MSG_TRADE_NOTICE: String = "trade_notice"
 ## Pedido recusado ou mensagem inválida. data: { code: String, message: String }.
 const MSG_ERROR: String = "error"
 

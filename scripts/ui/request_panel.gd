@@ -4,7 +4,7 @@ extends PanelContainer
 ## e **pedido de amizade** ([SOC-04], "X quer ser seu amigo"), com o tempo que falta e os botões **Aceitar** /
 ## **Recusar**, na moldura pixel art dos painéis (`PixelPanel`, [CLI-07]). Fica no alto da tela, logo abaixo da linha
 ## de XP (e **convite de guilda**, [SOC-06], "X convidou você para a guilda [TAG] Nome"), e **não pausa o jogo** (o joystick e as cartas continuam: o pedido pode chegar no meio de uma luta). Vários
-## pedidos ao mesmo tempo (dos dois tipos): um por vez, na ordem em que chegaram.
+## pedidos ao mesmo tempo (de qualquer tipo; também **pedido de troca**, [SOC-05], "X quer trocar com você"): um por vez, na ordem em que chegaram.
 ##
 ## Expirou (o servidor dá ~30 s, `expiresIn`): some sozinho, sem mandar nada — o servidor avisa quem pediu que não
 ## houve resposta. A [Hud] cria e repassa a resposta ([signal answered]) para o [Network].
@@ -18,6 +18,8 @@ signal answered(kind: String, from_id: String, accept: bool)
 const KIND_GROUP: String = "group"
 const KIND_FRIEND: String = "friend"
 const KIND_GUILD: String = "guild"
+## Pedido de troca ([SOC-05]).
+const KIND_TRADE: String = "trade"
 ## Largura (px no espaço de referência 720×1280).
 const WIDTH_PX: float = 640.0
 ## Distância do topo da tela (px): logo abaixo da moldura de vida/mana e da linha de XP ([CLI-08]).
@@ -27,6 +29,7 @@ const _TEXTS: Dictionary[String, String] = {
 	KIND_GROUP: "%s convidou você para o grupo",
 	KIND_FRIEND: "%s quer ser seu amigo",
 	KIND_GUILD: "%s convidou você para a guilda",
+	KIND_TRADE: "%s quer trocar com você",
 }
 
 

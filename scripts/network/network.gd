@@ -70,8 +70,8 @@ signal friend_requested(from_id: String, from_name: String, expires_in: float)
 signal friend_notice(code: String, message: String)
 ## A Configuração social salva na conta mudou (veio no auth_ok ou o servidor confirmou uma mudança): valores
 ## [constant Protocol.SOCIAL_ALWAYS] / [constant Protocol.SOCIAL_HIDE] (amizade, grupo, guilda); [param profile] =
-## PROFILE_* ([SOC-08]).
-signal social_settings_changed(friend_requests: String, group_invites: String, guild_invites: String, profile: String)
+## PROFILE_* ([SOC-08]); [param trade_requests] = "Pedidos de troca" ([SOC-05]).
+signal social_settings_changed(friend_requests: String, group_invites: String, guild_invites: String, profile: String, trade_requests: String)
 ## A MINHA guilda mudou ([member guild]; null = saí/sem guilda). Ver mmo-docs [SOC-06].
 signal guild_changed(guild: GuildState)
 ## Alguém me convidou para a guilda [param guild_title] ("[TAG] Nome"); responder com [method send_guild_answer] em
@@ -87,6 +87,14 @@ signal guild_list_received(query: String, guilds: Array[GuildState.Summary])
 signal guild_info_received(info: GuildState.Info)
 ## Chegou uma tabela de ranking ([SOC-07]), resposta ao [method send_ranking_request].
 signal ranking_received(ranking: RankingData)
+## Troca ([SOC-05]): alguém quer trocar comigo; responder com [method send_trade_answer] em até [param expires_in] s.
+signal trade_requested(from_id: String, from_name: String, expires_in: float)
+## A MINHA troca aberta mudou (abriu, ofertas, confirmações, contagem).
+signal trade_changed(state: TradeState)
+## A troca com [param partner_name] aconteceu (o inventário e as moedas novas chegam logo depois).
+signal trade_done(partner_name: String)
+## Aviso de troca ([param code]: ver [constant Protocol.MSG_TRADE_NOTICE]); a janela de troca fecha. [param message] vem pronta.
+signal trade_notice(code: String, message: String)
 
 ## Margem de desenho ([INFRA-12]): os outros (jogadores, monstros) são desenhados este número de ticks antes do tick
 ## atual estimado do servidor. Pequena porque passou do último snapshot o desenho **extrapola** (PlayerState): a
@@ -203,6 +211,8 @@ var social_guild_invites: String = Protocol.SOCIAL_ALWAYS
 var guild: GuildState = null
 ## Quem vê o meu perfil ([SOC-08]): [constant Protocol.PROFILE_PUBLIC] / FRIENDS / NOBODY.
 var social_profile: String = Protocol.PROFILE_PUBLIC
+## "Pedidos de troca" ([SOC-05]): mostrar ou recusar sozinho.
+var social_trade_requests: String = Protocol.SOCIAL_ALWAYS
 ## Alvo fixo do ataque simples segundo o SERVIDOR ("" = nenhum).
 var attack_target: String = ""
 ## Golpe em andamento segundo o servidor: alvo ("" = nenhum) e segundos que faltam.
@@ -473,6 +483,37 @@ func send_group_invite(target_id: String) -> void:
 		_send(Protocol.MSG_GROUP_INVITE, {"playerId": target_id})
 
 
+## Pede para trocar com [param target_id] ([SOC-05]). Resposta: [signal trade_changed] (aceitou), [signal trade_notice]
+## ou erro.
+func send_trade_request(target_id: String) -> void:
+	if is_in_zone() and not target_id.is_empty():
+		_send(Protocol.MSG_TRADE_REQUEST, {"playerId": target_id})
+
+
+## Responde ao pedido de troca de [param from_id].
+func send_trade_answer(from_id: String, accept: bool) -> void:
+	if is_in_zone() and not from_id.is_empty():
+		_send(Protocol.MSG_TRADE_ANSWER, {"fromId": from_id, "accept": accept})
+
+
+## Troca a minha oferta inteira: itens da mochila [param uids] e [param gold_amount] moedas.
+func send_trade_offer(uids: Array[String], gold_amount: int) -> void:
+	if is_in_zone():
+		_send(Protocol.MSG_TRADE_OFFER, {"uids": uids, "gold": maxi(gold_amount, 0)})
+
+
+## Confirma a troca como está.
+func send_trade_confirm() -> void:
+	if is_in_zone():
+		_send(Protocol.MSG_TRADE_CONFIRM, {})
+
+
+## Fecha a janela de troca (cancela para os dois).
+func send_trade_cancel() -> void:
+	if is_in_zone():
+		_send(Protocol.MSG_TRADE_CANCEL, {})
+
+
 ## Responde ao convite de [param from_id] ([param accept] = aceitar).
 func send_group_answer(from_id: String, accept: bool) -> void:
 	if is_in_zone() and not from_id.is_empty():
@@ -597,10 +638,10 @@ func send_friend_remove(target_id: String) -> void:
 
 ## Muda a Configuração social ([constant Protocol.SOCIAL_ALWAYS] / [constant Protocol.SOCIAL_HIDE]); o servidor salva
 ## na conta e confirma ([signal social_settings_changed]). [param profile] = quem vê o perfil (PROFILE_*, [SOC-08]).
-func send_social_settings(friend_requests: String, group_invites: String, guild_invites: String, profile: String) -> void:
+func send_social_settings(friend_requests: String, group_invites: String, guild_invites: String, profile: String, trade_requests: String) -> void:
 	if _authenticated:
 		_send(Protocol.MSG_SOCIAL_SETTINGS, {"friendRequests": friend_requests, "groupInvites": group_invites,
-				"guildInvites": guild_invites, "profile": profile})
+				"guildInvites": guild_invites, "profile": profile, "tradeRequests": trade_requests})
 
 
 ## Pede para vestir o item [param uid] da mochila. A resposta vem em [signal inventory_changed] (ou erro).
@@ -878,6 +919,14 @@ func _handle_message(text: String) -> void:
 			guild_info_received.emit(GuildState.Info.from_dict(data))
 		Protocol.MSG_RANKING:
 			ranking_received.emit(RankingData.from_dict(data))
+		Protocol.MSG_TRADE_REQUESTED:
+			trade_requested.emit(Protocol.read_string(data, "fromId"), Protocol.read_string(data, "fromName"), Protocol.read_float(data, "expiresIn", 30.0))
+		Protocol.MSG_TRADE_STATE:
+			trade_changed.emit(TradeState.from_dict(data))
+		Protocol.MSG_TRADE_DONE:
+			trade_done.emit(Protocol.read_string(data, "partnerName"))
+		Protocol.MSG_TRADE_NOTICE:
+			trade_notice.emit(Protocol.read_string(data, "code"), Protocol.read_string(data, "message"))
 		Protocol.MSG_PLAYER_GUILD:
 			var guild_player_id: String = Protocol.read_string(data, "id")
 			if _players.has(guild_player_id):
@@ -905,7 +954,9 @@ func _apply_social_settings(data: Dictionary) -> void:
 	social_guild_invites = Protocol.SOCIAL_HIDE if guild_invites == Protocol.SOCIAL_HIDE else Protocol.SOCIAL_ALWAYS
 	var profile: String = Protocol.read_string(data, "profile")
 	social_profile = profile if profile in [Protocol.PROFILE_FRIENDS, Protocol.PROFILE_NOBODY] else Protocol.PROFILE_PUBLIC
-	social_settings_changed.emit(social_friend_requests, social_group_invites, social_guild_invites, social_profile)
+	var trade_requests: String = Protocol.read_string(data, "tradeRequests")
+	social_trade_requests = Protocol.SOCIAL_HIDE if trade_requests == Protocol.SOCIAL_HIDE else Protocol.SOCIAL_ALWAYS
+	social_settings_changed.emit(social_friend_requests, social_group_invites, social_guild_invites, social_profile, social_trade_requests)
 
 
 func _handle_error(code: String, message: String) -> void:
@@ -1103,6 +1154,7 @@ func _on_closed() -> void:
 	social_group_invites = Protocol.SOCIAL_ALWAYS
 	social_profile = Protocol.PROFILE_PUBLIC
 	social_guild_invites = Protocol.SOCIAL_ALWAYS
+	social_trade_requests = Protocol.SOCIAL_ALWAYS
 	guild = null
 	_npcs.clear()
 	chests.clear()
