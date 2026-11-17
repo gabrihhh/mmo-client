@@ -4,6 +4,8 @@ extends Node3D
 ## madeira com faixas de metal. Aberto (o acampamento foi derrotado): a tampa abre e sai um brilho dourado de dentro.
 ## O do acampamento com chefe é maior e tem as faixas douradas. Feito por código (caixas low poly, sem luz de verdade:
 ## leve no celular) e só anima quando está na tela.
+## Também é o **baú grande do Armazém** na praça ([JOGO-26], [method setup_storage]): no chão, parado, fechado, maior,
+## faixas douradas e o nome em cima.
 
 ## Altura (m) do fundo do baú acima do chão da fogueira, e quanto ele sobe e desce (m) e em quantos segundos.
 const HOVER_HEIGHT: float = 1.7
@@ -17,6 +19,9 @@ const LID_OPEN_ANGLE: float = -1.9
 const LID_SPEED: float = 4.0
 ## Escala do baú de acampamento com chefe.
 const BOSS_SCALE: float = 1.3
+## Escala do baú do Armazém ([JOGO-26]) e giro em Y (graus, quase de frente para a câmera isométrica).
+const STORAGE_SCALE: float = 2.2
+const STORAGE_FACING_DEGREES: float = 35.0
 const WOOD: Color = Color(0.48, 0.3, 0.16)
 const WOOD_DARK: Color = Color(0.33, 0.2, 0.1)
 const METAL: Color = Color(0.32, 0.33, 0.36)
@@ -29,6 +34,8 @@ var _lid_angle: float = 0.0
 var _time: float = 0.0
 var _on_screen: bool = true
 var _base_y: float = 0.0
+## Baú do Armazém: no chão e sem balançar.
+var _still: bool = false
 
 
 ## Baú de [param chest] posto no chão em [param ground_y] (m).
@@ -40,6 +47,25 @@ func setup(chest: ChestInfo, ground_y: float) -> void:
 	if chest.boss:
 		scale = Vector3.ONE * BOSS_SCALE
 	set_meta("boss", chest.boss)
+
+
+## Baú do Armazém ([JOGO-26]) no lugar do NPC `storage` do servidor ([param state]), no chão da zona, com o nome.
+func setup_storage(state: PlayerState) -> void:
+	name = "Storage_%s" % state.id
+	position = Vector3(state.x, ZoneTerrain.height_at(state.x, state.z), state.z)
+	rotation_degrees.y = STORAGE_FACING_DEGREES
+	scale = Vector3.ONE * STORAGE_SCALE
+	_still = true
+	set_meta("boss", true)
+	var label: Label3D = Label3D.new()
+	label.text = state.name
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.pixel_size = 0.0065 / STORAGE_SCALE
+	label.font_size = 40
+	label.outline_size = 10
+	label.position = Vector3(0.0, 1.0, 0.0)
+	label.modulate = Color(1.0, 0.85, 0.45)
+	add_child(label)
 
 
 func _ready() -> void:
@@ -86,8 +112,11 @@ func _animate(delta: float) -> void:
 	var body: Node3D = get_node_or_null("Body") as Node3D
 	if body == null:
 		return
-	body.position.y = _base_y + sin(_time * TAU / BOB_SECONDS) * BOB_AMPLITUDE
-	body.rotation.y = sin(_time * 0.4) * 0.25
+	if _still:
+		body.position.y = 0.0
+	else:
+		body.position.y = _base_y + sin(_time * TAU / BOB_SECONDS) * BOB_AMPLITUDE
+		body.rotation.y = sin(_time * 0.4) * 0.25
 	_lid_angle = move_toward(_lid_angle, LID_OPEN_ANGLE if _open else 0.0, LID_SPEED * delta)
 	_lid_pivot.rotation.x = _lid_angle
 	_glow.visible = _open

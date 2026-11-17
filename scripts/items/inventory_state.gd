@@ -95,6 +95,11 @@ var equipped: Dictionary[String, Item] = {}
 ## Itens na mochila.
 var bag: Array[Item] = []
 var bag_capacity: int = 0
+## Armazém ([JOGO-26]): itens guardados, espaços (20 por aba) e preço da próxima aba (moedas).
+## ATENÇÃO: storage/storageCapacity/storageTabCost do InventoryView em mmo-server/src/net/protocol.ts.
+var storage: Array[Item] = []
+var storage_capacity: int = 0
+var storage_tab_cost: int = 0
 ## Ataque simples sem arma.
 var unarmed_attack: AbilityView = AbilityView.new("punch", "Soco", "Arma", AbilityView.AimType.TARGET, 1.5)
 
@@ -110,6 +115,12 @@ static func from_dict(data: Dictionary) -> InventoryState:
 	for item_data: Dictionary in Protocol.read_dict_array(data, "bag"):
 		state.bag.append(Item.from_dict(item_data))
 	state.bag_capacity = Protocol.read_int(data, "bagCapacity")
+	for item_data: Dictionary in Protocol.read_dict_array(data, "storage"):
+		var stored: Item = Item.from_dict(item_data)
+		if stored != null:
+			state.storage.append(stored)
+	state.storage_capacity = Protocol.read_int(data, "storageCapacity")
+	state.storage_tab_cost = Protocol.read_int(data, "storageTabCost")
 	var unarmed: Dictionary = Protocol.read_dict(data, "unarmedAttack")
 	if not unarmed.is_empty():
 		state.unarmed_attack = AbilityView.from_dict(unarmed, "hand")

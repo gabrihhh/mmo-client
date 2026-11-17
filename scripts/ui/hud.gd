@@ -47,6 +47,10 @@ signal fuse_requested(target_uid: String, material_uid: String)
 signal shop_open_requested
 signal shop_buy_requested(item_id: String)
 signal shop_sell_requested(uid: String)
+## Armazém ([JOGO-26]): guardar [param uid], tirar [param uid], comprar aba.
+signal storage_put_requested(uid: String)
+signal storage_take_requested(uid: String)
+signal storage_buy_tab_requested
 signal chest_take_requested(chest_id: String, loot_id: String)
 ## Pediu os Atributos do jogador [param player_id] ([SOC-02]); a resposta volta por [method show_attributes].
 signal inspect_requested(player_id: String)
@@ -221,6 +225,9 @@ var _death_screen: DeathScreen = null
 ## Janela da troca ([SOC-05]): abre com o primeiro estado da troca, fecha quando ela acaba.
 var _trade_panel: TradePanel = null
 var _blacksmith_button: Button = null
+## Armazém ([JOGO-26]): tela e botão (mesmo lugar do botão do Ferreiro; os dois ficam a 12 m, nunca juntos).
+var _storage_panel: StoragePanel = null
+var _storage_button: Button = null
 var _friends_button: Button = null
 var _friends: FriendList = FriendList.new()
 ## Configuração social ([SOC-04]): opção atual de cada linha ("friendRequests"/"groupInvites" → SOCIAL_*) e os
@@ -301,6 +308,8 @@ func _apply_safe_margins() -> void:
 		node.offset_bottom = _bottom_base[node].y + bottom_shift
 	if _blacksmith_button != null:
 		_place_blacksmith_button()
+	if _storage_button != null:
+		_place_storage_button()
 	if _perf_overlay != null:
 		_perf_overlay.offset_bottom = _controls_frame.offset_top - 4.0
 		_perf_overlay.offset_top = _controls_frame.offset_top - 30.0
@@ -357,6 +366,7 @@ func set_inventory(inventory: InventoryState) -> void:
 	_inventory = inventory
 	_inventory_view.show_inventory(inventory)
 	_blacksmith_panel.show_inventory(inventory)
+	_storage_panel.show_inventory(inventory)
 	_trade_panel.show_inventory(inventory)
 	# A ficha aberta mostrava o inventário antigo: volta para a tela do inventário.
 	if _item_detail.visible:
@@ -367,6 +377,7 @@ func set_inventory(inventory: InventoryState) -> void:
 func set_gold(amount: int) -> void:
 	_inventory_view.set_gold(amount)
 	_blacksmith_panel.set_gold(amount)
+	_storage_panel.set_gold(amount)
 	_trade_panel.set_gold(amount)
 
 
@@ -447,6 +458,8 @@ func show_toast(text: String) -> void:
 		_inventory_view.show_notice(text)
 	if _blacksmith_panel.visible:
 		_blacksmith_panel.show_notice(text)
+	if _storage_panel.visible:
+		_storage_panel.show_notice(text)
 	_toast.text = text
 	_toast.modulate.a = 1.0
 	_toast_left = _TOAST_SECONDS
@@ -517,6 +530,7 @@ func _build_social_panels() -> void:
 	_build_social_settings()
 	_build_perf_setting()
 	_build_blacksmith_ui()
+	_build_storage_ui()
 	_build_chest_ui()
 	_build_trade_ui()
 	_death_screen = DeathScreen.new()
@@ -562,6 +576,42 @@ func set_blacksmith_near(near: bool) -> void:
 	if not near and _blacksmith_panel.visible:
 		_open_panel(null)
 		show_toast("Você se afastou do ferreiro")
+
+
+## Armazém ([JOGO-26]): botão "📦 Armazém" no lugar do botão do Ferreiro (só aparece perto do baú grande,
+## [method set_storage_near]) e a tela do Armazém.
+func _build_storage_ui() -> void:
+	var root: Control = $Root
+	_storage_panel = StoragePanel.new()
+	root.add_child(_storage_panel)
+	_storage_panel.close_pressed.connect(_open_panel.bind(null))
+	_storage_panel.put_requested.connect(storage_put_requested.emit)
+	_storage_panel.take_requested.connect(storage_take_requested.emit)
+	_storage_panel.buy_tab_requested.connect(storage_buy_tab_requested.emit)
+	_storage_button = PixelMenuPanel.make_button("📦 Armazém")
+	_storage_button.custom_minimum_size = Vector2(260.0, 84.0)
+	_storage_button.visible = false
+	_storage_button.pressed.connect(_open_panel.bind(_storage_panel))
+	root.add_child(_storage_button)
+	root.move_child(_storage_button, _menu_dimmer.get_index())
+	_controls_frame.resized.connect(_place_storage_button)
+	_place_storage_button()
+
+
+func _place_storage_button() -> void:
+	var view: Vector2 = ($Root as Control).size
+	_storage_button.size = _storage_button.custom_minimum_size
+	_storage_button.position = Vector2((view.x - _storage_button.size.x) / 2.0, _controls_frame.position.y - _storage_button.size.y - 16.0)
+
+
+## Perto (ou longe) do baú do Armazém ([JOGO-26]): mostra/esconde o botão; longe, fecha a tela.
+func set_storage_near(near: bool) -> void:
+	if _storage_button.visible != near:
+		_storage_button.visible = near
+		_place_storage_button()
+	if not near and _storage_panel.visible:
+		_open_panel(null)
+		show_toast("Você se afastou do Armazém")
 
 
 ## Baú ([JOGO-19]): botão "Abrir baú" no mesmo lugar do "Ferreiro" (os dois nunca aparecem juntos: o ferreiro fica
@@ -1116,7 +1166,7 @@ func _on_player_option(option_id: String) -> void:
 
 ## Todos os painéis do menu (um aberto por vez).
 func _all_panels() -> Array[PanelContainer]:
-	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel, _guild_panel, _ranking_panel, _blacksmith_panel, _chest_panel, _trade_panel]
+	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel, _guild_panel, _ranking_panel, _blacksmith_panel, _storage_panel, _chest_panel, _trade_panel]
 
 
 ## Abre [param panel] e fecha os outros; null fecha tudo. Com menu aberto, os controles do jogo param.

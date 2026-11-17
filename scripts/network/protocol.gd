@@ -44,7 +44,9 @@ extends RefCounted
 ## v35: [constant MSG_ITEM_DESTROY] (botão Destruir da ficha do item, [JOGO-24]).
 ## v36: Loja do Ferreiro ([JOGO-23]): [constant MSG_SHOP_OPEN] / [constant MSG_SHOP_BUY] / [constant MSG_SHOP_SELL] →
 ## [constant MSG_SHOP] / [constant MSG_SHOP_RESULT]; sellPrice no item.
-const VERSION: int = 36
+## v37: Armazém ([JOGO-26]): [constant MSG_STORAGE_PUT] / [constant MSG_STORAGE_TAKE] / [constant MSG_STORAGE_BUY_TAB]
+## → inventory com storage/storageCapacity/storageTabCost; NPC com service "storage".
+const VERSION: int = 37
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
@@ -95,6 +97,12 @@ const MSG_SHOP_OPEN: String = "shop_open"
 const MSG_SHOP_BUY: String = "shop_buy"
 ## Vende um item da mochila: { uid }. Resposta: [constant MSG_SHOP_RESULT] + inventory, ou erro.
 const MSG_SHOP_SELL: String = "shop_sell"
+## Guarda um item da mochila no Armazém: { uid } ([JOGO-26]). Resposta: inventory novo, ou erro.
+const MSG_STORAGE_PUT: String = "storage_put"
+## Tira um item do Armazém para a mochila: { uid }. Resposta: inventory novo, ou erro.
+const MSG_STORAGE_TAKE: String = "storage_take"
+## Compra mais uma aba de 20 espaços no Armazém (sem payload). Resposta: inventory novo, ou erro.
+const MSG_STORAGE_BUY_TAB: String = "storage_buy_tab"
 ## Tenta melhorar um item no ferreiro (perto dele, com moedas). data: { uid, attribute: id de [ItemAttributes] }.
 ## Resposta: [constant MSG_UPGRADE_RESULT] (+ inventário se subiu) ou erro (not_enough_gold, too_far...). [JOGO-16]
 const MSG_UPGRADE: String = "upgrade"

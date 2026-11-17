@@ -24,7 +24,7 @@ var _remote_players: Dictionary[String, RemotePlayer] = {}
 ## Bonecos/monstros da zona (usam o mesmo script de desenho dos jogadores remotos).
 var _npcs: Dictionary[String, RemotePlayer] = {}
 ## NPCs de serviço desenhados como cena fixa (o Ferreiro, [JOGO-16]), por id.
-var _stations: Dictionary[String, BlacksmithStation] = {}
+var _stations: Dictionary[String, Node3D] = {}
 var _aim_preview: AimPreview = null
 var _combat: CombatController = null
 ## Projéteis do servidor na tela, por id do evento "projectile" ([JOGO-08]).
@@ -77,6 +77,10 @@ func _ready() -> void:
 	_hud.shop_sell_requested.connect(Network.instance.send_shop_sell)
 	Network.instance.shop_received.connect(_hud.show_shop)
 	Network.instance.shop_result.connect(_hud.show_shop_result)
+	# Armazém ([JOGO-26]): o armazém volta no próprio inventory.
+	_hud.storage_put_requested.connect(Network.instance.send_storage_put)
+	_hud.storage_take_requested.connect(Network.instance.send_storage_take)
+	_hud.storage_buy_tab_requested.connect(Network.instance.send_storage_buy_tab)
 	# Baús dos acampamentos ([JOGO-19]): abrir/pegar vão ao servidor; o que sobrou volta para a janela do baú.
 	_hud.chest_open_requested.connect(Network.instance.send_chest_open)
 	_hud.chest_take_requested.connect(Network.instance.send_chest_take)
@@ -250,7 +254,7 @@ func _spawn_npcs_in_view(limit: int) -> void:
 			return
 		if _npcs.has(npc.id) or _stations.has(npc.id):
 			continue
-		if not npc.in_view and npc.service != "blacksmith":
+		if not npc.in_view and npc.service.is_empty():
 			continue
 		_spawn_npc(npc)
 		created += 1
@@ -265,6 +269,13 @@ func _spawn_npc(state: PlayerState) -> void:
 		station.setup(state)
 		_players_root.add_child(station)
 		_stations[state.id] = station
+		return
+	# Armazém ([JOGO-26]): o baú grande fixo no lugar do NPC.
+	if state.service == "storage":
+		var chest: ChestVisual = ChestVisual.new()
+		chest.setup_storage(state)
+		_players_root.add_child(chest)
+		_stations[state.id] = chest
 		return
 	# NPC humano ([JOGO-11]): personagem vestido, como um jogador; os outros: boneco de palha.
 	var scene: PackedScene = REMOTE_PLAYER_SCENE if state.has_body else DUMMY_SCENE
@@ -513,7 +524,8 @@ func _on_snapshot(_tick: int, _ack: int) -> void:
 			"+%d moedas" % (network.gold - _last_gold), Color(1.0, 0.82, 0.25))
 	_last_gold = network.gold
 	_hud.set_gold(network.gold)
-	_hud.set_blacksmith_near(not own.dead and _near_blacksmith(network, own))
+	_hud.set_blacksmith_near(not own.dead and _near_service(network, own, "blacksmith"))
+	_hud.set_storage_near(not own.dead and _near_service(network, own, "storage"))
 	_hud.set_chest_near("" if own.dead else _near_open_chest(network, own))
 	# Jogadores Próximos aberto: a lista acompanha quem chega, sai ou sobe de nível ([SOC-02]).
 	if _hud.is_nearby_open():
@@ -593,10 +605,11 @@ static func _near_open_chest(network: Network, own: PlayerState) -> String:
 const _BLACKSMITH_RANGE: float = 4.0
 
 
-## Há um ferreiro ([member PlayerState.service]) a até [constant _BLACKSMITH_RANGE] m de [param own]?
-static func _near_blacksmith(network: Network, own: PlayerState) -> bool:
+## Há um NPC do serviço [param service] ([member PlayerState.service]: ferreiro, armazém) a até
+## [constant _BLACKSMITH_RANGE] m de [param own]? (mesmo alcance para todos, como no servidor)
+static func _near_service(network: Network, own: PlayerState, service: String) -> bool:
 	for npc: PlayerState in network.get_npcs():
-		if npc.service == "blacksmith" and Vector2(npc.x - own.x, npc.z - own.z).length() <= _BLACKSMITH_RANGE:
+		if npc.service == service and Vector2(npc.x - own.x, npc.z - own.z).length() <= _BLACKSMITH_RANGE:
 			return true
 	return false
 

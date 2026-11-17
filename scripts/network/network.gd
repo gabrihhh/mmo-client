@@ -696,6 +696,24 @@ func send_upgrade(uid: String, attribute: String) -> void:
 		_send(Protocol.MSG_UPGRADE, {"uid": uid, "attribute": attribute})
 
 
+## Armazém ([JOGO-26]): guarda o item [param uid] da mochila (resposta: [signal inventory_changed] ou erro).
+func send_storage_put(uid: String) -> void:
+	if is_in_zone():
+		_send(Protocol.MSG_STORAGE_PUT, {"uid": uid})
+
+
+## Armazém: tira o item [param uid] para a mochila.
+func send_storage_take(uid: String) -> void:
+	if is_in_zone():
+		_send(Protocol.MSG_STORAGE_TAKE, {"uid": uid})
+
+
+## Armazém: compra mais uma aba de 20 espaços (as moedas vêm no snapshot).
+func send_storage_buy_tab() -> void:
+	if is_in_zone():
+		_send(Protocol.MSG_STORAGE_BUY_TAB, {})
+
+
 ## Loja do Ferreiro ([JOGO-23]): pede a lista à venda (resposta em [signal shop_received]).
 func send_shop_open() -> void:
 	if is_in_zone():

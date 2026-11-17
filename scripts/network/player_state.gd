@@ -85,7 +85,8 @@ var boss: bool = false
 ## Vem no PlayerInfo e muda por [constant Protocol.MSG_PLAYER_GUILD].
 var guild_id: String = ""
 var guild_tag: String = ""
-## Serviço do NPC ([JOGO-16]): "blacksmith" = ferreiro (perto dele aparece o botão Ferreiro); vazio = nenhum.
+## Serviço do NPC ([JOGO-16]): "blacksmith" = ferreiro (perto dele aparece o botão Ferreiro); "storage" = baú do
+## Armazém ([JOGO-26], botão Armazém); vazio = nenhum.
 ## ATENÇÃO: NpcSnapshot.service.
 var service: String = ""
 
