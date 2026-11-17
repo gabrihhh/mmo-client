@@ -48,6 +48,10 @@ signal death_report_received(report: DeathReport)
 signal fuse_result(uid: String, levels_gained: int, xp_gained: float, level: int, xp: float, xp_next: float)
 ## Chegou a lista da Loja do Ferreiro ([JOGO-23]): peças +0 e o preço de cada uma (mesma ordem).
 signal shop_received(items: Array[InventoryState.Item], prices: Array[int])
+## Chegou uma mensagem do chat ([SOC-09]), inclusive a sua de volta.
+signal chat_received(message: ChatMessage)
+## Sua mensagem do chat foi recusada: [param reason] ("spam", "cooldown"…) e [param seconds] de espera.
+signal chat_refused(channel: String, reason: String, seconds: int)
 ## Compra ([param action] "buy") ou venda ("sell") feita na Loja do Ferreiro, por [param gold] moedas.
 signal shop_result(action: String, item_id: String, gold: int)
 ## Chegou o que sobrou para você no baú [param chest_id] (resposta a abrir/pegar): itens e moedas.
@@ -696,6 +700,17 @@ func send_upgrade(uid: String, attribute: String) -> void:
 		_send(Protocol.MSG_UPGRADE, {"uid": uid, "attribute": attribute})
 
 
+## Chat ([SOC-09]): manda [param text] no [param channel] ("zone", "group", "guild", "private", "global"); no privado,
+## [param to] = nome de quem recebe. Resposta: [signal chat_received] (a sua de volta) ou [signal chat_refused].
+func send_chat(channel: String, text: String, to: String = "") -> void:
+	if not is_in_zone():
+		return
+	var data: Dictionary = {"channel": channel, "text": text}
+	if not to.is_empty():
+		data["to"] = to
+	_send(Protocol.MSG_CHAT_SEND, data)
+
+
 ## Armazém ([JOGO-26]): guarda o item [param uid] da mochila (resposta: [signal inventory_changed] ou erro).
 func send_storage_put(uid: String) -> void:
 	if is_in_zone():
@@ -921,6 +936,10 @@ func _handle_message(text: String) -> void:
 					items.append(item)
 					prices.append(Protocol.read_int(offer, "price"))
 			shop_received.emit(items, prices)
+		Protocol.MSG_CHAT:
+			chat_received.emit(ChatMessage.from_dict(data))
+		Protocol.MSG_CHAT_REFUSED:
+			chat_refused.emit(Protocol.read_string(data, "channel"), Protocol.read_string(data, "reason"), Protocol.read_int(data, "seconds"))
 		Protocol.MSG_SHOP_RESULT:
 			shop_result.emit(Protocol.read_string(data, "action"), Protocol.read_string(data, "itemId"), Protocol.read_int(data, "gold"))
 		Protocol.MSG_FUSE_RESULT:

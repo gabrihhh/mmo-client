@@ -40,6 +40,8 @@ const OPTION_GUILD_PROMOTE: String = "guild_promote"
 const OPTION_GUILD_DEMOTE: String = "guild_demote"
 ## Troca ([SOC-05]).
 const OPTION_TRADE: String = "trade"
+## Mandar mensagem no privado do chat ([SOC-09]).
+const OPTION_MESSAGE: String = "message"
 
 ## Jogador das opções abertas agora.
 var player_id: String = ""

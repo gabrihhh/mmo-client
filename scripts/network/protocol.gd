@@ -46,7 +46,8 @@ extends RefCounted
 ## [constant MSG_SHOP] / [constant MSG_SHOP_RESULT]; sellPrice no item.
 ## v37: Armazém ([JOGO-26]): [constant MSG_STORAGE_PUT] / [constant MSG_STORAGE_TAKE] / [constant MSG_STORAGE_BUY_TAB]
 ## → inventory com storage/storageCapacity/storageTabCost; NPC com service "storage".
-const VERSION: int = 37
+## v38: chat ([SOC-09]): [constant MSG_CHAT_SEND] → [constant MSG_CHAT] / [constant MSG_CHAT_REFUSED].
+const VERSION: int = 38
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
@@ -103,6 +104,8 @@ const MSG_STORAGE_PUT: String = "storage_put"
 const MSG_STORAGE_TAKE: String = "storage_take"
 ## Compra mais uma aba de 20 espaços no Armazém (sem payload). Resposta: inventory novo, ou erro.
 const MSG_STORAGE_BUY_TAB: String = "storage_buy_tab"
+## Manda uma mensagem no chat: { channel, text, to? } ([SOC-09]). Resposta: [constant MSG_CHAT] ou [constant MSG_CHAT_REFUSED].
+const MSG_CHAT_SEND: String = "chat_send"
 ## Tenta melhorar um item no ferreiro (perto dele, com moedas). data: { uid, attribute: id de [ItemAttributes] }.
 ## Resposta: [constant MSG_UPGRADE_RESULT] (+ inventário se subiu) ou erro (not_enough_gold, too_far...). [JOGO-16]
 const MSG_UPGRADE: String = "upgrade"
@@ -242,6 +245,10 @@ const MSG_CHEST_LOOT: String = "chest_loot"
 const MSG_FUSE_RESULT: String = "fuse_result"
 ## Lista da Loja do Ferreiro: { offers: [{ item, price }] } ([JOGO-23]).
 const MSG_SHOP: String = "shop"
+## Mensagem do chat ([SOC-09], [ChatMessage]).
+const MSG_CHAT: String = "chat"
+## Sua mensagem não foi enviada: { channel, reason, seconds } ([SOC-09]).
+const MSG_CHAT_REFUSED: String = "chat_refused"
 ## Compra/venda feita: { action: "buy"|"sell", itemId, gold } ([JOGO-23]).
 const MSG_SHOP_RESULT: String = "shop_result"
 ## Você morreu: {killer, goldLost, xpLost, equipped: [{slot, item}], pickedSlot, broken, autoRespawnSeconds}. [JOGO-21]

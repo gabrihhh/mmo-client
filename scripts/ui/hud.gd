@@ -51,6 +51,8 @@ signal shop_sell_requested(uid: String)
 signal storage_put_requested(uid: String)
 signal storage_take_requested(uid: String)
 signal storage_buy_tab_requested
+## Chat ([SOC-09]): mandar [param text] no [param channel] (para [param to], só no privado).
+signal chat_send_requested(channel: String, text: String, to: String)
 signal chest_take_requested(chest_id: String, loot_id: String)
 ## Pediu os Atributos do jogador [param player_id] ([SOC-02]); a resposta volta por [method show_attributes].
 signal inspect_requested(player_id: String)
@@ -228,6 +230,15 @@ var _blacksmith_button: Button = null
 ## Armazém ([JOGO-26]): tela e botão (mesmo lugar do botão do Ferreiro; os dois ficam a 12 m, nunca juntos).
 var _storage_panel: StoragePanel = null
 var _storage_button: Button = null
+## Chat ([SOC-09]): painel, botão 💬 (com as não lidas) e o resumo das últimas mensagens em cima dos controles.
+var _chat_panel: ChatPanel = null
+var _chat_button: Button = null
+var _chat_unread: int = 0
+var _chat_feed: Label = null
+var _chat_feed_lines: Array[String] = []
+var _chat_feed_left: float = 0.0
+## Quanto tempo (s) o resumo fica na tela depois da última mensagem.
+const CHAT_FEED_SECONDS: float = 6.0
 var _friends_button: Button = null
 var _friends: FriendList = FriendList.new()
 ## Configuração social ([SOC-04]): opção atual de cada linha ("friendRequests"/"groupInvites" → SOCIAL_*) e os
@@ -278,6 +289,7 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	_fade_chat_feed(delta)
 	if _toast_left > 0.0:
 		_toast_left -= delta
 		_toast.modulate.a = clampf(_toast_left / 0.4, 0.0, 1.0)
@@ -310,6 +322,8 @@ func _apply_safe_margins() -> void:
 		_place_blacksmith_button()
 	if _storage_button != null:
 		_place_storage_button()
+	if _chat_button != null:
+		_place_chat_ui()
 	if _perf_overlay != null:
 		_perf_overlay.offset_bottom = _controls_frame.offset_top - 4.0
 		_perf_overlay.offset_top = _controls_frame.offset_top - 30.0
@@ -531,6 +545,7 @@ func _build_social_panels() -> void:
 	_build_perf_setting()
 	_build_blacksmith_ui()
 	_build_storage_ui()
+	_build_chat_ui()
 	_build_chest_ui()
 	_build_trade_ui()
 	_death_screen = DeathScreen.new()
@@ -576,6 +591,89 @@ func set_blacksmith_near(near: bool) -> void:
 	if not near and _blacksmith_panel.visible:
 		_open_panel(null)
 		show_toast("Você se afastou do ferreiro")
+
+
+## Chat ([SOC-09]): botão 💬 à direita, logo acima da moldura dos controles (o do Ferreiro/Armazém fica no meio),
+## o painel na metade de baixo e o resumo das 2 últimas mensagens à esquerda, que some em [constant CHAT_FEED_SECONDS] s.
+func _build_chat_ui() -> void:
+	var root: Control = $Root
+	_chat_panel = ChatPanel.new()
+	root.add_child(_chat_panel)
+	_chat_panel.close_pressed.connect(_open_panel.bind(null))
+	_chat_panel.send_requested.connect(chat_send_requested.emit)
+	_chat_button = PixelMenuPanel.make_button("💬")
+	_chat_button.custom_minimum_size = Vector2(120.0, 84.0)
+	_chat_button.pressed.connect(open_chat)
+	root.add_child(_chat_button)
+	root.move_child(_chat_button, _menu_dimmer.get_index())
+	_chat_feed = Label.new()
+	_chat_feed.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_chat_feed.add_theme_font_size_override("font_size", 22)
+	_chat_feed.add_theme_constant_override("outline_size", 8)
+	_chat_feed.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	_chat_feed.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_chat_feed.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	_chat_feed.visible = false
+	root.add_child(_chat_feed)
+	root.move_child(_chat_feed, _menu_dimmer.get_index())
+	_controls_frame.resized.connect(_place_chat_ui)
+	_place_chat_ui()
+
+
+func _place_chat_ui() -> void:
+	var view: Vector2 = ($Root as Control).size
+	var top: float = _controls_frame.position.y
+	_chat_button.size = _chat_button.custom_minimum_size
+	_chat_button.position = Vector2(view.x - _chat_button.size.x - 24.0, top - _chat_button.size.y - 16.0)
+	_chat_feed.size = Vector2(view.x * 0.62, 120.0)
+	_chat_feed.position = Vector2(24.0, top - 120.0 - 16.0)
+
+
+## Abre o chat (zera as não lidas).
+func open_chat() -> void:
+	_chat_unread = 0
+	_chat_button.text = "💬"
+	_chat_feed.visible = false
+	_open_panel(_chat_panel)
+
+
+## Chegou uma mensagem do chat ([signal Network.chat_received]): vai para o painel; com ele fechado, conta como não
+## lida e aparece no resumo.
+func add_chat_message(message: ChatMessage) -> void:
+	_chat_panel.add_message(message)
+	if _chat_panel.visible:
+		return
+	if message.from_id != _own_id:
+		_chat_unread += 1
+		_chat_button.text = "💬 %d" % _chat_unread
+	_chat_feed_lines.append(ChatPanel.short_line(message))
+	if _chat_feed_lines.size() > 2:
+		_chat_feed_lines.pop_front()
+	_chat_feed.text = "\n".join(_chat_feed_lines)
+	_chat_feed.add_theme_color_override("font_color", ChatPanel.COLORS.get(message.channel, Color.WHITE))
+	_chat_feed.visible = true
+	_chat_feed.modulate.a = 1.0
+	_chat_feed_left = CHAT_FEED_SECONDS
+
+
+## Sua mensagem foi recusada ([signal Network.chat_refused]).
+func show_chat_refused(channel: String, reason: String, seconds: int) -> void:
+	if _chat_panel.visible:
+		_chat_panel.show_refused(channel, reason, seconds)
+	else:
+		show_toast(ChatPanel.refused_text(channel, reason, seconds))
+
+
+## Resumo do chat: some aos poucos depois de [constant CHAT_FEED_SECONDS] s.
+func _fade_chat_feed(delta: float) -> void:
+	if _chat_feed == null or not _chat_feed.visible:
+		return
+	_chat_feed_left -= delta
+	if _chat_feed_left <= 0.0:
+		_chat_feed.visible = false
+		_chat_feed_lines.clear()
+	elif _chat_feed_left < 1.0:
+		_chat_feed.modulate.a = _chat_feed_left
 
 
 ## Armazém ([JOGO-26]): botão "📦 Armazém" no lugar do botão do Ferreiro (só aparece perto do baú grande,
@@ -1105,6 +1203,7 @@ func _on_nearby_player_chosen(player_id: String, title: String) -> void:
 		options.append(PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_GUILD_INVITE, "Convidar para a guilda"))
 	# Troca ([SOC-05]): só a até 10 m (o servidor confere de novo); longe aparece apagada com o motivo.
 	if player_id != _own_id:
+		options.append(PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_MESSAGE, "Mandar mensagem"))
 		var near: bool = _distance_to(player_id) <= Protocol.TRADE_RANGE
 		options.append(PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_TRADE, "Trocar", near, "" if near else "chegue perto"))
 	_actions_origin = _nearby_panel
@@ -1142,6 +1241,12 @@ func _on_player_option(option_id: String) -> void:
 			# A resposta ("X aceitou/recusou") chega depois como aviso.
 			friend_request_requested.emit(target)
 			show_toast("Pedido de amizade enviado.")
+		PlayerActionsPanel.OPTION_MESSAGE:
+			# Privado do chat ([SOC-09]) com o nome dele já preenchido.
+			var state: PlayerState = Network.instance.get_player(target)
+			if state != null:
+				open_chat()
+				_chat_panel.start_private(state.name)
 		PlayerActionsPanel.OPTION_TRADE:
 			# Aceitou: a janela da troca abre sozinha (trade_state); recusou/expirou: aviso.
 			trade_request_requested.emit(target)
@@ -1166,7 +1271,7 @@ func _on_player_option(option_id: String) -> void:
 
 ## Todos os painéis do menu (um aberto por vez).
 func _all_panels() -> Array[PanelContainer]:
-	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel, _guild_panel, _ranking_panel, _blacksmith_panel, _storage_panel, _chest_panel, _trade_panel]
+	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel, _guild_panel, _ranking_panel, _blacksmith_panel, _storage_panel, _chat_panel, _chest_panel, _trade_panel]
 
 
 ## Abre [param panel] e fecha os outros; null fecha tudo. Com menu aberto, os controles do jogo param.

@@ -77,6 +77,10 @@ func _ready() -> void:
 	_hud.shop_sell_requested.connect(Network.instance.send_shop_sell)
 	Network.instance.shop_received.connect(_hud.show_shop)
 	Network.instance.shop_result.connect(_hud.show_shop_result)
+	# Chat ([SOC-09]): mensagens para a HUD; as do Geral também viram balão em cima de quem falou (se está na tela).
+	_hud.chat_send_requested.connect(Network.instance.send_chat)
+	Network.instance.chat_received.connect(_on_chat_message)
+	Network.instance.chat_refused.connect(_hud.show_chat_refused)
 	# Armazém ([JOGO-26]): o armazém volta no próprio inventory.
 	_hud.storage_put_requested.connect(Network.instance.send_storage_put)
 	_hud.storage_take_requested.connect(Network.instance.send_storage_take)
@@ -206,6 +210,16 @@ func get_target_node(entity_id: String) -> RemotePlayer:
 	if _npcs.has(entity_id):
 		return _npcs[entity_id]
 	return null
+
+
+## Mensagem do chat: vai para a HUD; a do Geral vira balão em cima de quem falou ([ChatBubble]), se ele está aqui.
+func _on_chat_message(message: ChatMessage) -> void:
+	_hud.add_chat_message(message)
+	if message.channel != "zone":
+		return
+	var speaker: Node3D = get_entity_node(message.from_id)
+	if speaker != null:
+		ChatBubble.show_on(speaker, message.text)
 
 
 ## Nó de qualquer entidade (inclusive o jogador local), para efeitos visuais; ou null.
