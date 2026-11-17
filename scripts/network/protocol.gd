@@ -36,7 +36,8 @@ extends RefCounted
 ## v31: rankings ([SOC-07]): [constant MSG_RANKING_REQUEST] → [constant MSG_RANKING].
 ## v32: Procurar guilda e solicitações ([SOC-06]): [constant MSG_GUILD_LIST], [constant MSG_GUILD_INFO],
 ## [constant MSG_GUILD_REQUEST], [constant MSG_GUILD_REQUEST_ANSWER], [constant MSG_GUILD_DESCRIPTION].
-const VERSION: int = 32
+## v33: busca no Procurar guilda: [constant MSG_GUILD_LIST] com { query } (nome ou tag; acha também as cheias).
+const VERSION: int = 33
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
@@ -124,8 +125,9 @@ const MSG_GUILD_KICK: String = "guild_kick"
 const MSG_GUILD_ROLE: String = "guild_role"
 ## Pede uma tabela de ranking ([SOC-07]). data: { category, period } ([RankingData] CATEGORY_* / PERIOD_*).
 const MSG_RANKING_REQUEST: String = "ranking_request"
-## Procurar guilda: pede a lista (data {}); a resposta vem com o mesmo nome: { guilds: Array[{ id, name, tag, members }] }
-## (só as que não estão cheias, da mais cheia para a mais vazia). Lido por [GuildState.Summary].
+## Procurar guilda: pede a lista (data { query }: vazio = as que não estão cheias; com texto = busca por nome/tag, cheias
+## incluídas); a resposta vem com o mesmo nome: { query, guilds: Array[{ id, name, tag, members }] } (da mais cheia para
+## a mais vazia). Lido por [GuildState.Summary].
 const MSG_GUILD_LIST: String = "guild_list"
 ## Ficha de uma guilda: pede com { guildId }; a resposta (mesmo nome) traz { id, name, tag, description, leaderName,
 ## members, createdAt (ms), monsterXp, kills, requested }. Lido por [GuildState.Info].

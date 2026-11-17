@@ -81,8 +81,8 @@ signal guild_invited(from_id: String, from_name: String, guild_title: String, ex
 signal guild_notice(code: String, message: String)
 ## A guilda do jogador [param id] da zona mudou (tag no nome e cor de guildeiro).
 signal player_guild_changed(id: String)
-## Chegou a lista do Procurar guilda ([SOC-06]).
-signal guild_list_received(guilds: Array[GuildState.Summary])
+## Chegou a lista do Procurar guilda ([SOC-06]) da busca [param query] (vazia = lista normal).
+signal guild_list_received(query: String, guilds: Array[GuildState.Summary])
 ## Chegou a ficha de uma guilda (Procurar guilda).
 signal guild_info_received(info: GuildState.Info)
 ## Chegou uma tabela de ranking ([SOC-07]), resposta ao [method send_ranking_request].
@@ -498,10 +498,11 @@ func send_guild_create(guild_name: String, tag: String, description: String) -> 
 		_send(Protocol.MSG_GUILD_CREATE, {"name": guild_name, "tag": tag, "description": description})
 
 
-## Procurar guilda: pede a lista ([signal guild_list_received]).
-func send_guild_list() -> void:
+## Procurar guilda: pede a lista ([signal guild_list_received]); [param query] = nome/tag buscado (vazio = as que
+## aceitam gente).
+func send_guild_list(query: String) -> void:
 	if _authenticated:
-		_send(Protocol.MSG_GUILD_LIST, {})
+		_send(Protocol.MSG_GUILD_LIST, {"query": query})
 
 
 ## Pede a ficha da guilda [param guild_id] ([signal guild_info_received]).
@@ -872,7 +873,7 @@ func _handle_message(text: String) -> void:
 		Protocol.MSG_GUILD_NOTICE:
 			guild_notice.emit(Protocol.read_string(data, "code"), Protocol.read_string(data, "message"))
 		Protocol.MSG_GUILD_LIST:
-			guild_list_received.emit(GuildState.Summary.list_from(data))
+			guild_list_received.emit(Protocol.read_string(data, "query"), GuildState.Summary.list_from(data))
 		Protocol.MSG_GUILD_INFO:
 			guild_info_received.emit(GuildState.Info.from_dict(data))
 		Protocol.MSG_RANKING:

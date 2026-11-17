@@ -4,7 +4,8 @@ extends PixelMenuPanel
 ## da primeira, volta ao Menu — a [Hud] chama [method go_back]):
 ## - **Sem guilda:** "Criar guilda" e "Procurar guilda".
 ##   - **Criar:** Nome (3 a 20), Tag (3 letras/números), Descrição breve (até 120) e "Criar guilda · 1.000 moedas".
-##   - **Procurar:** as guildas que não estão cheias, da mais cheia para a mais vazia ("[TAG] Nome · 12/50"). Tocar
+##   - **Procurar:** campo de busca (nome ou tag; acha também as cheias, marcadas "(cheia)") e a lista — sem busca, as
+##     guildas que não estão cheias, da mais cheia para a mais vazia ("[TAG] Nome · 12/50"). Tocar
 ##     numa abre a **ficha** (descrição, líder, membros, criada em, XP de monstros e jogadores mortos somados) com
 ##     **Enviar solicitação** — não entra direto: líder/oficial aceita.
 ## - **Com guilda:** "[TAG] Nome", a descrição, "N de 50 membros", **Solicitações (N)** (só líder/oficiais),
@@ -15,8 +16,8 @@ extends PixelMenuPanel
 
 ## Tocou em "Criar guilda" com [param guild_name] / [param tag] / [param description] (como digitados).
 signal create_pressed(guild_name: String, tag: String, description: String)
-## Abriu o Procurar guilda: pedir a lista.
-signal list_requested
+## Abriu o Procurar guilda ou buscou: pedir a lista ([param query] vazia = as que aceitam gente).
+signal list_requested(query: String)
 ## Tocou numa guilda da lista: pedir a ficha.
 signal info_requested(guild_id: String)
 ## Tocou em "Enviar solicitação" na ficha.
@@ -52,6 +53,10 @@ var _content: VBoxContainer = null
 var _name_field: LineEdit = null
 var _tag_field: LineEdit = null
 var _description_field: LineEdit = null
+## Busca do Procurar guilda (fica entre as telas: voltar da ficha refaz a mesma busca) e onde vai a lista.
+var _query: String = ""
+var _search_field: LineEdit = null
+var _results: VBoxContainer = null
 
 
 func _init() -> void:
@@ -87,16 +92,23 @@ func show_guild(guild: GuildState, own_id: String) -> void:
 		_render()
 
 
-## Chegou a lista do Procurar guilda.
-func show_list(guilds: Array[GuildState.Summary]) -> void:
-	if _screen != Screen.BROWSE:
+## Chegou a lista do Procurar guilda (resposta da busca [param query]; resposta de outra busca é ignorada).
+func show_list(query: String, guilds: Array[GuildState.Summary]) -> void:
+	if _screen != Screen.BROWSE or query != _query or _results == null:
 		return
-	_clear()
-	_add_label("Guildas que aceitam gente (toque para ver):", KEY_COLOR)
+	for child: Node in _results.get_children():
+		child.queue_free()
+	var hint: String = "Guildas que aceitam gente (toque para ver):" if query.is_empty() else "Resultado da busca:"
+	_results.add_child(_wrap(PixelMenuPanel.make_label(hint, KEY_COLOR)))
 	if guilds.is_empty():
-		_add_label("Nenhuma guilda com vaga agora. Que tal criar a sua?", KEY_COLOR)
+		var empty: String = "Nenhuma guilda com vaga agora. Que tal criar a sua?" if query.is_empty() else "Nenhuma guilda com esse nome ou tag."
+		_results.add_child(_wrap(PixelMenuPanel.make_label(empty, KEY_COLOR)))
 	for item: GuildState.Summary in guilds:
-		_add_button("[%s] %s · %d/%d" % [item.tag, item.name, item.members, GuildState.MAX_MEMBERS], _open_info.bind(item.id), true)
+		var full: String = " (cheia)" if item.members >= GuildState.MAX_MEMBERS else ""
+		var button: Button = PixelMenuPanel.make_button("[%s] %s · %d/%d%s" % [item.tag, item.name, item.members, GuildState.MAX_MEMBERS, full], true)
+		button.mouse_filter = Control.MOUSE_FILTER_PASS
+		button.pressed.connect(_open_info.bind(item.id))
+		_results.add_child(button)
 
 
 ## Chegou a ficha de uma guilda.
@@ -111,8 +123,9 @@ func show_info(info: GuildState.Info) -> void:
 	_add_row("Criada em", _date_text(info.created_at))
 	_add_row("XP de monstros", InventoryView.format_gold(floori(info.monster_xp)))
 	_add_row("Jogadores mortos", InventoryView.format_gold(info.kills))
-	var send: Button = _add_button("Solicitação enviada" if info.requested else "Enviar solicitação", Callable())
-	send.disabled = info.requested
+	var full: bool = info.members >= GuildState.MAX_MEMBERS
+	var send: Button = _add_button("Solicitação enviada" if info.requested else ("Guilda cheia" if full else "Enviar solicitação"), Callable())
+	send.disabled = info.requested or full
 	send.pressed.connect(func() -> void:
 		# Recusa (ex.: espera de 1 h) chega como aviso; o botão fica desligado até abrir a ficha de novo.
 		send.disabled = true
@@ -127,7 +140,9 @@ func go_back() -> bool:
 			_screen = Screen.CHOICE
 		Screen.INFO:
 			_screen = Screen.BROWSE
-			list_requested.emit()
+			_render()
+			list_requested.emit(_query)
+			return true
 		Screen.REQUESTS, Screen.EDIT:
 			_screen = Screen.GUILD
 		_:
@@ -145,8 +160,7 @@ func _render() -> void:
 		Screen.CREATE:
 			_render_create()
 		Screen.BROWSE:
-			set_title("Procurar guilda")
-			_add_label("Carregando…", KEY_COLOR)
+			_render_browse()
 		Screen.INFO:
 			_add_label("Carregando…", KEY_COLOR)
 		Screen.GUILD:
@@ -168,9 +182,38 @@ func _render_choice() -> void:
 		_screen = Screen.CREATE
 		_render())
 	_add_button("Procurar guilda", func() -> void:
+		_query = ""
 		_screen = Screen.BROWSE
 		_render()
-		list_requested.emit())
+		list_requested.emit(_query))
+
+
+## Procurar guilda: campo de busca + "Buscar" e, embaixo, a lista ("Carregando…" até chegar).
+func _render_browse() -> void:
+	set_title("Procurar guilda")
+	_search_field = _make_field("Nome ou tag da guilda", 20)
+	_search_field.text = _query
+	_search_field.text_submitted.connect(func(_text: String) -> void: _search())
+	_add_button("Buscar", _search)
+	_results = VBoxContainer.new()
+	_results.add_theme_constant_override("separation", 12)
+	_content.add_child(_results)
+	_results.add_child(_wrap(PixelMenuPanel.make_label("Carregando…", KEY_COLOR)))
+
+
+## Busca o texto do campo (vazio = lista normal).
+func _search() -> void:
+	_query = _search_field.text.strip_edges()
+	for child: Node in _results.get_children():
+		child.queue_free()
+	_results.add_child(_wrap(PixelMenuPanel.make_label("Carregando…", KEY_COLOR)))
+	list_requested.emit(_query)
+
+
+## Rótulo que quebra linha.
+static func _wrap(label: Label) -> Label:
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return label
 
 
 func _render_create() -> void:
@@ -278,6 +321,7 @@ static func _ago(seconds: float) -> String:
 
 
 func _clear() -> void:
+	_results = null
 	for child: Node in _content.get_children():
 		child.queue_free()
 

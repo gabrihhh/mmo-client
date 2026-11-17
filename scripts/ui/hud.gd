@@ -63,7 +63,7 @@ signal social_settings_requested(friend_requests: String, group_invites: String,
 ## Criar a guilda [param guild_name] / [param tag] ([SOC-06]).
 signal guild_create_requested(guild_name: String, tag: String, description: String)
 ## Procurar guilda ([SOC-06]): pedir a lista / a ficha / enviar solicitação.
-signal guild_list_requested
+signal guild_list_requested(query: String)
 signal guild_info_requested(guild_id: String)
 signal guild_join_requested(guild_id: String)
 ## Líder/oficial respondeu ao pedido de [param player_id]; líder salvou a descrição.
@@ -655,7 +655,7 @@ func _build_guild_ui() -> void:
 	_guild_panel.member_chosen.connect(_on_guild_member_chosen)
 	_guild_panel.create_pressed.connect(func(guild_name: String, tag: String, description: String) -> void:
 		guild_create_requested.emit(guild_name, tag, description))
-	_guild_panel.list_requested.connect(func() -> void: guild_list_requested.emit())
+	_guild_panel.list_requested.connect(func(query: String) -> void: guild_list_requested.emit(query))
 	_guild_panel.info_requested.connect(func(guild_id: String) -> void: guild_info_requested.emit(guild_id))
 	_guild_panel.join_requested.connect(func(guild_id: String) -> void: guild_join_requested.emit(guild_id))
 	_guild_panel.request_answered.connect(func(player_id: String, accept: bool) -> void: guild_request_answered.emit(player_id, accept))
@@ -710,9 +710,9 @@ func set_guild(guild: GuildState, own_id: String) -> void:
 		_open_panel(_guild_panel)
 
 
-## Chegou a lista do Procurar guilda.
-func show_guild_list(guilds: Array[GuildState.Summary]) -> void:
-	_guild_panel.show_list(guilds)
+## Chegou a lista do Procurar guilda (da busca [param query]).
+func show_guild_list(query: String, guilds: Array[GuildState.Summary]) -> void:
+	_guild_panel.show_list(query, guilds)
 
 
 ## Chegou a ficha de uma guilda.
