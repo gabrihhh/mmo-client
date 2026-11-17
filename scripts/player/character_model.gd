@@ -77,6 +77,8 @@ func _ready() -> void:
 	_equipment.body_id = body_id
 	_equipment.setup(skeleton, placements)
 	_equipment.animator = _animator
+	# Visual de anime ([ART-12]): corpo com cel shading e contorno (os itens são convertidos ao vestir).
+	ToonMaterials.apply(self)
 
 
 ## Cor da camisa (azul = você, vermelho = os outros). Sem efeito se [member tint_shirt] for false.

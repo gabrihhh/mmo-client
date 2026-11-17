@@ -472,6 +472,9 @@ func _refresh() -> void:
 			for index: int in range(before, _skinned.size()):
 				_skinned[index].material_overlay = glow
 	_sink_covered_skin()
+	# Visual de anime ([ToonMaterials], [ART-12]) no corpo e nas peças novas (as cópias vestidas e as malhas do corpo
+	# trocadas acima vêm com o material original).
+	ToonMaterials.apply(get_parent())
 
 
 ## Afunda a pele que fica embaixo das roupas sob medida ([member _covers]) para ela não atravessar a roupa quando o
