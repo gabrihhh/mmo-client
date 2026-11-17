@@ -84,6 +84,9 @@ func _ready() -> void:
 	coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	gold_row.add_child(coin)
 	_gold_label = _label("0 moedas", 28, GOLD_COLOR)
+	# Sem quebra de linha e ocupando a linha: com quebra, a HBox espreme o texto e ele sai uma letra por linha.
+	_gold_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_gold_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	gold_row.add_child(_gold_label)
 	column.add_child(gold_row)
 
