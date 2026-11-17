@@ -22,7 +22,7 @@ class Member:
 
 	## "[nível] nome", como em Jogadores Próximos.
 	func title() -> String:
-		return "[%d] %s" % [level, name]
+		return LevelText.title(level, name)
 
 
 ## Id do líder.

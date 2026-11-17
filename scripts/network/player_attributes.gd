@@ -31,6 +31,12 @@ var healing_power: float = 1.0
 var shield_power: float = 1.0
 ## Item vestido por slot ("hand", "head", "chest", "feet"); slot vazio não entra.
 var equipped: Dictionary[String, EquippedItem] = {}
+## Perfil fechado para mim (Configuração → Perfil do dono, [SOC-08]): só id, nome e nível valem.
+var hidden: bool = false
+## Contadores do perfil ([SOC-08]): XP ganha matando monstros, jogadores mortos e mortes.
+var monster_xp: float = 0.0
+var kills: int = 0
+var deaths: int = 0
 
 
 ## Lê o `data` de [constant Protocol.MSG_ATTRIBUTES]; null se faltar o id.
@@ -41,6 +47,14 @@ static func from_dict(data: Dictionary) -> PlayerAttributes:
 		return null
 	result.name = Protocol.read_string(data, "name")
 	result.level = Protocol.read_int(data, "level")
+	var hidden_value: Variant = data.get("hidden")
+	result.hidden = hidden_value is bool and hidden_value == true
+	if result.hidden:
+		return result
+	var stats: Dictionary = Protocol.read_dict(data, "stats")
+	result.monster_xp = Protocol.read_float(stats, "monsterXp")
+	result.kills = Protocol.read_int(stats, "kills")
+	result.deaths = Protocol.read_int(stats, "deaths")
 	result.max_hp = Protocol.read_float(data, "maxHp")
 	result.max_mana = Protocol.read_float(data, "maxMana")
 	var power: Dictionary = Protocol.read_dict(data, "power")

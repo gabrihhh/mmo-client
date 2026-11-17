@@ -91,7 +91,7 @@ func set_level_badge(level: int) -> void:
 		_badge_label.render_priority = 4
 		_badge_label.shaded = false
 		add_child(_badge_label)
-	_badge_label.text = str(level)
+	_badge_label.text = LevelText.short(level)
 
 
 func _make_quad(color: Color, offset: Vector3, priority: int, size: Vector2 = Vector2.ZERO) -> MeshInstance3D:

@@ -1,7 +1,8 @@
 class_name AttributesPanel
 extends PixelMenuPanel
 ## Tela de Atributos de um jogador ([SOC-02]): nome (título), nível, vida e mana máximas, força pelo nível (dano,
-## cura e escudo, em % a mais que no nível 0, [JOGO-12]) e os itens vestidos (ícone na cor do conjunto + nome).
+## cura e escudo, em % a mais que no nível 0, [JOGO-12]), os contadores do perfil (XP de monstros, jogadores mortos,
+## mortes, [SOC-08]) e os itens vestidos (ícone na cor do conjunto + nome). Perfil fechado pelo dono: "Perfil privado".
 ## O servidor responde sob pedido ([constant Protocol.MSG_INSPECT] → [PlayerAttributes]); enquanto não chega,
 ## mostra "Carregando…".
 
@@ -45,12 +46,18 @@ func show_attributes(attributes: PlayerAttributes) -> void:
 		return
 	set_title(attributes.name)
 	_clear()
-	_add_row("Nível", str(attributes.level))
+	_add_row("Nível", InventoryView.format_gold(attributes.level))
+	if attributes.hidden:
+		_content.add_child(PixelMenuPanel.make_label("Perfil privado.", KEY_COLOR))
+		return
 	_add_row("Vida máxima", str(roundi(attributes.max_hp)))
 	_add_row("Mana máxima", str(roundi(attributes.max_mana)))
 	_add_row("Dano", _power_text(attributes.damage_power))
 	_add_row("Cura", _power_text(attributes.healing_power))
 	_add_row("Escudo", _power_text(attributes.shield_power))
+	_add_row("XP de monstros", InventoryView.format_gold(floori(attributes.monster_xp)))
+	_add_row("Jogadores mortos", InventoryView.format_gold(attributes.kills))
+	_add_row("Mortes", InventoryView.format_gold(attributes.deaths))
 	var equipped_title: Label = PixelMenuPanel.make_label("Equipado", KEY_COLOR)
 	equipped_title.add_theme_font_size_override("font_size", 24)
 	_content.add_child(equipped_title)

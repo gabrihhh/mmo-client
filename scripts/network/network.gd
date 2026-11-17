@@ -69,8 +69,8 @@ signal friend_requested(from_id: String, from_name: String, expires_in: float)
 ## Aviso pequeno de amizade ([param code]: ver [constant Protocol.MSG_FRIEND_NOTICE]); [param message] vem pronta.
 signal friend_notice(code: String, message: String)
 ## A Configuração social salva na conta mudou (veio no auth_ok ou o servidor confirmou uma mudança): valores
-## [constant Protocol.SOCIAL_ALWAYS] / [constant Protocol.SOCIAL_HIDE].
-signal social_settings_changed(friend_requests: String, group_invites: String)
+## [constant Protocol.SOCIAL_ALWAYS] / [constant Protocol.SOCIAL_HIDE]; [param profile] = PROFILE_* ([SOC-08]).
+signal social_settings_changed(friend_requests: String, group_invites: String, profile: String)
 
 ## Margem de desenho ([INFRA-12]): os outros (jogadores, monstros) são desenhados este número de ticks antes do tick
 ## atual estimado do servidor. Pequena porque passou do último snapshot o desenho **extrapola** (PlayerState): a
@@ -181,6 +181,8 @@ var friends: FriendList = FriendList.new()
 ## ([constant Protocol.SOCIAL_ALWAYS] = mostrar, [constant Protocol.SOCIAL_HIDE] = recusar sozinho).
 var social_friend_requests: String = Protocol.SOCIAL_ALWAYS
 var social_group_invites: String = Protocol.SOCIAL_ALWAYS
+## Quem vê o meu perfil ([SOC-08]): [constant Protocol.PROFILE_PUBLIC] / FRIENDS / NOBODY.
+var social_profile: String = Protocol.PROFILE_PUBLIC
 ## Alvo fixo do ataque simples segundo o SERVIDOR ("" = nenhum).
 var attack_target: String = ""
 ## Golpe em andamento segundo o servidor: alvo ("" = nenhum) e segundos que faltam.
@@ -493,10 +495,10 @@ func send_friend_remove(target_id: String) -> void:
 
 
 ## Muda a Configuração social ([constant Protocol.SOCIAL_ALWAYS] / [constant Protocol.SOCIAL_HIDE]); o servidor salva
-## na conta e confirma ([signal social_settings_changed]).
-func send_social_settings(friend_requests: String, group_invites: String) -> void:
+## na conta e confirma ([signal social_settings_changed]). [param profile] = quem vê o perfil (PROFILE_*, [SOC-08]).
+func send_social_settings(friend_requests: String, group_invites: String, profile: String) -> void:
 	if _authenticated:
-		_send(Protocol.MSG_SOCIAL_SETTINGS, {"friendRequests": friend_requests, "groupInvites": group_invites})
+		_send(Protocol.MSG_SOCIAL_SETTINGS, {"friendRequests": friend_requests, "groupInvites": group_invites, "profile": profile})
 
 
 ## Pede para vestir o item [param uid] da mochila. A resposta vem em [signal inventory_changed] (ou erro).
@@ -776,7 +778,9 @@ func _apply_social_settings(data: Dictionary) -> void:
 	var group_invites: String = Protocol.read_string(data, "groupInvites")
 	social_friend_requests = Protocol.SOCIAL_HIDE if friend_requests == Protocol.SOCIAL_HIDE else Protocol.SOCIAL_ALWAYS
 	social_group_invites = Protocol.SOCIAL_HIDE if group_invites == Protocol.SOCIAL_HIDE else Protocol.SOCIAL_ALWAYS
-	social_settings_changed.emit(social_friend_requests, social_group_invites)
+	var profile: String = Protocol.read_string(data, "profile")
+	social_profile = profile if profile in [Protocol.PROFILE_FRIENDS, Protocol.PROFILE_NOBODY] else Protocol.PROFILE_PUBLIC
+	social_settings_changed.emit(social_friend_requests, social_group_invites, social_profile)
 
 
 func _handle_error(code: String, message: String) -> void:
@@ -972,6 +976,7 @@ func _on_closed() -> void:
 	friends = FriendList.new()
 	social_friend_requests = Protocol.SOCIAL_ALWAYS
 	social_group_invites = Protocol.SOCIAL_ALWAYS
+	social_profile = Protocol.PROFILE_PUBLIC
 	_npcs.clear()
 	chests.clear()
 	attack_target = ""

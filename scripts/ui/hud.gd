@@ -57,8 +57,9 @@ signal friend_request_requested(player_id: String)
 signal friend_answered(from_id: String, accept: bool)
 ## Remover [param player_id] dos amigos.
 signal friend_remove_requested(player_id: String)
-## Mudou a Configuração social ([constant Protocol.SOCIAL_ALWAYS] / [constant Protocol.SOCIAL_HIDE]); o servidor salva.
-signal social_settings_requested(friend_requests: String, group_invites: String)
+## Mudou a Configuração social ([constant Protocol.SOCIAL_ALWAYS] / [constant Protocol.SOCIAL_HIDE]; [param profile] =
+## PROFILE_*, [SOC-08]); o servidor salva.
+signal social_settings_requested(friend_requests: String, group_invites: String, profile: String)
 
 ## Quantas cartas de habilidade a HUD mostra ([JOGO-01]: 3 da arma + cabeça + peito + pés).
 const CARD_COUNT: int = 6
@@ -72,6 +73,13 @@ const LEVEL_BOX_COLOR: Color = Color(0.0, 0.0, 0.0)
 const _SOCIAL_ROWS: Dictionary[String, String] = {
 	"friendRequests": "Solicitações de amizade",
 	"groupInvites": "Convites de grupo",
+	"profile": "Perfil (quem vê seus Atributos)",
+}
+## Botões de cada linha da Configuração social: valor → texto (Perfil tem três, [SOC-08]).
+const _SOCIAL_OPTIONS: Dictionary[String, Dictionary] = {
+	"friendRequests": {Protocol.SOCIAL_ALWAYS: "Sempre", Protocol.SOCIAL_HIDE: "Ocultar"},
+	"groupInvites": {Protocol.SOCIAL_ALWAYS: "Sempre", Protocol.SOCIAL_HIDE: "Ocultar"},
+	"profile": {Protocol.PROFILE_PUBLIC: "Público", Protocol.PROFILE_FRIENDS: "Amigos", Protocol.PROFILE_NOBODY: "Ninguém"},
 }
 
 @onready var _health_bar: ProgressBar = %HealthBar
@@ -168,7 +176,7 @@ var _friends_button: Button = null
 var _friends: FriendList = FriendList.new()
 ## Configuração social ([SOC-04]): opção atual de cada linha ("friendRequests"/"groupInvites" → SOCIAL_*) e os
 ## botões Sempre/Ocultar de cada uma (chave "linha|opção").
-var _social: Dictionary[String, String] = {"friendRequests": Protocol.SOCIAL_ALWAYS, "groupInvites": Protocol.SOCIAL_ALWAYS}
+var _social: Dictionary[String, String] = {"friendRequests": Protocol.SOCIAL_ALWAYS, "groupInvites": Protocol.SOCIAL_ALWAYS, "profile": Protocol.PROFILE_PUBLIC}
 var _social_buttons: Dictionary[String, Button] = {}
 
 
@@ -357,7 +365,7 @@ func set_mana(current: float, maximum: float) -> void:
 ## Atualiza a linha de XP e o quadrado do nível ([JOGO-12]): [param xp] juntada dentro do [param level] de
 ## [param xp_next] que ele pede (0 = linha cheia; hoje não acontece: sem nível máximo). Valores prontos do servidor.
 func set_experience(level: int, xp: float, xp_next: float) -> void:
-	_level_label.text = str(level)
+	_level_label.text = LevelText.short(level)
 	if xp_next <= 0.0:
 		_xp_bar.max_value = 1.0
 		_xp_bar.value = 1.0
@@ -603,8 +611,8 @@ func _build_friends_ui() -> void:
 	_refresh_menu_height()
 
 
-## Configuração ([SOC-04]): "Solicitações de amizade" e "Convites de grupo", cada uma com os botões Sempre/Ocultar
-## (o escolhido aceso com ✓, o outro apagado), acima do "Voltar" do painel da cena.
+## Configuração ([SOC-04]): "Solicitações de amizade" e "Convites de grupo", cada uma com os botões Sempre/Ocultar, e
+## "Perfil" com Público/Amigos/Ninguém ([SOC-08]); o escolhido aceso com ✓, os outros apagados. Acima do "Voltar".
 func _build_social_settings() -> void:
 	var back: Button = %SettingsBackButton
 	var column: VBoxContainer = back.get_parent() as VBoxContainer
@@ -616,7 +624,8 @@ func _build_social_settings() -> void:
 		buttons.add_theme_constant_override("separation", 16)
 		column.add_child(buttons)
 		column.move_child(buttons, back.get_index())
-		for value: String in [Protocol.SOCIAL_ALWAYS, Protocol.SOCIAL_HIDE]:
+		var options: Dictionary = _SOCIAL_OPTIONS[key]
+		for value: String in options.keys():
 			var button: Button = PixelMenuPanel.make_button("")
 			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			button.pressed.connect(_on_social_option.bind(key, value))
@@ -677,21 +686,23 @@ func _on_social_option(key: String, value: String) -> void:
 		return
 	var changed: Dictionary[String, String] = _social.duplicate()
 	changed[key] = value
-	social_settings_requested.emit(changed["friendRequests"], changed["groupInvites"])
+	social_settings_requested.emit(changed["friendRequests"], changed["groupInvites"], changed["profile"])
 
 
 ## A Configuração social salva na conta mudou (auth_ok ou confirmação do servidor): acende a opção de cada linha.
-func set_social_settings(friend_requests: String, group_invites: String) -> void:
+func set_social_settings(friend_requests: String, group_invites: String, profile: String) -> void:
 	_social["friendRequests"] = friend_requests
 	_social["groupInvites"] = group_invites
+	_social["profile"] = profile
 	_refresh_social_buttons()
 
 
 func _refresh_social_buttons() -> void:
 	for key: String in _social_buttons.keys():
 		var parts: PackedStringArray = key.split("|")
-		var selected: bool = _social.get(parts[0], Protocol.SOCIAL_ALWAYS) == parts[1]
-		var text: String = "Sempre" if parts[1] == Protocol.SOCIAL_ALWAYS else "Ocultar"
+		var selected: bool = _social.get(parts[0], "") == parts[1]
+		var options: Dictionary = _SOCIAL_OPTIONS[parts[0]]
+		var text: String = str(options[parts[1]])
 		var button: Button = _social_buttons[key]
 		button.text = ("✓ " + text) if selected else text
 		button.modulate = Color(1, 1, 1) if selected else Color(1, 1, 1, 0.5)

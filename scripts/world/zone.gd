@@ -107,7 +107,7 @@ func _ready() -> void:
 		_on_player_added(state.id, state)
 	_on_group_changed(Network.instance.group)
 	_hud.set_friends(Network.instance.friends)
-	_hud.set_social_settings(Network.instance.social_friend_requests, Network.instance.social_group_invites)
+	_hud.set_social_settings(Network.instance.social_friend_requests, Network.instance.social_group_invites, Network.instance.social_profile)
 	# NPCs: só o ferreiro agora; os outros nascem quando entram na vista ([INFRA-11], _spawn_npcs_in_view).
 	_spawn_npcs_in_view(-1)
 	for chest: ChestInfo in Network.instance.chests.values():

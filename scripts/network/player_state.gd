@@ -206,9 +206,9 @@ func take_correction() -> Vector3:
 	return value
 
 
-## Texto acima da cabeça de um jogador ([CLI-04]): "[nível] nome".
+## Texto acima da cabeça de um jogador ([CLI-04]): "[nível] nome" (nível abreviado de 1.000 para cima, [LevelText]).
 func title() -> String:
-	return "[%d] %s" % [level, name]
+	return LevelText.title(level, name)
 
 
 ## Fração de vida (0..1); 1 se a vida máxima não é conhecida.

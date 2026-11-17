@@ -27,7 +27,10 @@ extends RefCounted
 ## v27: recuperar senha ([INFRA-13]): [constant MSG_PASSWORD_RESET_REQUEST]/[constant MSG_PASSWORD_RESET_CONFIRM].
 ## v28: acampamentos ([JOGO-19]): [code]resetIn[/code] (segundos até o acampamento voltar) no baú do welcome e no
 ## evento [code]chest[/code], que também vem quando o relógio começa/muda/para (mapa, [CLI-11]).
-const VERSION: int = 28
+## v29: perfil ([SOC-08]): [code]profile[/code] ([constant PROFILE_PUBLIC]/[constant PROFILE_FRIENDS]/
+## [constant PROFILE_NOBODY]) na Configuração social; [constant MSG_ATTRIBUTES] traz [code]stats[/code] ou, perfil
+## fechado, só [code]hidden: true[/code].
+const VERSION: int = 29
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
@@ -109,16 +112,22 @@ const MSG_FRIEND_ANSWER: String = "friend_answer"
 ## Desfaz uma amizade (dos dois lados). data: { playerId }.
 const MSG_FRIEND_REMOVE: String = "friend_remove"
 ## Configuração social, nos DOIS sentidos: o cliente manda a mudança, o servidor salva na conta e responde com a
-## mesma mensagem (confirmação). data: { friendRequests, groupInvites: [constant SOCIAL_ALWAYS] | [constant SOCIAL_HIDE] }.
+## mesma mensagem (confirmação). data: { friendRequests, groupInvites: [constant SOCIAL_ALWAYS] | [constant SOCIAL_HIDE],
+## profile: [constant PROFILE_PUBLIC] | [constant PROFILE_FRIENDS] | [constant PROFILE_NOBODY] }.
 const MSG_SOCIAL_SETTINGS: String = "social_settings"
 ## Opções da Configuração social: mostrar os pedidos/convites, ou recusar sozinho sem mostrar nada.
 ## ATENÇÃO: espelho de SOCIAL_VISIBILITIES em mmo-server/src/net/protocol.ts.
 const SOCIAL_ALWAYS: String = "always"
 const SOCIAL_HIDE: String = "hide"
+## Quem vê o seu perfil (tela de Atributos, [SOC-08]): todos, só amigos ou ninguém (você sempre vê o seu).
+## ATENÇÃO: espelho de PROFILE_VISIBILITIES em mmo-server/src/net/protocol.ts.
+const PROFILE_PUBLIC: String = "public"
+const PROFILE_FRIENDS: String = "friends"
+const PROFILE_NOBODY: String = "nobody"
 
 # --- Servidor → cliente ---
 ## Autenticação aceita. data: { playerId, username (como foi cadastrado), sessionToken, body ("male" | "female" |
-## null = ainda não escolheu: mostrar a escolha antes do join), social: { friendRequests, groupInvites } (Configuração
+## null = ainda não escolheu: mostrar a escolha antes do join), social: { friendRequests, groupInvites, profile } (Configuração
 ## social salva na conta, [SOC-04]) }.
 const MSG_AUTH_OK: String = "auth_ok"
 ## Corpo escolhido e salvo (resposta ao [constant MSG_CHOOSE_BODY]). data: { body }.
@@ -162,7 +171,8 @@ const MSG_FUSE_RESULT: String = "fuse_result"
 const MSG_DEATH_REPORT: String = "death_report"
 ## Atributos de um jogador (resposta ao [constant MSG_INSPECT]). data: { id, name, level, maxHp, maxMana,
 ## power: { damage, healing, shield } (multiplicadores pelo nível, 1 = nível 0), equipped: { hand, head, chest, feet:
-## { itemId, name, set } ou null } }. ATENÇÃO: AttributesView em mmo-server/src/net/protocol.ts; lido por
+## { itemId, name, set } ou null }, stats: { monsterXp, kills, deaths } ([SOC-08]) }. Perfil fechado para mim:
+## só { id, name, level, hidden: true }. ATENÇÃO: AttributesData em mmo-server/src/net/protocol.ts; lido por
 ## [PlayerAttributes]. Ver mmo-docs [SOC-02].
 const MSG_ATTRIBUTES: String = "attributes"
 ## Estado do MEU grupo, a cada mudança. data: { group: { leaderId, members: Array[{ id, name, level }] } ou null (sem
