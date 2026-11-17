@@ -108,8 +108,8 @@ func _ready() -> void:
 	_on_group_changed(Network.instance.group)
 	_hud.set_friends(Network.instance.friends)
 	_hud.set_social_settings(Network.instance.social_friend_requests, Network.instance.social_group_invites)
-	for npc: PlayerState in Network.instance.get_npcs():
-		_spawn_npc(npc)
+	# NPCs: só o ferreiro agora; os outros nascem quando entram na vista ([INFRA-11], _spawn_npcs_in_view).
+	_spawn_npcs_in_view(-1)
 	for chest: ChestInfo in Network.instance.chests.values():
 		_spawn_chest(chest)
 	Network.instance.combat_event.connect(_on_combat_event)
@@ -189,6 +189,28 @@ func _on_player_removed(player_id: String) -> void:
 		remote.queue_free()
 		_remote_players.erase(player_id)
 	_update_online_status()
+
+
+## Quantos NPCs no máximo nascem por snapshot (30 por segundo, [INFRA-12]): criar o boneco (modelo, esqueleto) custa;
+## vários entrando juntos na vista (um acampamento) ficam espalhados em alguns quadros, sem engasgo.
+const _NPC_SPAWNS_PER_SNAPSHOT: int = 3
+
+
+## Cria o nó dos NPCs que estão na área de interesse e ainda não têm nó ([INFRA-11]): o servidor manda os ~100 NPCs
+## da zona no [code]welcome[/code], mas o boneco de cada um só nasce quando ele entra na vista (45 m), não ao entrar
+## no mapa. Uma vez criado, fica (fora da vista ele some e dorme, [method RemotePlayer._sync_view]). O ferreiro é
+## cenário fixo e nasce sempre. [param limit] = máximo a criar agora (-1 = sem limite).
+func _spawn_npcs_in_view(limit: int) -> void:
+	var created: int = 0
+	for npc: PlayerState in Network.instance.get_npcs():
+		if limit >= 0 and created >= limit:
+			return
+		if _npcs.has(npc.id) or _stations.has(npc.id):
+			continue
+		if not npc.in_view and npc.service != "blacksmith":
+			continue
+		_spawn_npc(npc)
+		created += 1
 
 
 func _spawn_npc(state: PlayerState) -> void:
@@ -411,6 +433,7 @@ func _character_of(id: String) -> CharacterModel:
 ## A cada snapshot: barras de vida/mana/XP do jogador local e o aviso de morte.
 func _on_snapshot(_tick: int, _ack: int) -> void:
 	var network: Network = Network.instance
+	_spawn_npcs_in_view(_NPC_SPAWNS_PER_SNAPSHOT)
 	var own: PlayerState = network.get_player(network.player_id)
 	if own == null:
 		return
