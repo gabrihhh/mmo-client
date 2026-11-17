@@ -61,7 +61,14 @@ signal friend_remove_requested(player_id: String)
 ## PROFILE_*, [SOC-08]); o servidor salva.
 signal social_settings_requested(friend_requests: String, group_invites: String, guild_invites: String, profile: String)
 ## Criar a guilda [param guild_name] / [param tag] ([SOC-06]).
-signal guild_create_requested(guild_name: String, tag: String)
+signal guild_create_requested(guild_name: String, tag: String, description: String)
+## Procurar guilda ([SOC-06]): pedir a lista / a ficha / enviar solicitação.
+signal guild_list_requested
+signal guild_info_requested(guild_id: String)
+signal guild_join_requested(guild_id: String)
+## Líder/oficial respondeu ao pedido de [param player_id]; líder salvou a descrição.
+signal guild_request_answered(player_id: String, accept: bool)
+signal guild_description_saved(description: String)
 ## Convidar [param player_id] para a minha guilda.
 signal guild_invite_requested(player_id: String)
 ## Respondeu ao convite de guilda de [param from_id].
@@ -642,9 +649,17 @@ func _build_guild_ui() -> void:
 	_guild_panel = GuildPanel.new()
 	root.add_child(_guild_panel)
 	_guild_panel.close_pressed.connect(_open_panel.bind(null))
-	_guild_panel.back_pressed.connect(_open_panel.bind(_menu_panel))
+	_guild_panel.back_pressed.connect(func() -> void:
+		if not _guild_panel.go_back():
+			_open_panel(_menu_panel))
 	_guild_panel.member_chosen.connect(_on_guild_member_chosen)
-	_guild_panel.create_pressed.connect(func(guild_name: String, tag: String) -> void: guild_create_requested.emit(guild_name, tag))
+	_guild_panel.create_pressed.connect(func(guild_name: String, tag: String, description: String) -> void:
+		guild_create_requested.emit(guild_name, tag, description))
+	_guild_panel.list_requested.connect(func() -> void: guild_list_requested.emit())
+	_guild_panel.info_requested.connect(func(guild_id: String) -> void: guild_info_requested.emit(guild_id))
+	_guild_panel.join_requested.connect(func(guild_id: String) -> void: guild_join_requested.emit(guild_id))
+	_guild_panel.request_answered.connect(func(player_id: String, accept: bool) -> void: guild_request_answered.emit(player_id, accept))
+	_guild_panel.description_saved.connect(func(description: String) -> void: guild_description_saved.emit(description))
 	_guild_panel.leave_pressed.connect(guild_leave_requested.emit)
 	var players_button: Button = %PlayersButton
 	_guild_button = players_button.duplicate() as Button
@@ -693,6 +708,16 @@ func set_guild(guild: GuildState, own_id: String) -> void:
 	var from_guild: bool = _actions_panel.visible and _actions_origin == _guild_panel
 	if from_guild and (guild == null or guild.find_member(_actions_panel.player_id) == null):
 		_open_panel(_guild_panel)
+
+
+## Chegou a lista do Procurar guilda.
+func show_guild_list(guilds: Array[GuildState.Summary]) -> void:
+	_guild_panel.show_list(guilds)
+
+
+## Chegou a ficha de uma guilda.
+func show_guild_info(info: GuildState.Info) -> void:
+	_guild_panel.show_info(info)
 
 
 ## Chegou um convite de guilda: janela Aceitar/Recusar no alto da tela ([RequestPanel]).

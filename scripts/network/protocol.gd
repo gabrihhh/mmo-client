@@ -34,7 +34,9 @@ extends RefCounted
 ## [constant MSG_GUILD_NOTICE]; [constant MSG_PLAYER_GUILD]; guildId/guildTag no PlayerInfo; guildInvites na
 ## Configuração social.
 ## v31: rankings ([SOC-07]): [constant MSG_RANKING_REQUEST] → [constant MSG_RANKING].
-const VERSION: int = 31
+## v32: Procurar guilda e solicitações ([SOC-06]): [constant MSG_GUILD_LIST], [constant MSG_GUILD_INFO],
+## [constant MSG_GUILD_REQUEST], [constant MSG_GUILD_REQUEST_ANSWER], [constant MSG_GUILD_DESCRIPTION].
+const VERSION: int = 32
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
@@ -108,7 +110,7 @@ const MSG_GROUP_ANSWER: String = "group_answer"
 const MSG_GROUP_KICK: String = "group_kick"
 ## Sai do grupo. data: {}.
 const MSG_GROUP_LEAVE: String = "group_leave"
-## Guilda ([SOC-06]). Cria (custa [constant GUILD_CREATE_COST] moedas, vira líder). data: { name, tag }.
+## Guilda ([SOC-06]). Cria (custa [constant GUILD_CREATE_COST] moedas, vira líder). data: { name, tag, description }.
 const MSG_GUILD_CREATE: String = "guild_create"
 ## Convida um jogador online para a minha guilda (líder/oficial). data: { playerId }.
 const MSG_GUILD_INVITE: String = "guild_invite"
@@ -122,6 +124,18 @@ const MSG_GUILD_KICK: String = "guild_kick"
 const MSG_GUILD_ROLE: String = "guild_role"
 ## Pede uma tabela de ranking ([SOC-07]). data: { category, period } ([RankingData] CATEGORY_* / PERIOD_*).
 const MSG_RANKING_REQUEST: String = "ranking_request"
+## Procurar guilda: pede a lista (data {}); a resposta vem com o mesmo nome: { guilds: Array[{ id, name, tag, members }] }
+## (só as que não estão cheias, da mais cheia para a mais vazia). Lido por [GuildState.Summary].
+const MSG_GUILD_LIST: String = "guild_list"
+## Ficha de uma guilda: pede com { guildId }; a resposta (mesmo nome) traz { id, name, tag, description, leaderName,
+## members, createdAt (ms), monsterXp, kills, requested }. Lido por [GuildState.Info].
+const MSG_GUILD_INFO: String = "guild_info"
+## Pede para entrar numa guilda (líder/oficial aceita). data: { guildId }.
+const MSG_GUILD_REQUEST: String = "guild_request"
+## Líder/oficial aceita ou recusa um pedido. data: { playerId, accept }.
+const MSG_GUILD_REQUEST_ANSWER: String = "guild_request_answer"
+## Líder troca a descrição. data: { description }.
+const MSG_GUILD_DESCRIPTION: String = "guild_description"
 ## Moedas para criar uma guilda. ATENÇÃO: GUILD_CREATE_COST em mmo-server/src/net/protocol.ts.
 const GUILD_CREATE_COST: int = 1000
 ## Pede amizade a um jogador online (ou fake de teste). data: { playerId }. Resposta: aviso [constant MSG_FRIEND_NOTICE]

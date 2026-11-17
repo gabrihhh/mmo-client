@@ -81,6 +81,10 @@ signal guild_invited(from_id: String, from_name: String, guild_title: String, ex
 signal guild_notice(code: String, message: String)
 ## A guilda do jogador [param id] da zona mudou (tag no nome e cor de guildeiro).
 signal player_guild_changed(id: String)
+## Chegou a lista do Procurar guilda ([SOC-06]).
+signal guild_list_received(guilds: Array[GuildState.Summary])
+## Chegou a ficha de uma guilda (Procurar guilda).
+signal guild_info_received(info: GuildState.Info)
 ## Chegou uma tabela de ranking ([SOC-07]), resposta ao [method send_ranking_request].
 signal ranking_received(ranking: RankingData)
 
@@ -489,9 +493,39 @@ func send_group_leave() -> void:
 
 ## Cria a guilda [param guild_name] / [param tag] ([SOC-06]; custa [constant Protocol.GUILD_CREATE_COST] moedas).
 ## Resposta: [signal guild_changed] + aviso, ou erro em [signal server_error].
-func send_guild_create(guild_name: String, tag: String) -> void:
+func send_guild_create(guild_name: String, tag: String, description: String) -> void:
 	if is_in_zone():
-		_send(Protocol.MSG_GUILD_CREATE, {"name": guild_name, "tag": tag})
+		_send(Protocol.MSG_GUILD_CREATE, {"name": guild_name, "tag": tag, "description": description})
+
+
+## Procurar guilda: pede a lista ([signal guild_list_received]).
+func send_guild_list() -> void:
+	if _authenticated:
+		_send(Protocol.MSG_GUILD_LIST, {})
+
+
+## Pede a ficha da guilda [param guild_id] ([signal guild_info_received]).
+func send_guild_info(guild_id: String) -> void:
+	if _authenticated and not guild_id.is_empty():
+		_send(Protocol.MSG_GUILD_INFO, {"guildId": guild_id})
+
+
+## Pede para entrar na guilda [param guild_id] (líder/oficial aceita depois).
+func send_guild_request(guild_id: String) -> void:
+	if _authenticated and not guild_id.is_empty():
+		_send(Protocol.MSG_GUILD_REQUEST, {"guildId": guild_id})
+
+
+## Líder/oficial aceita ([param accept]) ou recusa o pedido de [param target_id].
+func send_guild_request_answer(target_id: String, accept: bool) -> void:
+	if _authenticated and not target_id.is_empty():
+		_send(Protocol.MSG_GUILD_REQUEST_ANSWER, {"playerId": target_id, "accept": accept})
+
+
+## Líder troca a descrição da guilda.
+func send_guild_description(description: String) -> void:
+	if _authenticated:
+		_send(Protocol.MSG_GUILD_DESCRIPTION, {"description": description})
 
 
 ## Convida [param target_id] para a minha guilda.
@@ -837,6 +871,10 @@ func _handle_message(text: String) -> void:
 					Protocol.read_float(data, "expiresIn", 30.0))
 		Protocol.MSG_GUILD_NOTICE:
 			guild_notice.emit(Protocol.read_string(data, "code"), Protocol.read_string(data, "message"))
+		Protocol.MSG_GUILD_LIST:
+			guild_list_received.emit(GuildState.Summary.list_from(data))
+		Protocol.MSG_GUILD_INFO:
+			guild_info_received.emit(GuildState.Info.from_dict(data))
 		Protocol.MSG_RANKING:
 			ranking_received.emit(RankingData.from_dict(data))
 		Protocol.MSG_PLAYER_GUILD:
