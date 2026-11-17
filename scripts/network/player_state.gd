@@ -86,7 +86,7 @@ var boss: bool = false
 var guild_id: String = ""
 var guild_tag: String = ""
 ## Serviço do NPC ([JOGO-16]): "blacksmith" = ferreiro (perto dele aparece o botão Ferreiro); "storage" = baú do
-## Armazém ([JOGO-26], botão Armazém); vazio = nenhum.
+## Armazém ([JOGO-26], botão Armazém); "market" = tenda do Mercador ([JOGO-25], botão Mercado); vazio = nenhum.
 ## ATENÇÃO: NpcSnapshot.service.
 var service: String = ""
 

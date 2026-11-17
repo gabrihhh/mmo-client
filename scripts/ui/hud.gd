@@ -53,6 +53,12 @@ signal storage_take_requested(uid: String)
 signal storage_buy_tab_requested
 ## Chat ([SOC-09]): mandar [param text] no [param channel] (para [param to], só no privado).
 signal chat_send_requested(channel: String, text: String, to: String)
+## Mercado ([JOGO-25]): buscar, meus anúncios, anunciar, comprar, cancelar/retirar.
+signal market_list_requested(query: String, slot: String, sort: String, page: int)
+signal market_mine_requested
+signal market_sell_requested(uid: String, price: int)
+signal market_buy_requested(listing_id: String)
+signal market_cancel_requested(listing_id: String)
 signal chest_take_requested(chest_id: String, loot_id: String)
 ## Pediu os Atributos do jogador [param player_id] ([SOC-02]); a resposta volta por [method show_attributes].
 signal inspect_requested(player_id: String)
@@ -230,6 +236,9 @@ var _blacksmith_button: Button = null
 ## Armazém ([JOGO-26]): tela e botão (mesmo lugar do botão do Ferreiro; os dois ficam a 12 m, nunca juntos).
 var _storage_panel: StoragePanel = null
 var _storage_button: Button = null
+## Mercado ([JOGO-25]): tela e botão (mesmo lugar do botão do Ferreiro/Armazém; ficam a 12 m um do outro).
+var _market_panel: MarketPanel = null
+var _market_button: Button = null
 ## Chat ([SOC-09]): painel, botão 💬 (com as não lidas) e o resumo das últimas mensagens em cima dos controles.
 var _chat_panel: ChatPanel = null
 var _chat_button: Button = null
@@ -322,6 +331,8 @@ func _apply_safe_margins() -> void:
 		_place_blacksmith_button()
 	if _storage_button != null:
 		_place_storage_button()
+	if _market_button != null:
+		_place_market_button()
 	if _chat_button != null:
 		_place_chat_ui()
 	if _perf_overlay != null:
@@ -381,6 +392,7 @@ func set_inventory(inventory: InventoryState) -> void:
 	_inventory_view.show_inventory(inventory)
 	_blacksmith_panel.show_inventory(inventory)
 	_storage_panel.show_inventory(inventory)
+	_market_panel.show_inventory(inventory)
 	_trade_panel.show_inventory(inventory)
 	# A ficha aberta mostrava o inventário antigo: volta para a tela do inventário.
 	if _item_detail.visible:
@@ -392,6 +404,7 @@ func set_gold(amount: int) -> void:
 	_inventory_view.set_gold(amount)
 	_blacksmith_panel.set_gold(amount)
 	_storage_panel.set_gold(amount)
+	_market_panel.set_gold(amount)
 	_trade_panel.set_gold(amount)
 
 
@@ -474,6 +487,8 @@ func show_toast(text: String) -> void:
 		_blacksmith_panel.show_notice(text)
 	if _storage_panel.visible:
 		_storage_panel.show_notice(text)
+	if _market_panel.visible:
+		_market_panel.show_notice(text)
 	_toast.text = text
 	_toast.modulate.a = 1.0
 	_toast_left = _TOAST_SECONDS
@@ -545,6 +560,7 @@ func _build_social_panels() -> void:
 	_build_perf_setting()
 	_build_blacksmith_ui()
 	_build_storage_ui()
+	_build_market_ui()
 	_build_chat_ui()
 	_build_chest_ui()
 	_build_trade_ui()
@@ -591,6 +607,62 @@ func set_blacksmith_near(near: bool) -> void:
 	if not near and _blacksmith_panel.visible:
 		_open_panel(null)
 		show_toast("Você se afastou do ferreiro")
+
+
+## Mercado ([JOGO-25]): botão "🪙 Mercado" no lugar do botão do Ferreiro (só perto da tenda,
+## [method set_market_near]) e a tela do Mercado.
+func _build_market_ui() -> void:
+	var root: Control = $Root
+	_market_panel = MarketPanel.new()
+	root.add_child(_market_panel)
+	_market_panel.close_pressed.connect(_open_panel.bind(null))
+	_market_panel.list_requested.connect(market_list_requested.emit)
+	_market_panel.mine_requested.connect(market_mine_requested.emit)
+	_market_panel.sell_requested.connect(market_sell_requested.emit)
+	_market_panel.buy_requested.connect(market_buy_requested.emit)
+	_market_panel.cancel_requested.connect(market_cancel_requested.emit)
+	_market_button = PixelMenuPanel.make_button("🪙 Mercado")
+	_market_button.custom_minimum_size = Vector2(260.0, 84.0)
+	_market_button.visible = false
+	_market_button.pressed.connect(_open_panel.bind(_market_panel))
+	root.add_child(_market_button)
+	root.move_child(_market_button, _menu_dimmer.get_index())
+	_controls_frame.resized.connect(_place_market_button)
+	_place_market_button()
+
+
+func _place_market_button() -> void:
+	var view: Vector2 = ($Root as Control).size
+	_market_button.size = _market_button.custom_minimum_size
+	_market_button.position = Vector2((view.x - _market_button.size.x) / 2.0, _controls_frame.position.y - _market_button.size.y - 16.0)
+
+
+## Perto (ou longe) da tenda do Mercador ([JOGO-25]): mostra/esconde o botão; longe, fecha a tela.
+func set_market_near(near: bool) -> void:
+	if _market_button.visible != near:
+		_market_button.visible = near
+		_place_market_button()
+	if not near and _market_panel.visible:
+		_open_panel(null)
+		show_toast("Você se afastou do Mercador")
+
+
+## Mercado: página da busca, seus anúncios e ação feita ([Network]).
+func show_market_page(listings: Array[MarketListing], total: int, page: int, page_size: int) -> void:
+	_market_panel.show_page(listings, total, page, page_size)
+
+
+func show_market_mine(listings: Array[MarketListing], max_listings: int) -> void:
+	_market_panel.show_mine(listings, max_listings)
+
+
+func show_market_result(action: String, item_name: String, price: int, gold: int) -> void:
+	_market_panel.show_result(action, item_name, price, gold)
+
+
+## Um item seu vendeu no Mercado (ao vivo ou ao entrar): aviso no topo.
+func show_market_sold(item_name: String, price: int, buyer_name: String) -> void:
+	show_toast("Mercado: %s vendeu por %s moedas para %s!" % [item_name, InventoryView.format_gold(price), buyer_name])
 
 
 ## Chat ([SOC-09]): botão 💬 à direita, logo acima da moldura dos controles (o do Ferreiro/Armazém fica no meio),
@@ -1271,7 +1343,7 @@ func _on_player_option(option_id: String) -> void:
 
 ## Todos os painéis do menu (um aberto por vez).
 func _all_panels() -> Array[PanelContainer]:
-	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel, _guild_panel, _ranking_panel, _blacksmith_panel, _storage_panel, _chat_panel, _chest_panel, _trade_panel]
+	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel, _guild_panel, _ranking_panel, _blacksmith_panel, _storage_panel, _market_panel, _chat_panel, _chest_panel, _trade_panel]
 
 
 ## Abre [param panel] e fecha os outros; null fecha tudo. Com menu aberto, os controles do jogo param.

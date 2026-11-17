@@ -47,7 +47,9 @@ extends RefCounted
 ## v37: Armazém ([JOGO-26]): [constant MSG_STORAGE_PUT] / [constant MSG_STORAGE_TAKE] / [constant MSG_STORAGE_BUY_TAB]
 ## → inventory com storage/storageCapacity/storageTabCost; NPC com service "storage".
 ## v38: chat ([SOC-09]): [constant MSG_CHAT_SEND] → [constant MSG_CHAT] / [constant MSG_CHAT_REFUSED].
-const VERSION: int = 38
+## v39: Mercado ([JOGO-25]): market_list/market_mine/market_sell/market_buy/market_cancel → market_page/
+## market_mine_list/market_result/market_sold; NPC com service "market".
+const VERSION: int = 39
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
@@ -106,6 +108,16 @@ const MSG_STORAGE_TAKE: String = "storage_take"
 const MSG_STORAGE_BUY_TAB: String = "storage_buy_tab"
 ## Manda uma mensagem no chat: { channel, text, to? } ([SOC-09]). Resposta: [constant MSG_CHAT] ou [constant MSG_CHAT_REFUSED].
 const MSG_CHAT_SEND: String = "chat_send"
+## Mercado ([JOGO-25]): busca { query, slot, sort: "price"|"new", page } → [constant MSG_MARKET_PAGE].
+const MSG_MARKET_LIST: String = "market_list"
+## Meus anúncios (sem payload) → [constant MSG_MARKET_MINE_LIST].
+const MSG_MARKET_MINE: String = "market_mine"
+## Anunciar { uid, price } (paga 5% de taxa agora) → [constant MSG_MARKET_RESULT] + inventory.
+const MSG_MARKET_SELL: String = "market_sell"
+## Comprar { listingId } → [constant MSG_MARKET_RESULT] + inventory.
+const MSG_MARKET_BUY: String = "market_buy"
+## Cancelar (ativo) / retirar (vencido) { listingId }: item e taxa voltam.
+const MSG_MARKET_CANCEL: String = "market_cancel"
 ## Tenta melhorar um item no ferreiro (perto dele, com moedas). data: { uid, attribute: id de [ItemAttributes] }.
 ## Resposta: [constant MSG_UPGRADE_RESULT] (+ inventário se subiu) ou erro (not_enough_gold, too_far...). [JOGO-16]
 const MSG_UPGRADE: String = "upgrade"
@@ -247,6 +259,14 @@ const MSG_FUSE_RESULT: String = "fuse_result"
 const MSG_SHOP: String = "shop"
 ## Mensagem do chat ([SOC-09], [ChatMessage]).
 const MSG_CHAT: String = "chat"
+## Mercado: uma página da busca { listings, total, page, pageSize }.
+const MSG_MARKET_PAGE: String = "market_page"
+## Mercado: seus anúncios { listings, maxListings }.
+const MSG_MARKET_MINE_LIST: String = "market_mine_list"
+## Mercado: feito { action: "sell"|"buy"|"cancel", itemName, price, gold }.
+const MSG_MARKET_RESULT: String = "market_result"
+## Mercado: um item seu vendeu { itemName, price, buyerName }.
+const MSG_MARKET_SOLD: String = "market_sold"
 ## Sua mensagem não foi enviada: { channel, reason, seconds } ([SOC-09]).
 const MSG_CHAT_REFUSED: String = "chat_refused"
 ## Compra/venda feita: { action: "buy"|"sell", itemId, gold } ([JOGO-23]).

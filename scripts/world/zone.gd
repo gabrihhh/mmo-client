@@ -77,6 +77,16 @@ func _ready() -> void:
 	_hud.shop_sell_requested.connect(Network.instance.send_shop_sell)
 	Network.instance.shop_received.connect(_hud.show_shop)
 	Network.instance.shop_result.connect(_hud.show_shop_result)
+	# Mercado ([JOGO-25]).
+	_hud.market_list_requested.connect(Network.instance.send_market_list)
+	_hud.market_mine_requested.connect(Network.instance.send_market_mine)
+	_hud.market_sell_requested.connect(Network.instance.send_market_sell)
+	_hud.market_buy_requested.connect(Network.instance.send_market_buy)
+	_hud.market_cancel_requested.connect(Network.instance.send_market_cancel)
+	Network.instance.market_page_received.connect(_hud.show_market_page)
+	Network.instance.market_mine_received.connect(_hud.show_market_mine)
+	Network.instance.market_result.connect(_hud.show_market_result)
+	Network.instance.market_sold.connect(_hud.show_market_sold)
 	# Chat ([SOC-09]): mensagens para a HUD; as do Geral também viram balão em cima de quem falou (se está na tela).
 	_hud.chat_send_requested.connect(Network.instance.send_chat)
 	Network.instance.chat_received.connect(_on_chat_message)
@@ -283,6 +293,13 @@ func _spawn_npc(state: PlayerState) -> void:
 		station.setup(state)
 		_players_root.add_child(station)
 		_stations[state.id] = station
+		return
+	# Mercador ([JOGO-25]): a tenda cheia de ouro no lugar do NPC.
+	if state.service == "market":
+		var tent: MarketTent = MarketTent.new()
+		tent.setup(state)
+		_players_root.add_child(tent)
+		_stations[state.id] = tent
 		return
 	# Armazém ([JOGO-26]): o baú grande fixo no lugar do NPC.
 	if state.service == "storage":
@@ -540,6 +557,7 @@ func _on_snapshot(_tick: int, _ack: int) -> void:
 	_hud.set_gold(network.gold)
 	_hud.set_blacksmith_near(not own.dead and _near_service(network, own, "blacksmith"))
 	_hud.set_storage_near(not own.dead and _near_service(network, own, "storage"))
+	_hud.set_market_near(not own.dead and _near_service(network, own, "market"))
 	_hud.set_chest_near("" if own.dead else _near_open_chest(network, own))
 	# Jogadores Próximos aberto: a lista acompanha quem chega, sai ou sobe de nível ([SOC-02]).
 	if _hud.is_nearby_open():

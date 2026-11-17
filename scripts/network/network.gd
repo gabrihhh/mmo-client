@@ -50,6 +50,11 @@ signal fuse_result(uid: String, levels_gained: int, xp_gained: float, level: int
 signal shop_received(items: Array[InventoryState.Item], prices: Array[int])
 ## Chegou uma mensagem do chat ([SOC-09]), inclusive a sua de volta.
 signal chat_received(message: ChatMessage)
+## Mercado ([JOGO-25]): página da busca, seus anúncios, ação feita e "um item seu vendeu".
+signal market_page_received(listings: Array[MarketListing], total: int, page: int, page_size: int)
+signal market_mine_received(listings: Array[MarketListing], max_listings: int)
+signal market_result(action: String, item_name: String, price: int, gold: int)
+signal market_sold(item_name: String, price: int, buyer_name: String)
 ## Sua mensagem do chat foi recusada: [param reason] ("spam", "cooldown"…) e [param seconds] de espera.
 signal chat_refused(channel: String, reason: String, seconds: int)
 ## Compra ([param action] "buy") ou venda ("sell") feita na Loja do Ferreiro, por [param gold] moedas.
@@ -700,6 +705,37 @@ func send_upgrade(uid: String, attribute: String) -> void:
 		_send(Protocol.MSG_UPGRADE, {"uid": uid, "attribute": attribute})
 
 
+## Mercado ([JOGO-25]): busca [param query] (nome do item ou do conjunto), [param slot] ("" = todos), ordem
+## [param sort] ("price"/"new") e página [param page] (0…). Resposta: [signal market_page_received].
+func send_market_list(query: String, slot: String, sort: String, page: int) -> void:
+	if is_in_zone():
+		_send(Protocol.MSG_MARKET_LIST, {"query": query, "slot": slot if not slot.is_empty() else null, "sort": sort, "page": page})
+
+
+## Mercado: pede os seus anúncios ([signal market_mine_received]).
+func send_market_mine() -> void:
+	if is_in_zone():
+		_send(Protocol.MSG_MARKET_MINE, {})
+
+
+## Mercado: anuncia o item [param uid] da mochila por [param price] moedas (a taxa de 5% sai agora).
+func send_market_sell(uid: String, price: int) -> void:
+	if is_in_zone():
+		_send(Protocol.MSG_MARKET_SELL, {"uid": uid, "price": price})
+
+
+## Mercado: compra o anúncio [param listing_id].
+func send_market_buy(listing_id: String) -> void:
+	if is_in_zone():
+		_send(Protocol.MSG_MARKET_BUY, {"listingId": listing_id})
+
+
+## Mercado: cancela/retira o seu anúncio [param listing_id] (item e taxa voltam).
+func send_market_cancel(listing_id: String) -> void:
+	if is_in_zone():
+		_send(Protocol.MSG_MARKET_CANCEL, {"listingId": listing_id})
+
+
 ## Chat ([SOC-09]): manda [param text] no [param channel] ("zone", "group", "guild", "private", "global"); no privado,
 ## [param to] = nome de quem recebe. Resposta: [signal chat_received] (a sua de volta) ou [signal chat_refused].
 func send_chat(channel: String, text: String, to: String = "") -> void:
@@ -936,6 +972,14 @@ func _handle_message(text: String) -> void:
 					items.append(item)
 					prices.append(Protocol.read_int(offer, "price"))
 			shop_received.emit(items, prices)
+		Protocol.MSG_MARKET_PAGE:
+			market_page_received.emit(MarketListing.list_from(data), Protocol.read_int(data, "total"), Protocol.read_int(data, "page"), Protocol.read_int(data, "pageSize", 20))
+		Protocol.MSG_MARKET_MINE_LIST:
+			market_mine_received.emit(MarketListing.list_from(data), Protocol.read_int(data, "maxListings", 10))
+		Protocol.MSG_MARKET_RESULT:
+			market_result.emit(Protocol.read_string(data, "action"), Protocol.read_string(data, "itemName"), Protocol.read_int(data, "price"), Protocol.read_int(data, "gold"))
+		Protocol.MSG_MARKET_SOLD:
+			market_sold.emit(Protocol.read_string(data, "itemName"), Protocol.read_int(data, "price"), Protocol.read_string(data, "buyerName"))
 		Protocol.MSG_CHAT:
 			chat_received.emit(ChatMessage.from_dict(data))
 		Protocol.MSG_CHAT_REFUSED:
