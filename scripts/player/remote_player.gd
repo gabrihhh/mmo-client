@@ -59,11 +59,16 @@ const BOSS_NAME_COLOR: Color = Color(1.0, 0.82, 0.3)
 ## Cor de aliado ([SOC-03]): nome e barra de vida de quem é do meu grupo.
 const ALLY_NAME_COLOR: Color = Color(0.45, 1.0, 0.5)
 const ALLY_HEALTH_COLOR: Color = Color(0.25, 0.8, 0.3)
+## Cor de guildeiro (nome e vida, [SOC-06]): azul.
+const GUILD_NAME_COLOR: Color = Color(0.45, 0.75, 1.0)
+const GUILD_HEALTH_COLOR: Color = Color(0.25, 0.55, 0.95)
 ## Cor normal da vida (a da cena) e do nome, para voltar quando sai do grupo.
 const _DEFAULT_NAME_COLOR: Color = Color(1, 1, 1)
 
 ## É do meu grupo agora (ver [method set_ally]).
 var _ally: bool = false
+## É da minha guilda agora (ver [method set_guildmate]).
+var _guildmate: bool = false
 ## Cor da vida antes de virar aliado (a da cena).
 var _health_color: Color = Color(0.85, 0.2, 0.2)
 
@@ -72,6 +77,8 @@ var _cast_elapsed: float = 0.0
 var _cast_duration: float = 0.0
 ## Último texto/nível mostrado (só refaz o rótulo quando muda).
 var _shown_level: int = -1
+## Tag de guilda mostrada no nome ([SOC-06]).
+var _shown_tag: String = ""
 
 
 ## Liga este nó ao estado do servidor. Chamar antes de adicionar à árvore.
@@ -97,7 +104,7 @@ func _ready() -> void:
 		if _state.boss:
 			_name_label.modulate = BOSS_NAME_COLOR
 	_health_color = _health_bar.fill_color
-	if _ally:
+	if _ally or _guildmate:
 		_apply_ally_color()
 	if _state != null:
 		_ground_y = ZoneTerrain.height_at(_state.position.x, _state.position.z)
@@ -155,9 +162,26 @@ func set_ally(ally: bool) -> void:
 		_apply_ally_color()
 
 
+## Liga/desliga a cor de guildeiro ([param mate] = é da minha guilda, [SOC-06]): nome e barra de vida em azul. Do
+## mesmo grupo também, o verde vence.
+func set_guildmate(mate: bool) -> void:
+	if mate == _guildmate:
+		return
+	_guildmate = mate
+	if is_node_ready():
+		_apply_ally_color()
+
+
 func _apply_ally_color() -> void:
-	_name_label.modulate = ALLY_NAME_COLOR if _ally else _DEFAULT_NAME_COLOR
-	_health_bar.set_fill_color(ALLY_HEALTH_COLOR if _ally else _health_color)
+	if _ally:
+		_name_label.modulate = ALLY_NAME_COLOR
+		_health_bar.set_fill_color(ALLY_HEALTH_COLOR)
+	elif _guildmate:
+		_name_label.modulate = GUILD_NAME_COLOR
+		_health_bar.set_fill_color(GUILD_HEALTH_COLOR)
+	else:
+		_name_label.modulate = _DEFAULT_NAME_COLOR
+		_health_bar.set_fill_color(_health_color)
 
 
 ## Chefe maior ([JOGO-18]): o corpo cresce [param factor] vezes e as barras/nome sobem para cima da cabeça dele.
@@ -195,14 +219,16 @@ func hide_cast() -> void:
 
 ## Nível no rótulo (jogador: "[nível] nome") ou no quadrado ao lado da vida (monstro). Só quando muda.
 func _refresh_level() -> void:
-	if _state.level == _shown_level:
-		return
-	_shown_level = _state.level
 	if is_monster():
-		_health_bar.set_level_badge(_state.level)
+		if _state.level != _shown_level:
+			_shown_level = _state.level
+			_health_bar.set_level_badge(_state.level)
 	elif Network.instance.get_player(session_id) != null:
-		# Só jogadores: bonecos de treino e NPCs de teste continuam com o nome.
-		_name_label.text = _state.title()
+		# Só jogadores: bonecos de treino e NPCs de teste continuam com o nome. Muda com o nível e a tag da guilda.
+		if _state.level != _shown_level or _state.guild_tag != _shown_tag:
+			_shown_level = _state.level
+			_shown_tag = _state.guild_tag
+			_name_label.text = _state.title()
 
 
 func _update_cast_bar(delta: float) -> void:

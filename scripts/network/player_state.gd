@@ -81,6 +81,10 @@ var monster: bool = false
 var scale: float = 1.0
 ## Chefe ([JOGO-18]): nome à vista em dourado e marcador próprio no mapa. ATENÇÃO: NpcSnapshot.boss.
 var boss: bool = false
+## Guilda do jogador ([SOC-06]): id (cor de guildeiro, não é alvo) e tag ("[TAG][nível] nome"); vazio = sem guilda.
+## Vem no PlayerInfo e muda por [constant Protocol.MSG_PLAYER_GUILD].
+var guild_id: String = ""
+var guild_tag: String = ""
 ## Serviço do NPC ([JOGO-16]): "blacksmith" = ferreiro (perto dele aparece o botão Ferreiro); vazio = nenhum.
 ## ATENÇÃO: NpcSnapshot.service.
 var service: String = ""
@@ -121,6 +125,8 @@ static func from_snapshot(data: Dictionary, at_tick: int) -> PlayerState:
 	state.scale = clampf(Protocol.read_float(data, "scale", 1.0), 0.5, 4.0)
 	var boss_value: Variant = data.get("boss")
 	state.boss = boss_value is bool and boss_value == true
+	state.guild_id = Protocol.read_string(data, "guildId")
+	state.guild_tag = Protocol.read_string(data, "guildTag")
 	state.apply_snapshot(data, at_tick)
 	return state
 
@@ -206,9 +212,10 @@ func take_correction() -> Vector3:
 	return value
 
 
-## Texto acima da cabeça de um jogador ([CLI-04]): "[nível] nome" (nível abreviado de 1.000 para cima, [LevelText]).
+## Texto acima da cabeça de um jogador ([CLI-04]): "[TAG][nível] nome" (tag só com guilda, [SOC-06]; nível
+## abreviado de 1.000 para cima, [LevelText]).
 func title() -> String:
-	return LevelText.title(level, name)
+	return LevelText.title(level, name, guild_tag)
 
 
 ## Fração de vida (0..1); 1 se a vida máxima não é conhecida.

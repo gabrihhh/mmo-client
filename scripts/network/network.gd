@@ -69,8 +69,18 @@ signal friend_requested(from_id: String, from_name: String, expires_in: float)
 ## Aviso pequeno de amizade ([param code]: ver [constant Protocol.MSG_FRIEND_NOTICE]); [param message] vem pronta.
 signal friend_notice(code: String, message: String)
 ## A Configuração social salva na conta mudou (veio no auth_ok ou o servidor confirmou uma mudança): valores
-## [constant Protocol.SOCIAL_ALWAYS] / [constant Protocol.SOCIAL_HIDE]; [param profile] = PROFILE_* ([SOC-08]).
-signal social_settings_changed(friend_requests: String, group_invites: String, profile: String)
+## [constant Protocol.SOCIAL_ALWAYS] / [constant Protocol.SOCIAL_HIDE] (amizade, grupo, guilda); [param profile] =
+## PROFILE_* ([SOC-08]).
+signal social_settings_changed(friend_requests: String, group_invites: String, guild_invites: String, profile: String)
+## A MINHA guilda mudou ([member guild]; null = saí/sem guilda). Ver mmo-docs [SOC-06].
+signal guild_changed(guild: GuildState)
+## Alguém me convidou para a guilda [param guild_title] ("[TAG] Nome"); responder com [method send_guild_answer] em
+## até [param expires_in] s.
+signal guild_invited(from_id: String, from_name: String, guild_title: String, expires_in: float)
+## Aviso pequeno da guilda; [param message] vem pronta.
+signal guild_notice(code: String, message: String)
+## A guilda do jogador [param id] da zona mudou (tag no nome e cor de guildeiro).
+signal player_guild_changed(id: String)
 
 ## Margem de desenho ([INFRA-12]): os outros (jogadores, monstros) são desenhados este número de ticks antes do tick
 ## atual estimado do servidor. Pequena porque passou do último snapshot o desenho **extrapola** (PlayerState): a
@@ -181,6 +191,10 @@ var friends: FriendList = FriendList.new()
 ## ([constant Protocol.SOCIAL_ALWAYS] = mostrar, [constant Protocol.SOCIAL_HIDE] = recusar sozinho).
 var social_friend_requests: String = Protocol.SOCIAL_ALWAYS
 var social_group_invites: String = Protocol.SOCIAL_ALWAYS
+## "Convites de guilda" ([SOC-06]): mostrar ou recusar sozinho.
+var social_guild_invites: String = Protocol.SOCIAL_ALWAYS
+## Minha guilda segundo o servidor ([SOC-06]); null = sem guilda. Guildeiros não se atingem e aparecem em azul.
+var guild: GuildState = null
 ## Quem vê o meu perfil ([SOC-08]): [constant Protocol.PROFILE_PUBLIC] / FRIENDS / NOBODY.
 var social_profile: String = Protocol.PROFILE_PUBLIC
 ## Alvo fixo do ataque simples segundo o SERVIDOR ("" = nenhum).
@@ -471,6 +485,50 @@ func send_group_leave() -> void:
 		_send(Protocol.MSG_GROUP_LEAVE, {})
 
 
+## Cria a guilda [param guild_name] / [param tag] ([SOC-06]; custa [constant Protocol.GUILD_CREATE_COST] moedas).
+## Resposta: [signal guild_changed] + aviso, ou erro em [signal server_error].
+func send_guild_create(guild_name: String, tag: String) -> void:
+	if is_in_zone():
+		_send(Protocol.MSG_GUILD_CREATE, {"name": guild_name, "tag": tag})
+
+
+## Convida [param target_id] para a minha guilda.
+func send_guild_invite(target_id: String) -> void:
+	if is_in_zone() and not target_id.is_empty():
+		_send(Protocol.MSG_GUILD_INVITE, {"playerId": target_id})
+
+
+## Responde ao convite de guilda de [param from_id].
+func send_guild_answer(from_id: String, accept: bool) -> void:
+	if _authenticated and not from_id.is_empty():
+		_send(Protocol.MSG_GUILD_ANSWER, {"fromId": from_id, "accept": accept})
+
+
+## Sai da guilda (1 h sem aceitar convite de outra).
+func send_guild_leave() -> void:
+	if _authenticated:
+		_send(Protocol.MSG_GUILD_LEAVE, {})
+
+
+## Expulsa [param target_id] da guilda.
+func send_guild_kick(target_id: String) -> void:
+	if _authenticated and not target_id.is_empty():
+		_send(Protocol.MSG_GUILD_KICK, {"playerId": target_id})
+
+
+## Líder muda o cargo de [param target_id] para [param role] ([constant GuildState.ROLE_OFFICER] / ROLE_MEMBER).
+func send_guild_role(target_id: String, role: String) -> void:
+	if _authenticated and not target_id.is_empty():
+		_send(Protocol.MSG_GUILD_ROLE, {"playerId": target_id, "role": role})
+
+
+## true se [param id] é OUTRO jogador da minha guilda que está na zona (não é alvo de ataque, cor azul, [SOC-06]).
+func is_guild_member(id: String) -> bool:
+	if guild == null or id == player_id or not _players.has(id):
+		return false
+	return _players[id].guild_id == guild.id
+
+
 ## true se [param id] é meu amigo ([SOC-04]).
 func is_friend(id: String) -> bool:
 	return friends.has(id)
@@ -496,9 +554,10 @@ func send_friend_remove(target_id: String) -> void:
 
 ## Muda a Configuração social ([constant Protocol.SOCIAL_ALWAYS] / [constant Protocol.SOCIAL_HIDE]); o servidor salva
 ## na conta e confirma ([signal social_settings_changed]). [param profile] = quem vê o perfil (PROFILE_*, [SOC-08]).
-func send_social_settings(friend_requests: String, group_invites: String, profile: String) -> void:
+func send_social_settings(friend_requests: String, group_invites: String, guild_invites: String, profile: String) -> void:
 	if _authenticated:
-		_send(Protocol.MSG_SOCIAL_SETTINGS, {"friendRequests": friend_requests, "groupInvites": group_invites, "profile": profile})
+		_send(Protocol.MSG_SOCIAL_SETTINGS, {"friendRequests": friend_requests, "groupInvites": group_invites,
+				"guildInvites": guild_invites, "profile": profile})
 
 
 ## Pede para vestir o item [param uid] da mochila. A resposta vem em [signal inventory_changed] (ou erro).
@@ -761,6 +820,21 @@ func _handle_message(text: String) -> void:
 			friend_notice.emit(Protocol.read_string(data, "code"), Protocol.read_string(data, "message"))
 		Protocol.MSG_SOCIAL_SETTINGS:
 			_apply_social_settings(data)
+		Protocol.MSG_GUILD:
+			guild = GuildState.from_dict(Protocol.read_dict(data, "guild"))
+			guild_changed.emit(guild)
+		Protocol.MSG_GUILD_INVITED:
+			guild_invited.emit(Protocol.read_string(data, "fromId"), Protocol.read_string(data, "fromName"),
+					"[%s] %s" % [Protocol.read_string(data, "guildTag"), Protocol.read_string(data, "guildName")],
+					Protocol.read_float(data, "expiresIn", 30.0))
+		Protocol.MSG_GUILD_NOTICE:
+			guild_notice.emit(Protocol.read_string(data, "code"), Protocol.read_string(data, "message"))
+		Protocol.MSG_PLAYER_GUILD:
+			var guild_player_id: String = Protocol.read_string(data, "id")
+			if _players.has(guild_player_id):
+				_players[guild_player_id].guild_id = Protocol.read_string(data, "guildId")
+				_players[guild_player_id].guild_tag = Protocol.read_string(data, "guildTag")
+				player_guild_changed.emit(guild_player_id)
 		Protocol.MSG_UPDATE_REQUIRED:
 			# Fecha já (o servidor também fecharia, com 4003, um pouco depois); no fechamento abre o LiveUpdater ([INFRA-08]).
 			_update_version = maxi(Protocol.read_int(data, "version"), 1)
@@ -778,9 +852,11 @@ func _apply_social_settings(data: Dictionary) -> void:
 	var group_invites: String = Protocol.read_string(data, "groupInvites")
 	social_friend_requests = Protocol.SOCIAL_HIDE if friend_requests == Protocol.SOCIAL_HIDE else Protocol.SOCIAL_ALWAYS
 	social_group_invites = Protocol.SOCIAL_HIDE if group_invites == Protocol.SOCIAL_HIDE else Protocol.SOCIAL_ALWAYS
+	var guild_invites: String = Protocol.read_string(data, "guildInvites")
+	social_guild_invites = Protocol.SOCIAL_HIDE if guild_invites == Protocol.SOCIAL_HIDE else Protocol.SOCIAL_ALWAYS
 	var profile: String = Protocol.read_string(data, "profile")
 	social_profile = profile if profile in [Protocol.PROFILE_FRIENDS, Protocol.PROFILE_NOBODY] else Protocol.PROFILE_PUBLIC
-	social_settings_changed.emit(social_friend_requests, social_group_invites, social_profile)
+	social_settings_changed.emit(social_friend_requests, social_group_invites, social_guild_invites, social_profile)
 
 
 func _handle_error(code: String, message: String) -> void:
@@ -977,6 +1053,8 @@ func _on_closed() -> void:
 	social_friend_requests = Protocol.SOCIAL_ALWAYS
 	social_group_invites = Protocol.SOCIAL_ALWAYS
 	social_profile = Protocol.PROFILE_PUBLIC
+	social_guild_invites = Protocol.SOCIAL_ALWAYS
+	guild = null
 	_npcs.clear()
 	chests.clear()
 	attack_target = ""

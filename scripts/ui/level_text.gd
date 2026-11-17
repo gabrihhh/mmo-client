@@ -23,6 +23,7 @@ static func _abbreviate(value: int, unit: int, suffix: String) -> String:
 	return ("%d%s" % [whole, suffix]) if tenth == 0 else ("%d.%d%s" % [whole, tenth, suffix])
 
 
-## "[nível] nome" como em cima do boneco e nas listas ([CLI-04], [SOC-02]).
-static func title(level: int, name: String) -> String:
-	return "[%s] %s" % [short(level), name]
+## "[nível] nome" como em cima do boneco e nas listas ([CLI-04], [SOC-02]); com guilda, "[TAG][nível] nome" ([SOC-06]).
+static func title(level: int, name: String, guild_tag: String = "") -> String:
+	var prefix: String = "" if guild_tag.is_empty() else "[%s]" % guild_tag
+	return "%s[%s] %s" % [prefix, short(level), name]

@@ -30,7 +30,10 @@ extends RefCounted
 ## v29: perfil ([SOC-08]): [code]profile[/code] ([constant PROFILE_PUBLIC]/[constant PROFILE_FRIENDS]/
 ## [constant PROFILE_NOBODY]) na Configuração social; [constant MSG_ATTRIBUTES] traz [code]stats[/code] ou, perfil
 ## fechado, só [code]hidden: true[/code].
-const VERSION: int = 29
+## v30: guilda ([SOC-06]): [constant MSG_GUILD_CREATE] etc. → [constant MSG_GUILD] / [constant MSG_GUILD_INVITED] /
+## [constant MSG_GUILD_NOTICE]; [constant MSG_PLAYER_GUILD]; guildId/guildTag no PlayerInfo; guildInvites na
+## Configuração social.
+const VERSION: int = 30
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
@@ -104,6 +107,20 @@ const MSG_GROUP_ANSWER: String = "group_answer"
 const MSG_GROUP_KICK: String = "group_kick"
 ## Sai do grupo. data: {}.
 const MSG_GROUP_LEAVE: String = "group_leave"
+## Guilda ([SOC-06]). Cria (custa [constant GUILD_CREATE_COST] moedas, vira líder). data: { name, tag }.
+const MSG_GUILD_CREATE: String = "guild_create"
+## Convida um jogador online para a minha guilda (líder/oficial). data: { playerId }.
+const MSG_GUILD_INVITE: String = "guild_invite"
+## Responde a um convite de guilda ([constant MSG_GUILD_INVITED]). data: { fromId, accept: bool }.
+const MSG_GUILD_ANSWER: String = "guild_answer"
+## Sai da guilda (1 h sem aceitar convite de outra). data: {}.
+const MSG_GUILD_LEAVE: String = "guild_leave"
+## Expulsa um membro (líder: qualquer um; oficial: só membro comum). data: { playerId }.
+const MSG_GUILD_KICK: String = "guild_kick"
+## Líder muda o cargo de um membro. data: { playerId, role: [constant GuildState.ROLE_OFFICER] | ROLE_MEMBER }.
+const MSG_GUILD_ROLE: String = "guild_role"
+## Moedas para criar uma guilda. ATENÇÃO: GUILD_CREATE_COST em mmo-server/src/net/protocol.ts.
+const GUILD_CREATE_COST: int = 1000
 ## Pede amizade a um jogador online (ou fake de teste). data: { playerId }. Resposta: aviso [constant MSG_FRIEND_NOTICE]
 ## (aceitou/recusou/expirou) ou erro. Ver mmo-docs [SOC-04].
 const MSG_FRIEND_REQUEST: String = "friend_request"
@@ -184,6 +201,16 @@ const MSG_GROUP_INVITED: String = "group_invited"
 ## Aviso pequeno do grupo, pronto para mostrar. data: { code ("accepted" | "rejected" | "expired" | "in_group" |
 ## "joined" | "left" | "kicked" | "leader" | "disbanded"), name, message }.
 const MSG_GROUP_NOTICE: String = "group_notice"
+## A MINHA guilda ([SOC-06]), após o auth_ok e a cada mudança. data: { guild: { id, name, tag, members: Array[{ id, name,
+## role, online, level (ou null) }] } ou null }. ATENÇÃO: GuildView em mmo-server/src/net/protocol.ts; lido por
+## [GuildState].
+const MSG_GUILD: String = "guild"
+## Alguém me convidou para a guilda dele. data: { fromId, fromName, guildName, guildTag, expiresIn (s) }.
+const MSG_GUILD_INVITED: String = "guild_invited"
+## Aviso pequeno da guilda, pronto para mostrar. data: { code, message }.
+const MSG_GUILD_NOTICE: String = "guild_notice"
+## A guilda de um jogador da zona mudou (tag no nome, cor de guildeiro). data: { id, guildId, guildTag } (null = sem).
+const MSG_PLAYER_GUILD: String = "player_guild"
 ## Onde estão os membros do MEU grupo que ficaram FORA da minha área de interesse (não vêm no snapshot), para o mapa do
 ## Menu ([CLI-11]). data: { members: Array[{ id, x, z }] } (m, 1 casa decimal). Só para quem está em grupo, a
 ## [constant GROUP_POSITIONS_HZ] Hz, e só quando há membro longe (v17). ATENÇÃO: GroupPositionsData em

@@ -3,7 +3,7 @@ extends PanelContainer
 ## Janela dos pedidos recebidos que esperam resposta: **convite de grupo** ([SOC-03], "X convidou você para o grupo")
 ## e **pedido de amizade** ([SOC-04], "X quer ser seu amigo"), com o tempo que falta e os botões **Aceitar** /
 ## **Recusar**, na moldura pixel art dos painéis (`PixelPanel`, [CLI-07]). Fica no alto da tela, logo abaixo da linha
-## de XP, e **não pausa o jogo** (o joystick e as cartas continuam: o pedido pode chegar no meio de uma luta). Vários
+## de XP (e **convite de guilda**, [SOC-06], "X convidou você para a guilda [TAG] Nome"), e **não pausa o jogo** (o joystick e as cartas continuam: o pedido pode chegar no meio de uma luta). Vários
 ## pedidos ao mesmo tempo (dos dois tipos): um por vez, na ordem em que chegaram.
 ##
 ## Expirou (o servidor dá ~30 s, `expiresIn`): some sozinho, sem mandar nada — o servidor avisa quem pediu que não
@@ -17,6 +17,7 @@ signal answered(kind: String, from_id: String, accept: bool)
 ## Tipos de pedido.
 const KIND_GROUP: String = "group"
 const KIND_FRIEND: String = "friend"
+const KIND_GUILD: String = "guild"
 ## Largura (px no espaço de referência 720×1280).
 const WIDTH_PX: float = 640.0
 ## Distância do topo da tela (px): logo abaixo da moldura de vida/mana e da linha de XP ([CLI-08]).
@@ -25,6 +26,7 @@ const TOP_PX: float = 230.0
 const _TEXTS: Dictionary[String, String] = {
 	KIND_GROUP: "%s convidou você para o grupo",
 	KIND_FRIEND: "%s quer ser seu amigo",
+	KIND_GUILD: "%s convidou você para a guilda",
 }
 
 
@@ -37,6 +39,8 @@ class Request:
 	var from_name: String = ""
 	## Segundos até expirar.
 	var seconds_left: float = 0.0
+	## Texto extra no fim da frase (ex.: "[TAG] Nome" da guilda); vazio = nada.
+	var detail: String = ""
 
 
 var _queue: Array[Request] = []
@@ -75,7 +79,7 @@ func _init() -> void:
 
 ## Chegou um pedido do tipo [param kind] de [param from_name] que expira em [param expires_in] s. Um novo pedido do
 ## mesmo tipo e da mesma pessoa substitui o anterior (renova o prazo).
-func add_request(kind: String, from_id: String, from_name: String, expires_in: float) -> void:
+func add_request(kind: String, from_id: String, from_name: String, expires_in: float, detail: String = "") -> void:
 	for existing: Request in _queue:
 		if existing.kind == kind and existing.from_id == from_id:
 			existing.seconds_left = expires_in
@@ -86,6 +90,7 @@ func add_request(kind: String, from_id: String, from_name: String, expires_in: f
 	request.from_id = from_id
 	request.from_name = from_name
 	request.seconds_left = expires_in
+	request.detail = detail
 	_queue.append(request)
 	_refresh()
 
@@ -132,4 +137,7 @@ func _refresh() -> void:
 	var request: Request = _queue[0]
 	var more: String = "" if _queue.size() == 1 else "\n(+%d pedido%s)" % [_queue.size() - 1, "" if _queue.size() == 2 else "s"]
 	var text: String = _TEXTS.get(request.kind, "%s")
-	_label.text = "%s (%d s)%s" % [text % request.from_name, ceili(request.seconds_left), more]
+	var sentence: String = text % request.from_name
+	if not request.detail.is_empty():
+		sentence += " " + request.detail
+	_label.text = "%s (%d s)%s" % [sentence, ceili(request.seconds_left), more]

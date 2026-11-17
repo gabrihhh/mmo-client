@@ -96,6 +96,18 @@ func _ready() -> void:
 	Network.instance.friend_requested.connect(_hud.show_friend_request)
 	Network.instance.friend_notice.connect(_on_group_notice)
 	Network.instance.social_settings_changed.connect(_hud.set_social_settings)
+	# Guilda ([SOC-06]): criar/convidar/responder/sair/expulsar/cargo vão ao servidor; estado, convites e avisos voltam
+	# para a HUD; a tag/cor de cada jogador acompanha (player_guild).
+	_hud.guild_create_requested.connect(Network.instance.send_guild_create)
+	_hud.guild_invite_requested.connect(Network.instance.send_guild_invite)
+	_hud.guild_answered.connect(Network.instance.send_guild_answer)
+	_hud.guild_leave_requested.connect(Network.instance.send_guild_leave)
+	_hud.guild_kick_requested.connect(Network.instance.send_guild_kick)
+	_hud.guild_role_requested.connect(Network.instance.send_guild_role)
+	Network.instance.guild_changed.connect(_on_guild_changed)
+	Network.instance.guild_invited.connect(_hud.show_guild_invite)
+	Network.instance.guild_notice.connect(_on_group_notice)
+	Network.instance.player_guild_changed.connect(_on_player_guild_changed)
 	# Recusas que não são de login (ex.: mochila cheia) viram aviso na tela.
 	Network.instance.server_error.connect(_on_server_error)
 
@@ -106,8 +118,10 @@ func _ready() -> void:
 	for state: PlayerState in Network.instance.get_players():
 		_on_player_added(state.id, state)
 	_on_group_changed(Network.instance.group)
+	_on_guild_changed(Network.instance.guild)
 	_hud.set_friends(Network.instance.friends)
-	_hud.set_social_settings(Network.instance.social_friend_requests, Network.instance.social_group_invites, Network.instance.social_profile)
+	_hud.set_social_settings(Network.instance.social_friend_requests, Network.instance.social_group_invites,
+			Network.instance.social_guild_invites, Network.instance.social_profile)
 	# NPCs: só o ferreiro agora; os outros nascem quando entram na vista ([INFRA-11], _spawn_npcs_in_view).
 	_spawn_npcs_in_view(-1)
 	for chest: ChestInfo in Network.instance.chests.values():
@@ -132,6 +146,7 @@ func get_targetables() -> Array[RemotePlayer]:
 		var me: PlayerState = Network.instance.get_player(Network.instance.player_id)
 		for remote: RemotePlayer in _remote_players.values():
 			if remote.is_alive() and not Network.instance.is_group_member(remote.session_id) \
+					and not Network.instance.is_guild_member(remote.session_id) \
 					and PvpRules.can_attack(me, Network.instance.get_player(remote.session_id)):
 				result.append(remote)
 	return result
@@ -179,6 +194,7 @@ func _on_player_added(player_id: String, state: PlayerState) -> void:
 		_players_root.add_child(remote)
 		_remote_players[player_id] = remote
 		remote.set_ally(Network.instance.is_group_member(player_id))
+		remote.set_guildmate(Network.instance.is_guild_member(player_id))
 	_update_online_status()
 
 
@@ -405,6 +421,24 @@ func _on_group_changed(group: GroupState) -> void:
 	_hud.set_group(group, Network.instance.player_id)
 	for remote: RemotePlayer in _remote_players.values():
 		remote.set_ally(Network.instance.is_group_member(remote.session_id))
+
+
+## Minha guilda mudou ([SOC-06]): o painel da HUD e a cor azul de cada guildeiro.
+func _on_guild_changed(guild: GuildState) -> void:
+	_hud.set_guild(guild, Network.instance.player_id)
+	for remote: RemotePlayer in _remote_players.values():
+		remote.set_guildmate(Network.instance.is_guild_member(remote.session_id))
+
+
+## A guilda de um jogador da zona mudou: a cor azul dele (a tag no nome muda sozinha, [method RemotePlayer._refresh_level]).
+func _on_player_guild_changed(player_id: String) -> void:
+	if _remote_players.has(player_id):
+		var remote: RemotePlayer = _remote_players[player_id]
+		remote.set_guildmate(Network.instance.is_guild_member(player_id))
+	elif player_id == Network.instance.player_id:
+		# A MINHA guilda mudou na zona: os outros podem ter virado (ou deixado de ser) guildeiros.
+		for remote: RemotePlayer in _remote_players.values():
+			remote.set_guildmate(Network.instance.is_guild_member(remote.session_id))
 
 
 ## Aviso do grupo ou da amizade ("X aceitou o convite", "X recusou o pedido de amizade"...): o aviso pequeno do topo.

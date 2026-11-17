@@ -33,6 +33,11 @@ const OPTION_FRIEND: String = "friend_request"
 const OPTION_GROUP_INVITE: String = "group_invite"
 const OPTION_GROUP_KICK: String = "group_kick"
 const OPTION_FRIEND_REMOVE: String = "friend_remove"
+## Guilda ([SOC-06]).
+const OPTION_GUILD_INVITE: String = "guild_invite"
+const OPTION_GUILD_KICK: String = "guild_kick"
+const OPTION_GUILD_PROMOTE: String = "guild_promote"
+const OPTION_GUILD_DEMOTE: String = "guild_demote"
 
 ## Jogador das opções abertas agora.
 var player_id: String = ""

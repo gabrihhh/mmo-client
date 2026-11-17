@@ -59,7 +59,19 @@ signal friend_answered(from_id: String, accept: bool)
 signal friend_remove_requested(player_id: String)
 ## Mudou a Configuração social ([constant Protocol.SOCIAL_ALWAYS] / [constant Protocol.SOCIAL_HIDE]; [param profile] =
 ## PROFILE_*, [SOC-08]); o servidor salva.
-signal social_settings_requested(friend_requests: String, group_invites: String, profile: String)
+signal social_settings_requested(friend_requests: String, group_invites: String, guild_invites: String, profile: String)
+## Criar a guilda [param guild_name] / [param tag] ([SOC-06]).
+signal guild_create_requested(guild_name: String, tag: String)
+## Convidar [param player_id] para a minha guilda.
+signal guild_invite_requested(player_id: String)
+## Respondeu ao convite de guilda de [param from_id].
+signal guild_answered(from_id: String, accept: bool)
+## Tocou em "Sair da guilda" (confirmado).
+signal guild_leave_requested
+## Expulsar [param player_id] da guilda.
+signal guild_kick_requested(player_id: String)
+## Líder muda o cargo de [param player_id] para [param role] (GuildState.ROLE_*).
+signal guild_role_requested(player_id: String, role: String)
 
 ## Quantas cartas de habilidade a HUD mostra ([JOGO-01]: 3 da arma + cabeça + peito + pés).
 const CARD_COUNT: int = 6
@@ -73,12 +85,14 @@ const LEVEL_BOX_COLOR: Color = Color(0.0, 0.0, 0.0)
 const _SOCIAL_ROWS: Dictionary[String, String] = {
 	"friendRequests": "Solicitações de amizade",
 	"groupInvites": "Convites de grupo",
+	"guildInvites": "Convites de guilda",
 	"profile": "Perfil (quem vê seus Atributos)",
 }
 ## Botões de cada linha da Configuração social: valor → texto (Perfil tem três, [SOC-08]).
 const _SOCIAL_OPTIONS: Dictionary[String, Dictionary] = {
 	"friendRequests": {Protocol.SOCIAL_ALWAYS: "Sempre", Protocol.SOCIAL_HIDE: "Ocultar"},
 	"groupInvites": {Protocol.SOCIAL_ALWAYS: "Sempre", Protocol.SOCIAL_HIDE: "Ocultar"},
+	"guildInvites": {Protocol.SOCIAL_ALWAYS: "Sempre", Protocol.SOCIAL_HIDE: "Ocultar"},
 	"profile": {Protocol.PROFILE_PUBLIC: "Público", Protocol.PROFILE_FRIENDS: "Amigos", Protocol.PROFILE_NOBODY: "Ninguém"},
 }
 
@@ -158,11 +172,15 @@ var _group: GroupState = null
 var _own_id: String = ""
 ## De onde as opções do jogador foram abertas (Jogadores Próximos ou Grupo): é para lá que o "Voltar" leva.
 var _actions_origin: PanelContainer = null
-## Altura do Menu com os botões da cena (px); os botões criados por código ("Amigos" e, com grupo, "Grupo") somam
+## Altura do Menu com os botões da cena (px); os botões criados por código ("Amigos", "Guilda" e, com grupo, "Grupo") somam
 ## uma linha cada ([method _refresh_menu_height]).
 var _menu_base_height: float = 0.0
 ## Amizade ([SOC-04]): painel do Menu → Amigos, o botão "Amigos" do Menu e a lista atual (vinda da [Zone]).
 var _friends_panel: FriendsPanel = null
+## Menu → Guilda ([SOC-06]) e a minha guilda (null = sem).
+var _guild_panel: GuildPanel = null
+var _guild_button: Button = null
+var _guild: GuildState = null
 ## Ferreiro ([JOGO-16]): tela de melhoria e o botão que aparece perto dele.
 var _blacksmith_panel: BlacksmithPanel = null
 ## Baú do acampamento ([JOGO-19]): botão "Abrir baú" (perto de um baú aberto), a janela e o baú de perto ("" = nenhum).
@@ -176,7 +194,7 @@ var _friends_button: Button = null
 var _friends: FriendList = FriendList.new()
 ## Configuração social ([SOC-04]): opção atual de cada linha ("friendRequests"/"groupInvites" → SOCIAL_*) e os
 ## botões Sempre/Ocultar de cada uma (chave "linha|opção").
-var _social: Dictionary[String, String] = {"friendRequests": Protocol.SOCIAL_ALWAYS, "groupInvites": Protocol.SOCIAL_ALWAYS, "profile": Protocol.PROFILE_PUBLIC}
+var _social: Dictionary[String, String] = {"friendRequests": Protocol.SOCIAL_ALWAYS, "groupInvites": Protocol.SOCIAL_ALWAYS, "guildInvites": Protocol.SOCIAL_ALWAYS, "profile": Protocol.PROFILE_PUBLIC}
 var _social_buttons: Dictionary[String, Button] = {}
 
 
@@ -451,6 +469,7 @@ func _build_social_panels() -> void:
 	_actions_origin = _nearby_panel
 	_build_group_ui()
 	_build_friends_ui()
+	_build_guild_ui()
 	_build_social_settings()
 	_build_perf_setting()
 	_build_blacksmith_ui()
@@ -611,6 +630,75 @@ func _build_friends_ui() -> void:
 	_refresh_menu_height()
 
 
+## Guilda ([SOC-06]): painel do Menu → Guilda e o botão "Guilda" (sempre visível, logo depois de "Amigos").
+func _build_guild_ui() -> void:
+	var root: Control = $Root
+	_guild_panel = GuildPanel.new()
+	root.add_child(_guild_panel)
+	_guild_panel.close_pressed.connect(_open_panel.bind(null))
+	_guild_panel.back_pressed.connect(_open_panel.bind(_menu_panel))
+	_guild_panel.member_chosen.connect(_on_guild_member_chosen)
+	_guild_panel.create_pressed.connect(func(guild_name: String, tag: String) -> void: guild_create_requested.emit(guild_name, tag))
+	_guild_panel.leave_pressed.connect(guild_leave_requested.emit)
+	var players_button: Button = %PlayersButton
+	_guild_button = players_button.duplicate() as Button
+	_guild_button.name = "GuildButton"
+	_guild_button.unique_name_in_owner = false
+	_guild_button.text = "Guilda"
+	_guild_button.visible = true
+	_friends_button.add_sibling(_guild_button)
+	_guild_button.pressed.connect(_open_panel.bind(_guild_panel))
+	_refresh_menu_height()
+
+
+## Minha guilda mudou ([param guild] null = sem guilda; [param own_id] = meu id): atualiza o painel; se as opções
+## abertas eram de alguém que saiu da guilda, volta para a lista. Entrar numa guilda descarta os outros convites.
+func set_guild(guild: GuildState, own_id: String) -> void:
+	var joined: bool = _guild == null and guild != null
+	_guild = guild
+	_own_id = own_id
+	_guild_panel.show_guild(guild, own_id)
+	if joined:
+		_invite_panel.clear_kind(RequestPanel.KIND_GUILD)
+	var from_guild: bool = _actions_panel.visible and _actions_origin == _guild_panel
+	if from_guild and (guild == null or guild.find_member(_actions_panel.player_id) == null):
+		_open_panel(_guild_panel)
+
+
+## Chegou um convite de guilda: janela Aceitar/Recusar no alto da tela ([RequestPanel]).
+func show_guild_invite(from_id: String, from_name: String, guild_title: String, expires_in: float) -> void:
+	_invite_panel.add_request(RequestPanel.KIND_GUILD, from_id, from_name, expires_in, guild_title)
+
+
+## true se posso convidar [param player_id] para a minha guilda: sou líder/oficial, há vaga e ele não tem guilda.
+func _can_guild_invite(player_id: String) -> bool:
+	if _guild == null or player_id == _own_id or not _guild.can_invite(_own_id) or _guild.members.size() >= GuildState.MAX_MEMBERS:
+		return false
+	var state: PlayerState = Network.instance.get_player(player_id) if Network.instance != null else null
+	return state != null and state.guild_id.is_empty()
+
+
+## Tocou num membro no painel da Guilda: Atributos (se está na zona), Solicitar amizade, e conforme o meu cargo
+## Promover/Rebaixar (líder) e Expulsar (líder: qualquer um; oficial: membro comum).
+func _on_guild_member_chosen(player_id: String, title: String) -> void:
+	var options: Array[PlayerActionsPanel.Option] = []
+	if Network.instance != null and Network.instance.get_player(player_id) != null:
+		options.append(PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_ATTRIBUTES, "Atributos"))
+	options.append_array(_friend_request_options(player_id))
+	if _guild != null:
+		if _guild.role_of(_own_id) == GuildState.ROLE_LEADER:
+			var role: String = _guild.role_of(player_id)
+			if role == GuildState.ROLE_MEMBER:
+				options.append(PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_GUILD_PROMOTE, "Promover a oficial"))
+			elif role == GuildState.ROLE_OFFICER:
+				options.append(PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_GUILD_DEMOTE, "Rebaixar a membro"))
+		if _guild.can_kick(_own_id, player_id):
+			options.append(PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_GUILD_KICK, "Expulsar da guilda"))
+	_actions_origin = _guild_panel
+	_actions_panel.show_options(player_id, title, options)
+	_open_panel(_actions_panel)
+
+
 ## Configuração ([SOC-04]): "Solicitações de amizade" e "Convites de grupo", cada uma com os botões Sempre/Ocultar, e
 ## "Perfil" com Público/Amigos/Ninguém ([SOC-08]); o escolhido aceso com ✓, os outros apagados. Acima do "Voltar".
 func _build_social_settings() -> void:
@@ -686,13 +774,14 @@ func _on_social_option(key: String, value: String) -> void:
 		return
 	var changed: Dictionary[String, String] = _social.duplicate()
 	changed[key] = value
-	social_settings_requested.emit(changed["friendRequests"], changed["groupInvites"], changed["profile"])
+	social_settings_requested.emit(changed["friendRequests"], changed["groupInvites"], changed["guildInvites"], changed["profile"])
 
 
 ## A Configuração social salva na conta mudou (auth_ok ou confirmação do servidor): acende a opção de cada linha.
-func set_social_settings(friend_requests: String, group_invites: String, profile: String) -> void:
+func set_social_settings(friend_requests: String, group_invites: String, guild_invites: String, profile: String) -> void:
 	_social["friendRequests"] = friend_requests
 	_social["groupInvites"] = group_invites
+	_social["guildInvites"] = guild_invites
 	_social["profile"] = profile
 	_refresh_social_buttons()
 
@@ -708,9 +797,9 @@ func _refresh_social_buttons() -> void:
 		button.modulate = Color(1, 1, 1) if selected else Color(1, 1, 1, 0.5)
 
 
-## Altura do Menu: os botões da cena + "Amigos" + "Grupo" (só com grupo), centralizado.
+## Altura do Menu: os botões da cena + "Amigos" + "Guilda" + "Grupo" (só com grupo), centralizado.
 func _refresh_menu_height() -> void:
-	var extra_rows: int = (1 if _friends_button != null else 0) + (1 if _group != null else 0)
+	var extra_rows: int = (1 if _friends_button != null else 0) + (1 if _guild_button != null else 0) + (1 if _group != null else 0)
 	var height: float = _menu_base_height + extra_rows * (PixelMenuPanel.BUTTON_HEIGHT_PX + 20.0)
 	_menu_panel.offset_top = -height / 2.0
 	_menu_panel.offset_bottom = height / 2.0
@@ -720,6 +809,8 @@ func _refresh_menu_height() -> void:
 func _on_request_answered(kind: String, from_id: String, accept: bool) -> void:
 	if kind == RequestPanel.KIND_FRIEND:
 		friend_answered.emit(from_id, accept)
+	elif kind == RequestPanel.KIND_GUILD:
+		guild_answered.emit(from_id, accept)
 	else:
 		group_answered.emit(from_id, accept)
 
@@ -822,6 +913,8 @@ func _on_nearby_player_chosen(player_id: String, title: String) -> void:
 	options.append_array(_friend_request_options(player_id))
 	if _can_invite(player_id):
 		options.append(PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_GROUP_INVITE, "Convidar para o grupo"))
+	if _can_guild_invite(player_id):
+		options.append(PlayerActionsPanel.Option.new(PlayerActionsPanel.OPTION_GUILD_INVITE, "Convidar para a guilda"))
 	_actions_origin = _nearby_panel
 	_actions_panel.show_options(player_id, title, options)
 	_open_panel(_actions_panel)
@@ -846,6 +939,18 @@ func _on_player_option(option_id: String) -> void:
 			# A resposta ("X aceitou/recusou") chega depois como aviso.
 			friend_request_requested.emit(target)
 			show_toast("Pedido de amizade enviado.")
+		PlayerActionsPanel.OPTION_GUILD_INVITE:
+			guild_invite_requested.emit(target)
+			show_toast("Convite para a guilda enviado.")
+		PlayerActionsPanel.OPTION_GUILD_KICK:
+			guild_kick_requested.emit(target)
+			_open_panel(_guild_panel)
+		PlayerActionsPanel.OPTION_GUILD_PROMOTE:
+			guild_role_requested.emit(target, GuildState.ROLE_OFFICER)
+			_open_panel(_guild_panel)
+		PlayerActionsPanel.OPTION_GUILD_DEMOTE:
+			guild_role_requested.emit(target, GuildState.ROLE_MEMBER)
+			_open_panel(_guild_panel)
 		PlayerActionsPanel.OPTION_FRIEND_REMOVE:
 			# Volta à lista; ela se atualiza quando o servidor confirmar (e o aviso "X foi removido" aparece).
 			friend_remove_requested.emit(target)
@@ -854,7 +959,7 @@ func _on_player_option(option_id: String) -> void:
 
 ## Todos os painéis do menu (um aberto por vez).
 func _all_panels() -> Array[PanelContainer]:
-	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel, _blacksmith_panel, _chest_panel]
+	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel, _guild_panel, _blacksmith_panel, _chest_panel]
 
 
 ## Abre [param panel] e fecha os outros; null fecha tudo. Com menu aberto, os controles do jogo param.

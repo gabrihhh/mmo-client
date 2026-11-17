@@ -103,8 +103,9 @@ var bot_direction: Vector2 = Vector2.ZERO
 var _bot_time: float = 0.0
 ## Estatística de correções (só com --bot-walk): quantas, a maior e a soma, em metros.
 var _corrections: int = 0
-## Nível mostrado no nome (−1 = ainda não mostrou).
+## Nível e tag de guilda mostrados no nome (−1 = ainda não mostrou).
 var _shown_level: int = -1
+var _shown_tag: String = ""
 var _max_correction: float = 0.0
 var _correction_sum: float = 0.0
 
@@ -164,9 +165,10 @@ func _process(delta: float) -> void:
 	var own: PlayerState = network.get_player(network.player_id)
 	if own != null:
 		_health_bar.set_values(own.hp_ratio(), own.shield_ratio())
-		# "[nível] nome" ([CLI-04], [JOGO-12]); só refaz quando muda.
-		if own.level != _shown_level:
+		# "[TAG][nível] nome" ([CLI-04], [JOGO-12], [SOC-06]); só refaz quando muda.
+		if own.level != _shown_level or own.guild_tag != _shown_tag:
 			_shown_level = own.level
+			_shown_tag = own.guild_tag
 			_name_label.text = own.title()
 		_death.update(_body, own.dead, delta)
 		_health_bar.visible = not own.dead
