@@ -25,7 +25,9 @@ extends RefCounted
 ## v25: tela de morte ([JOGO-21]): [constant MSG_DEATH_REPORT] e [constant MSG_RESPAWN].
 ## v26: PvP ([JOGO-22]): [code]levelsLost[/code] no [constant MSG_DEATH_REPORT].
 ## v27: recuperar senha ([INFRA-13]): [constant MSG_PASSWORD_RESET_REQUEST]/[constant MSG_PASSWORD_RESET_CONFIRM].
-const VERSION: int = 27
+## v28: acampamentos ([JOGO-19]): [code]resetIn[/code] (segundos até o acampamento voltar) no baú do welcome e no
+## evento [code]chest[/code], que também vem quando o relógio começa/muda/para (mapa, [CLI-11]).
+const VERSION: int = 28
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam

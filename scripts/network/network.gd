@@ -885,8 +885,12 @@ func _apply_snapshot(data: Dictionary) -> void:
 			var chest_id: String = Protocol.read_string(event, "id")
 			var open_value: Variant = event.get("open")
 			if chests.has(chest_id) and open_value is bool:
-				chests[chest_id].open = open_value
-				chest_changed.emit(chest_id, open_value)
+				var chest: ChestInfo = chests[chest_id]
+				# O evento também vem só para mudar o relógio da volta (mapa, [CLI-11]): avisa só se abriu/fechou.
+				chest.set_reset_in(Protocol.read_float(event, "resetIn"))
+				if chest.open != open_value:
+					chest.open = open_value
+					chest_changed.emit(chest_id, open_value)
 			continue
 		if Protocol.read_string(event, "type") == "look":
 			# Jogador ou NPC humano (o atirador de teste troca de roupa, [JOGO-11]).

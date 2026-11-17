@@ -17,6 +17,10 @@ extends Control
 ## = mover. O botão **Redefinir** (canto de cima) volta ao inicial (girado como a câmera, inteiro, centrado). A vista
 ## fica como estava ao fechar e abrir o mapa de novo.
 ##
+## **Acampamentos** ([JOGO-19]): com o relógio da volta correndo, o tempo que falta ("0:45") no lugar do baú —
+## dourado com o baú aberto (some ao acabar: o acampamento volta inteiro), claro com o acampamento pela metade e parado
+## (sem combate, volta todo junto quando zerar). Lutando, não há relógio.
+##
 ## Só desenha: lê as posições do [Network] (último snapshot) a cada quadro enquanto está visível.
 
 ## Imagem do mapa (importada como Image, sem compressão).
@@ -61,6 +65,8 @@ const COLOR_PLAYER: Color = Color(0.4, 0.9, 0.4)
 const COLOR_GROUP: Color = Color(1.0, 0.42, 0.85)
 ## Coroa em cima do marcador do líder do grupo.
 const COLOR_CROWN: Color = Color(1.0, 0.86, 0.35)
+## Relógio do acampamento pela metade e parado ([JOGO-19]); o do baú aberto usa [constant COLOR_CROWN] (dourado).
+const COLOR_CAMP_IDLE: Color = Color(0.9, 0.92, 0.95)
 ## Tamanho da fonte (px) do nome dos membros do grupo no mapa.
 const GROUP_NAME_FONT: int = 22
 const OUTLINE: Color = Color8(24, 16, 12)
@@ -349,6 +355,7 @@ func _draw_markers() -> void:
 				_draw_boss(world_to_map(npc.x, npc.z))
 			else:
 				_draw_square(world_to_map(npc.x, npc.z), COLOR_MONSTER if npc.monster else COLOR_NPC)
+	_draw_camp_timers(network)
 	var me: PlayerState = null
 	for player: PlayerState in network.get_players():
 		if player.id == network.player_id:
@@ -359,6 +366,23 @@ func _draw_markers() -> void:
 	# Você por cima de todos.
 	if me != null:
 		_draw_arrow(world_to_map(me.x, me.z), me.rot_y)
+
+
+## Relógio de cada acampamento com volta marcada ([JOGO-19]): baú aberto = baú dourado + tempo dourado; pela metade e
+## parado = só o tempo, claro. Contado no aparelho a partir do [member ChestInfo.reset_at_msec].
+func _draw_camp_timers(network: Network) -> void:
+	var font: Font = get_theme_default_font()
+	var font_size: int = clampi(int(14.0 + 3.0 * _zoom), 16, 30)
+	for chest: ChestInfo in network.chests.values():
+		var left: float = chest.reset_in_seconds()
+		if left < 0.0:
+			continue
+		var at: Vector2 = world_to_map(chest.x, chest.z)
+		if chest.open:
+			_draw_square(at, COLOR_CROWN)
+		var seconds: int = ceili(left)
+		_draw_centered(font, at + Vector2(0.0, MARKER_PX + font_size * 0.9), "%d:%02d" % [floori(seconds / 60.0), seconds % 60],
+			font_size, COLOR_CROWN if chest.open else COLOR_CAMP_IDLE)
 
 
 ## Membros do meu grupo (menos eu): quadrado rosa + nome; o líder com coroa. Posição: snapshot se está perto
