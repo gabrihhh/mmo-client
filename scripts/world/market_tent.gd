@@ -2,7 +2,7 @@ class_name MarketTent
 extends Node3D
 ## O **Mercador** no mundo ([JOGO-25]): uma tenda listrada com uma mesa cheia de pilhas de moedas e um baú aberto
 ## brilhando, no lugar do NPC `market` do servidor, com "Mercador" em cima. Feita por código (caixas, cilindros e um
-## cone low poly, sem luz de verdade: leve no celular). Não anda, não é alvo; perto dela a HUD mostra "🪙 Mercado".
+## cone low poly, sem luz de verdade: leve no celular). Não anda, não é alvo; perto dela a HUD mostra o botão "Mercado".
 
 ## Giro em Y (graus), quase de frente para a câmera isométrica ([CLI-02]).
 const FACING_DEGREES: float = -35.0

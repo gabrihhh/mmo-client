@@ -239,7 +239,7 @@ var _storage_button: Button = null
 ## Mercado ([JOGO-25]): tela e botão (mesmo lugar do botão do Ferreiro/Armazém; ficam a 12 m um do outro).
 var _market_panel: MarketPanel = null
 var _market_button: Button = null
-## Chat ([SOC-09]): painel, botão 💬 (com as não lidas) e o resumo das últimas mensagens em cima dos controles.
+## Chat ([SOC-09]): painel, botão do chat (ícone de balões, com as não lidas) e o resumo das últimas mensagens em cima dos controles.
 var _chat_panel: ChatPanel = null
 var _chat_button: Button = null
 var _chat_unread: int = 0
@@ -609,7 +609,7 @@ func set_blacksmith_near(near: bool) -> void:
 		show_toast("Você se afastou do ferreiro")
 
 
-## Mercado ([JOGO-25]): botão "🪙 Mercado" no lugar do botão do Ferreiro (só perto da tenda,
+## Mercado ([JOGO-25]): botão "Mercado" (moeda) no lugar do botão do Ferreiro (só perto da tenda,
 ## [method set_market_near]) e a tela do Mercado.
 func _build_market_ui() -> void:
 	var root: Control = $Root
@@ -621,7 +621,7 @@ func _build_market_ui() -> void:
 	_market_panel.sell_requested.connect(market_sell_requested.emit)
 	_market_panel.buy_requested.connect(market_buy_requested.emit)
 	_market_panel.cancel_requested.connect(market_cancel_requested.emit)
-	_market_button = PixelMenuPanel.make_button("🪙 Mercado")
+	_market_button = PixelMenuPanel.set_icon(PixelMenuPanel.make_button("Mercado"), "icon_coin")
 	_market_button.custom_minimum_size = Vector2(260.0, 84.0)
 	_market_button.visible = false
 	_market_button.pressed.connect(_open_panel.bind(_market_panel))
@@ -665,7 +665,7 @@ func show_market_sold(item_name: String, price: int, buyer_name: String) -> void
 	show_toast("Mercado: %s vendeu por %s moedas para %s!" % [item_name, InventoryView.format_gold(price), buyer_name])
 
 
-## Chat ([SOC-09]): botão 💬 à direita, logo acima da moldura dos controles (o do Ferreiro/Armazém fica no meio),
+## Chat ([SOC-09]): botão do chat (balões) à direita, logo acima da moldura dos controles (o do Ferreiro/Armazém fica no meio),
 ## o painel na metade de baixo e o resumo das 2 últimas mensagens à esquerda, que some em [constant CHAT_FEED_SECONDS] s.
 func _build_chat_ui() -> void:
 	var root: Control = $Root
@@ -673,7 +673,7 @@ func _build_chat_ui() -> void:
 	root.add_child(_chat_panel)
 	_chat_panel.close_pressed.connect(_open_panel.bind(null))
 	_chat_panel.send_requested.connect(chat_send_requested.emit)
-	_chat_button = PixelMenuPanel.make_button("💬")
+	_chat_button = PixelMenuPanel.set_icon(PixelMenuPanel.make_button(""), "icon_chat", 48)
 	_chat_button.custom_minimum_size = Vector2(120.0, 84.0)
 	_chat_button.pressed.connect(open_chat)
 	root.add_child(_chat_button)
@@ -704,7 +704,7 @@ func _place_chat_ui() -> void:
 ## Abre o chat (zera as não lidas).
 func open_chat() -> void:
 	_chat_unread = 0
-	_chat_button.text = "💬"
+	_chat_button.text = ""
 	_chat_feed.visible = false
 	_open_panel(_chat_panel)
 
@@ -717,7 +717,7 @@ func add_chat_message(message: ChatMessage) -> void:
 		return
 	if message.from_id != _own_id:
 		_chat_unread += 1
-		_chat_button.text = "💬 %d" % _chat_unread
+		_chat_button.text = str(_chat_unread)
 	_chat_feed_lines.append(ChatPanel.short_line(message))
 	if _chat_feed_lines.size() > 2:
 		_chat_feed_lines.pop_front()
@@ -748,7 +748,7 @@ func _fade_chat_feed(delta: float) -> void:
 		_chat_feed.modulate.a = _chat_feed_left
 
 
-## Armazém ([JOGO-26]): botão "📦 Armazém" no lugar do botão do Ferreiro (só aparece perto do baú grande,
+## Armazém ([JOGO-26]): botão "Armazém" (baú) no lugar do botão do Ferreiro (só aparece perto do baú grande,
 ## [method set_storage_near]) e a tela do Armazém.
 func _build_storage_ui() -> void:
 	var root: Control = $Root
@@ -758,7 +758,7 @@ func _build_storage_ui() -> void:
 	_storage_panel.put_requested.connect(storage_put_requested.emit)
 	_storage_panel.take_requested.connect(storage_take_requested.emit)
 	_storage_panel.buy_tab_requested.connect(storage_buy_tab_requested.emit)
-	_storage_button = PixelMenuPanel.make_button("📦 Armazém")
+	_storage_button = PixelMenuPanel.set_icon(PixelMenuPanel.make_button("Armazém"), "icon_chest")
 	_storage_button.custom_minimum_size = Vector2(260.0, 84.0)
 	_storage_button.visible = false
 	_storage_button.pressed.connect(_open_panel.bind(_storage_panel))

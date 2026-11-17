@@ -1,7 +1,7 @@
 class_name MarketPanel
 extends PanelContainer
 ## Tela do **Mercado** entre jogadores ([JOGO-25]), em tela inteira (variação `FullScreenPanel`, [CLI-07]), feita por
-## código. Abre pelo botão "🪙 Mercado" que aparece perto da tenda do Mercador ([Hud]). Um mercado só para o jogo
+## código. Abre pelo botão "Mercado" (moeda) que aparece perto da tenda do Mercador ([Hud]). Um mercado só para o jogo
 ## inteiro: tudo vem do servidor, que confere a distância, as moedas, a mochila e quem compra primeiro.
 ##
 ## Abas:
@@ -29,6 +29,9 @@ const OK_COLOR: Color = Color(0.5, 1.0, 0.5)
 const HINT_COLOR: Color = Color(1, 1, 1, 0.6)
 ## Filtros de slot (id → rótulo; "" = todos).
 const SLOT_FILTERS: Dictionary[String, String] = {"": "Todos", "hand": "Arma", "head": "Cabeça", "chest": "Peito", "feet": "Pés"}
+## Ícone pixel art de cada filtro e de cada aba (`assets/ui/pixel/`, de `tools/ui/make_pixel_ui.gd`).
+const SLOT_ICONS: Dictionary[String, String] = {"": "icon_bag", "hand": "sword", "head": "icon_helm", "chest": "icon_armor", "feet": "icon_boot"}
+const TAB_ICONS: Dictionary[String, String] = {"buy": "icon_bag", "sell": "icon_coin", "mine": "icon_list"}
 ## Abas (id → rótulo).
 const TAB_TITLES: Dictionary[String, String] = {"buy": "Comprar", "sell": "Vender", "mine": "Meus anúncios"}
 
@@ -112,7 +115,7 @@ func _ready() -> void:
 	tabs.add_theme_constant_override("separation", 8)
 	column.add_child(tabs)
 	for tab: String in ["buy", "sell", "mine"]:
-		var button: Button = PixelMenuPanel.make_button(TAB_TITLES[tab])
+		var button: Button = PixelMenuPanel.set_icon(PixelMenuPanel.make_button(TAB_TITLES[tab]), TAB_ICONS[tab], 36)
 		button.custom_minimum_size = Vector2(0.0, 68.0)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.add_theme_font_size_override("font_size", 26)
@@ -160,7 +163,7 @@ func _build_buy() -> Control:
 	filters.add_theme_constant_override("v_separation", 6)
 	box.add_child(filters)
 	for slot: String in SLOT_FILTERS:
-		var button: Button = PixelMenuPanel.make_button(SLOT_FILTERS[slot])
+		var button: Button = PixelMenuPanel.set_icon(PixelMenuPanel.make_button(SLOT_FILTERS[slot]), SLOT_ICONS[slot], 32)
 		button.custom_minimum_size = Vector2(0.0, 56.0)
 		button.add_theme_font_size_override("font_size", 22)
 		button.pressed.connect(func() -> void:
@@ -185,7 +188,7 @@ func _build_buy() -> Control:
 	var pager: HBoxContainer = HBoxContainer.new()
 	pager.add_theme_constant_override("separation", 8)
 	box.add_child(pager)
-	var prev: Button = PixelMenuPanel.make_button("◀")
+	var prev: Button = PixelMenuPanel.set_icon(PixelMenuPanel.make_button(""), "icon_arrow_left", 40)
 	prev.custom_minimum_size = Vector2(110.0, 60.0)
 	prev.pressed.connect(func() -> void:
 		if _page > 0:
@@ -196,7 +199,7 @@ func _build_buy() -> Control:
 	_page_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_page_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pager.add_child(_page_label)
-	var next: Button = PixelMenuPanel.make_button("▶")
+	var next: Button = PixelMenuPanel.set_icon(PixelMenuPanel.make_button(""), "icon_arrow_right", 40)
 	next.custom_minimum_size = Vector2(110.0, 60.0)
 	next.pressed.connect(func() -> void:
 		if _page + 1 < _pages:
@@ -358,7 +361,7 @@ func _refresh_buy_list() -> void:
 		return
 	for listing: MarketListing in _page_listings:
 		var subtitle: String = "%s · vence em %s" % [listing.seller_name, _duration(listing.expires_in)]
-		var button: Button = PixelMenuPanel.make_button("Confirmar?" if _confirm_id == listing.id else "%s 🪙" % _fmt(listing.price))
+		var button: Button = PixelMenuPanel.set_icon(PixelMenuPanel.make_button("Confirmar?" if _confirm_id == listing.id else _fmt(listing.price)), "icon_coin", 32)
 		button.custom_minimum_size = Vector2(220.0, 72.0)
 		button.disabled = _gold < listing.price or listing.seller_name == Network.instance.username
 		button.pressed.connect(_on_buy_pressed.bind(listing.id))
@@ -425,13 +428,13 @@ func _refresh_mine() -> void:
 		var button: Button = null
 		match listing.status:
 			"active":
-				subtitle = "%s 🪙 · vence em %s" % [_fmt(listing.price), _duration(listing.expires_in)]
+				subtitle = "%s moedas · vence em %s" % [_fmt(listing.price), _duration(listing.expires_in)]
 				button = PixelMenuPanel.make_button("Cancelar")
 			"expired":
-				subtitle = "%s 🪙 · venceu" % _fmt(listing.price)
+				subtitle = "%s moedas · venceu" % _fmt(listing.price)
 				button = PixelMenuPanel.make_button("Retirar")
 			_:
-				subtitle = "Vendido por %s 🪙 para %s" % [_fmt(listing.price), listing.buyer_name]
+				subtitle = "Vendido por %s moedas para %s" % [_fmt(listing.price), listing.buyer_name]
 		if button != null:
 			button.custom_minimum_size = Vector2(200.0, 72.0)
 			button.pressed.connect(cancel_requested.emit.bind(listing.id))

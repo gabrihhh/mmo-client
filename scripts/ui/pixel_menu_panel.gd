@@ -100,6 +100,16 @@ static func make_button(text: String, align_left: bool = false) -> Button:
 	return button
 
 
+## Põe o ícone pixel art [param file_name] (`assets/ui/pixel/<nome>.png`, de `tools/ui/make_pixel_ui.gd`) no
+## [param button], ampliado até [param size_px] de largura. A fonte pixel art não tem emoji: ícone é imagem.
+static func set_icon(button: Button, file_name: String, size_px: int = 40) -> Button:
+	button.icon = load("res://assets/ui/pixel/%s.png" % file_name) as Texture2D
+	button.expand_icon = true
+	button.add_theme_constant_override("icon_max_width", size_px)
+	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	return button
+
+
 ## Texto de conteúdo (quebra linha se não couber).
 ## Botão de fechar (72×72 px) com o X vermelho em pixel art (`icon_close.png`, gerado por
 ## `tools/ui/make_pixel_ui.gd`). A fonte pixel art não tem o caractere "✕" (o botão aparecia vazio).

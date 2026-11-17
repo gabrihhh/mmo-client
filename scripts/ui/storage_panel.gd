@@ -1,7 +1,7 @@
 class_name StoragePanel
 extends PanelContainer
 ## Tela do **Armazém** ([JOGO-26]), em tela inteira (variação `FullScreenPanel`, [CLI-07]), feita por código. Abre
-## pelo botão "📦 Armazém" que aparece perto do baú grande da praça ([Hud]).
+## pelo botão "Armazém" (baú) que aparece perto do baú grande da praça ([Hud]).
 ##
 ## ```
 ## ┌──────── Armazém ──────── [X]┐

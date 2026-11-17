@@ -1,7 +1,7 @@
 class_name ChatPanel
 extends PanelContainer
 ## Painel do **chat** ([SOC-09]): metade de baixo da tela, feito por código; o campo de digitar fica no topo do painel
-## (o teclado do celular sobe por baixo e cobriria um campo no fim). Abre pelo botão 💬 da HUD ([Hud]).
+## (o teclado do celular sobe por baixo e cobriria um campo no fim). Abre pelo botão do chat (balões) da HUD ([Hud]).
 ##
 ## ```
 ## ┌ [Tudo][Geral][Grupo][Guilda][Privado][Global]  [X]┐
@@ -23,6 +23,8 @@ signal close_pressed
 ## Canais na ordem das abas ("all" = Tudo). ATENÇÃO: canais = CHAT_CHANNELS em mmo-server/src/social/chat.ts.
 const TABS: Array[String] = ["all", "zone", "group", "guild", "private", "global"]
 const TAB_TITLES: Dictionary[String, String] = {"all": "Tudo", "zone": "Geral", "group": "Grupo", "guild": "Guilda", "private": "Privado", "global": "Global"}
+## Ícone pixel art de cada aba (`assets/ui/pixel/`, de `tools/ui/make_pixel_ui.gd`).
+const TAB_ICONS: Dictionary[String, String] = {"all": "icon_chat", "zone": "icon_zone", "group": "icon_group", "guild": "icon_guild", "private": "icon_private", "global": "icon_global"}
 ## Cor de cada canal (Geral branco, Grupo verde, Guilda azul, Privado rosa, Global dourado).
 const COLORS: Dictionary[String, Color] = {
 	"zone": Color(1, 1, 1),
@@ -69,7 +71,7 @@ func _ready() -> void:
 	tabs.add_theme_constant_override("v_separation", 6)
 	top.add_child(tabs)
 	for tab: String in TABS:
-		var button: Button = PixelMenuPanel.make_button(TAB_TITLES[tab])
+		var button: Button = PixelMenuPanel.set_icon(PixelMenuPanel.make_button(TAB_TITLES[tab]), TAB_ICONS[tab], 32)
 		button.custom_minimum_size = Vector2(0.0, 60.0)
 		button.add_theme_font_size_override("font_size", 24)
 		button.pressed.connect(_set_tab.bind(tab))

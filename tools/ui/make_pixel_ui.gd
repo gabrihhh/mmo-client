@@ -2,7 +2,9 @@ extends SceneTree
 ## Gera as peças pixel art da HUD ([CLI-08]) em `assets/ui/pixel/`: moldura das barras/controles (e a versão opaca
 ## dos painéis do Menu), fundo das cartas
 ## e do Menu (normal e apertado), botão redondo
-## (ataque e "Desfocar"), espada, espada riscada, os ícones do menu (☰, mochila, mapa, engrenagem, sair), o **X vermelho**
+## (ataque e "Desfocar"), espada, espada riscada, os ícones do menu (☰, mochila, mapa, engrenagem, sair), os ícones do
+## chat (balões, grupo, guilda, envelope, globo), do Mercado/Armazém (moeda, baú, elmo, peitoral, bota, lista, setas;
+## a fonte pixel art não tem emoji), o **X vermelho**
 ## dos botões de fechar ([method PixelMenuPanel.make_close_button]) e as peças da
 ## tela de login ([CLI-05]): campo de texto (normal e selecionado) e o piso de pedra do fundo.
 ##
@@ -47,6 +49,13 @@ const PALETTE: Dictionary[String, Color] = {
 	"R": Color8(130, 30, 30),
 	"x": Color8(240, 236, 226),
 	"o": Color8(255, 128, 104),
+	# Chat ([SOC-09]): verde do Grupo, azul da Guilda, rosa do Privado (claro/escuro).
+	"e": Color8(110, 210, 100),
+	"E": Color8(54, 140, 60),
+	"u": Color8(110, 160, 240),
+	"U": Color8(50, 90, 180),
+	"p": Color8(250, 170, 215),
+	"P": Color8(200, 80, 150),
 }
 
 ## Espada na diagonal, ponta para cima/direita (16×16). w/s = lâmina clara/sombra, g/G = guarda e pomo, b/B = cabo.
@@ -219,6 +228,255 @@ const ICON_PLAYERS: Array[String] = [
 	"................",
 ]
 
+## Chat (botão 💬 e aba Tudo): dois balões, um dourado atrás e um branco na frente.
+const ICON_CHAT: Array[String] = [
+	"................",
+	".gggggggg.......",
+	".gggggggg.......",
+	".gggggggg.......",
+	".gggwwwwwwwwww..",
+	".gg.wwwwwwwwww..",
+	".g..wwSwSwSwww..",
+	"....wwwwwwwwww..",
+	"....wwwwwwwwww..",
+	"...........ww...",
+	"............w...",
+	"................",
+	"................",
+	"................",
+	"................",
+	"................",
+]
+## Chat Geral: um balão branco com reticências.
+const ICON_ZONE: Array[String] = [
+	"................",
+	"................",
+	"...wwwwwwwwww...",
+	"..wwwwwwwwwwww..",
+	"..wwwwwwwwwwww..",
+	"..wwSwwSwwSwww..",
+	"..wwwwwwwwwwww..",
+	"..wwwwwwwwwwww..",
+	"...wwwwwwwwww...",
+	"....www.........",
+	"...ww...........",
+	"..w.............",
+	"................",
+	"................",
+	"................",
+	"................",
+]
+## Chat do Grupo: três cabeças verdes (a do meio na frente).
+const ICON_GROUP: Array[String] = [
+	"................",
+	"................",
+	"..EE...ee...EE..",
+	".EEEE.eeee.EEEE.",
+	".EEEE.eeee.EEEE.",
+	"..EE...ee...EE..",
+	"......eeee......",
+	".EEE.eeeeee.EEE.",
+	"EEEEEeeeeeeEEEEE",
+	"EEEEEeeeeeeEEEEE",
+	"EEEEEeeeeeeEEEEE",
+	"................",
+	"................",
+	"................",
+	"................",
+	"................",
+]
+## Chat da Guilda: escudo azul com um emblema dourado.
+const ICON_GUILD: Array[String] = [
+	"................",
+	"..uuuuuuuuuuuu..",
+	"..uUUUUUUUUUUu..",
+	"..uUUUUggUUUUu..",
+	"..uUUUggggUUUu..",
+	"..uUUUUggUUUUu..",
+	"..uUUUUggUUUUu..",
+	"..uUUUUUUUUUUu..",
+	"...uUUUUUUUUu...",
+	"...uUUUUUUUUu...",
+	"....uUUUUUUu....",
+	".....uUUUUu.....",
+	"......uUUu......",
+	".......uu.......",
+	"................",
+	"................",
+]
+## Chat Privado: envelope rosa fechado.
+const ICON_PRIVATE: Array[String] = [
+	"................",
+	"................",
+	"................",
+	".PPPPPPPPPPPPPP.",
+	".PpPPPPPPPPPPpP.",
+	".PppPPPPPPPPppP.",
+	".PpppPPPPPPpppP.",
+	".PppppPPPPppppP.",
+	".PpppppPPpppppP.",
+	".PppppppppppppP.",
+	".PppppppppppppP.",
+	".PppppppppppppP.",
+	".PPPPPPPPPPPPPP.",
+	"................",
+	"................",
+	"................",
+]
+## Chat Global: globo azul com terras verdes.
+const ICON_GLOBAL: Array[String] = [
+	"................",
+	".....uuuuuu.....",
+	"...uueeuuuuuu...",
+	"..uueeeeuuuuuu..",
+	"..ueeeeeuuueeu..",
+	".uuueeeuuueeeeu.",
+	".uuuueeuuueeeeu.",
+	".uuuuuuuuuueeuu.",
+	".uuuuueeuuuuuuu.",
+	".uuuueeeeuuuuuu.",
+	"..uuueeeeeuuuu..",
+	"..uuuueeeuuuuu..",
+	"...uuuueuuuuu...",
+	".....uuuuuu.....",
+	"................",
+	"................",
+]
+## Moeda de ouro (Mercado, preços).
+const ICON_COIN: Array[String] = [
+	"................",
+	"................",
+	".....GGGGGG.....",
+	"....GggggggG....",
+	"...GggwwgggGG...",
+	"...GgwgggggGG...",
+	"...GgwgggggGG...",
+	"...GggggggggG...",
+	"...GggggggggG...",
+	"...GGgggggGGG...",
+	"....GGGGGGGG....",
+	".....GGGGGG.....",
+	"................",
+	"................",
+	"................",
+	"................",
+]
+## Baú (Armazém): madeira com faixas e fechadura douradas.
+const ICON_CHEST: Array[String] = [
+	"................",
+	"................",
+	"................",
+	"..bbbbbbbbbbbb..",
+	".bBBBBBBBBBBBBb.",
+	".bbbbbbbbbbbbbb.",
+	".BBBBBBggBBBBBB.",
+	".bbbgbbGGbbgbbb.",
+	".bbbgbbbbbbgbbb.",
+	".bbbgbbbbbbgbbb.",
+	".bbbgbbbbbbgbbb.",
+	".BBBBBBBBBBBBBB.",
+	"................",
+	"................",
+	"................",
+	"................",
+]
+## Elmo (filtro Cabeça).
+const ICON_HELM: Array[String] = [
+	"................",
+	"................",
+	".....ssssss.....",
+	"....swwssssS....",
+	"...swsssssssS...",
+	"...swsssssssS...",
+	"...ssssssssss...",
+	"...SSSSSSSSSS...",
+	"...SS.SSSS.SS...",
+	"...SS.SSSS.SS...",
+	"...SSSSSSSSSS...",
+	"....SSS..SSS....",
+	"................",
+	"................",
+	"................",
+	"................",
+]
+## Peitoral (filtro Peito).
+const ICON_ARMOR: Array[String] = [
+	"................",
+	"...ss......ss...",
+	"..ssss....ssss..",
+	"..sssssssssssS..",
+	"...swsssssssS...",
+	"...swssssssSS...",
+	"...sssssssssS...",
+	"...sssssssssS...",
+	"....ssssssSS....",
+	"....ssssssSS....",
+	"....SSSSSSSS....",
+	"................",
+	"................",
+	"................",
+	"................",
+	"................",
+]
+## Bota (filtro Pés).
+const ICON_BOOT: Array[String] = [
+	"................",
+	"................",
+	"....bbbbb.......",
+	"....bbbbb.......",
+	"....bBbbb.......",
+	"....bbbbb.......",
+	"....bbbbb.......",
+	"....bbbbb.......",
+	"....bbbbbbbb....",
+	"....bbbbbbbbbb..",
+	"....BBBBBBBBBB..",
+	"................",
+	"................",
+	"................",
+	"................",
+	"................",
+]
+## Lista (Meus anúncios): papel com linhas.
+const ICON_LIST: Array[String] = [
+	"................",
+	"...xxxxxxxxxx...",
+	"...xxxxxxxxxx...",
+	"...xSSSSSSSxx...",
+	"...xxxxxxxxxx...",
+	"...xSSSSSSxxx...",
+	"...xxxxxxxxxx...",
+	"...xSSSSSSSxx...",
+	"...xxxxxxxxxx...",
+	"...xSSSSSxxxx...",
+	"...xxxxxxxxxx...",
+	"...xxxxxxxxxx...",
+	"................",
+	"................",
+	"................",
+	"................",
+]
+## Seta para a direita (páginas; a da esquerda é ela espelhada).
+const ICON_ARROW: Array[String] = [
+	"................",
+	"................",
+	"................",
+	"....w...........",
+	"....ww..........",
+	"....www.........",
+	"....wwww........",
+	"....wwwww.......",
+	"....wwww........",
+	"....www.........",
+	"....ww..........",
+	"....w...........",
+	"................",
+	"................",
+	"................",
+	"................",
+]
+
+
 func _init() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
 	_save(_outlined(_from_map(SWORD)), "sword")
@@ -232,6 +490,24 @@ func _init() -> void:
 	_save(_outlined(_from_map(ICON_EXIT)), "icon_exit")
 	_save(_outlined(_from_map(ICON_PLAYERS)), "icon_players")
 	_save(_outlined(_from_map(ICON_CLOSE)), "icon_close")
+	# Chat ([SOC-09]), Mercado ([JOGO-25]) e Armazém ([JOGO-26]).
+	_save(_outlined(_from_map(ICON_CHAT)), "icon_chat")
+	_save(_outlined(_from_map(ICON_ZONE)), "icon_zone")
+	_save(_outlined(_from_map(ICON_GROUP)), "icon_group")
+	_save(_outlined(_from_map(ICON_GUILD)), "icon_guild")
+	_save(_outlined(_from_map(ICON_PRIVATE)), "icon_private")
+	_save(_outlined(_from_map(ICON_GLOBAL)), "icon_global")
+	_save(_outlined(_from_map(ICON_COIN)), "icon_coin")
+	_save(_outlined(_from_map(ICON_CHEST)), "icon_chest")
+	_save(_outlined(_from_map(ICON_HELM)), "icon_helm")
+	_save(_outlined(_from_map(ICON_ARMOR)), "icon_armor")
+	_save(_outlined(_from_map(ICON_BOOT)), "icon_boot")
+	_save(_outlined(_from_map(ICON_LIST)), "icon_list")
+	var arrow: Image = _outlined(_from_map(ICON_ARROW))
+	_save(arrow, "icon_arrow_right")
+	var left: Image = arrow.duplicate() as Image
+	left.flip_x()
+	_save(left, "icon_arrow_left")
 	_save(_round_button(32, false), "round_button")
 	_save(_round_button(32, true), "round_button_pressed")
 	for pressed: bool in [false, true]:
