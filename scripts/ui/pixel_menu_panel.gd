@@ -101,13 +101,22 @@ static func make_button(text: String, align_left: bool = false) -> Button:
 
 
 ## Põe o ícone pixel art [param file_name] (`assets/ui/pixel/<nome>.png`, de `tools/ui/make_pixel_ui.gd`) no
-## [param button], ampliado até [param size_px] de largura. A fonte pixel art não tem emoji: ícone é imagem.
+## [param button], ampliado (pixel a pixel) para [param size_px] de lado. A fonte pixel art não tem emoji: ícone é
+## imagem. A textura já sai ampliada (em vez de `expand_icon`) para o botão contar o ícone na largura mínima: com
+## `expand_icon`, um botão do tamanho do texto (filtros do Mercado, abas do chat) espremia o ícone até sumir.
 static func set_icon(button: Button, file_name: String, size_px: int = 40) -> Button:
-	button.icon = load("res://assets/ui/pixel/%s.png" % file_name) as Texture2D
-	button.expand_icon = true
-	button.add_theme_constant_override("icon_max_width", size_px)
-	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	var key: String = "%s@%d" % [file_name, size_px]
+	if not _icon_cache.has(key):
+		var source: Texture2D = load("res://assets/ui/pixel/%s.png" % file_name) as Texture2D
+		var image: Image = source.get_image()
+		image.resize(size_px, size_px, Image.INTERPOLATE_NEAREST)
+		_icon_cache[key] = ImageTexture.create_from_image(image)
+	button.icon = _icon_cache[key]
 	return button
+
+
+## Ícones já ampliados por [method set_icon] ("nome@tamanho" → textura): cada um é feito uma vez só.
+static var _icon_cache: Dictionary[String, Texture2D] = {}
 
 
 ## Texto de conteúdo (quebra linha se não couber).
