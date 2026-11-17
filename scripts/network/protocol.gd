@@ -42,7 +42,9 @@ extends RefCounted
 ## / [constant MSG_TRADE_STATE] / [constant MSG_TRADE_DONE] / [constant MSG_TRADE_NOTICE]; tradeRequests na
 ## Configuração social.
 ## v35: [constant MSG_ITEM_DESTROY] (botão Destruir da ficha do item, [JOGO-24]).
-const VERSION: int = 35
+## v36: Loja do Ferreiro ([JOGO-23]): [constant MSG_SHOP_OPEN] / [constant MSG_SHOP_BUY] / [constant MSG_SHOP_SELL] →
+## [constant MSG_SHOP] / [constant MSG_SHOP_RESULT]; sellPrice no item.
+const VERSION: int = 36
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
@@ -87,6 +89,12 @@ const MSG_UNEQUIP: String = "unequip"
 const MSG_BAG_MOVE: String = "bag_move"
 ## Destrói um item para sempre: { uid } ([JOGO-24]). Responde com o [code]inventory[/code] novo.
 const MSG_ITEM_DESTROY: String = "item_destroy"
+## Abre a aba Loja do Ferreiro: pede a lista à venda (sem payload). Resposta: [constant MSG_SHOP] ([JOGO-23]).
+const MSG_SHOP_OPEN: String = "shop_open"
+## Compra uma peça +0: { itemId }. Resposta: [constant MSG_SHOP_RESULT] + inventory, ou erro.
+const MSG_SHOP_BUY: String = "shop_buy"
+## Vende um item da mochila: { uid }. Resposta: [constant MSG_SHOP_RESULT] + inventory, ou erro.
+const MSG_SHOP_SELL: String = "shop_sell"
 ## Tenta melhorar um item no ferreiro (perto dele, com moedas). data: { uid, attribute: id de [ItemAttributes] }.
 ## Resposta: [constant MSG_UPGRADE_RESULT] (+ inventário se subiu) ou erro (not_enough_gold, too_far...). [JOGO-16]
 const MSG_UPGRADE: String = "upgrade"
@@ -224,6 +232,10 @@ const MSG_UPGRADE_RESULT: String = "upgrade_result"
 const MSG_CHEST_LOOT: String = "chest_loot"
 ## Resultado da fusão: {uid, levelsGained, xpGained, level, xp, xpNext}. [JOGO-20]
 const MSG_FUSE_RESULT: String = "fuse_result"
+## Lista da Loja do Ferreiro: { offers: [{ item, price }] } ([JOGO-23]).
+const MSG_SHOP: String = "shop"
+## Compra/venda feita: { action: "buy"|"sell", itemId, gold } ([JOGO-23]).
+const MSG_SHOP_RESULT: String = "shop_result"
 ## Você morreu: {killer, goldLost, xpLost, equipped: [{slot, item}], pickedSlot, broken, autoRespawnSeconds}. [JOGO-21]
 ## ATENÇÃO: DeathReportData em mmo-server/src/net/protocol.ts.
 const MSG_DEATH_REPORT: String = "death_report"

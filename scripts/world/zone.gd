@@ -71,6 +71,12 @@ func _ready() -> void:
 	# Fusão no ferreiro ([JOGO-20]).
 	_hud.fuse_requested.connect(Network.instance.send_fuse)
 	Network.instance.fuse_result.connect(_hud.show_fuse_result)
+	# Loja do Ferreiro ([JOGO-23]).
+	_hud.shop_open_requested.connect(Network.instance.send_shop_open)
+	_hud.shop_buy_requested.connect(Network.instance.send_shop_buy)
+	_hud.shop_sell_requested.connect(Network.instance.send_shop_sell)
+	Network.instance.shop_received.connect(_hud.show_shop)
+	Network.instance.shop_result.connect(_hud.show_shop_result)
 	# Baús dos acampamentos ([JOGO-19]): abrir/pegar vão ao servidor; o que sobrou volta para a janela do baú.
 	_hud.chest_open_requested.connect(Network.instance.send_chest_open)
 	_hud.chest_take_requested.connect(Network.instance.send_chest_take)

@@ -43,6 +43,9 @@ class Item:
 	var xp: float = 0.0
 	var xp_next: float = 0.0
 	var fusion_xp: float = 0.0
+	## Quanto a Loja do Ferreiro paga por este item, em moedas ([JOGO-23]).
+	## ATENÇÃO: sellPrice do ItemView em mmo-server/src/net/protocol.ts (conta em src/items/shop.ts).
+	var sell_price: int = 0
 
 	## Nome com o nível: "Espada Longa +3" (+0 = só o nome).
 	func display_name() -> String:
@@ -83,6 +86,7 @@ class Item:
 		item.xp = Protocol.read_float(data, "xp")
 		item.xp_next = Protocol.read_float(data, "xpNext")
 		item.fusion_xp = Protocol.read_float(data, "fusionXp")
+		item.sell_price = Protocol.read_int(data, "sellPrice")
 		return item
 
 

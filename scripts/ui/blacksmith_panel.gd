@@ -25,11 +25,20 @@ extends PanelContainer
 ## "Fundir" sacrifica o igual e passa a experiência dele (sem moedas, sem falhar).
 ## "Melhorar" abre a forja ([UpgradeForge]): a carga demora ~1,8 s e o resultado (e o inventário novo, com o "+N") só
 ## aparece no ápice, mesmo que o servidor tenha respondido antes.
+## Terceira aba, **Loja** ([JOGO-23]): **Comprar** lista as peças +0 de todos os conjuntos (vem do servidor em
+## [method show_shop]) e **Vender** usa os seus itens (vestido não vende; item +1 ou mais pede um segundo toque para
+## confirmar). Preços prontos do servidor (oferta e [member InventoryState.Item.sell_price]).
 
 ## Apertou "Melhorar": item [param uid] com o atributo [param attribute].
 signal upgrade_requested(uid: String, attribute: String)
 ## Apertou "Fundir": sacrificar [param material_uid] (da mochila) em [param target_uid] (o mesmo item). [JOGO-20]
 signal fuse_requested(target_uid: String, material_uid: String)
+## Abriu a aba Loja sem a lista ainda: pedir ao servidor ([JOGO-23]).
+signal shop_open_requested
+## Apertou "Comprar" na Loja: a peça [param item_id] (+0).
+signal shop_buy_requested(item_id: String)
+## Confirmou "Vender" na Loja: o item [param uid] da mochila.
+signal shop_sell_requested(uid: String)
 ## Apertou X ou Voltar.
 signal close_pressed
 
@@ -71,6 +80,15 @@ var _fuse_hint: Label = null
 var _material_grid: GridContainer = null
 var _fuse_button: Button = null
 ## Guardados enquanto a forja anima: o inventário novo e a mensagem do resultado (aplicados no fim).
+## Loja ([JOGO-23]): peças à venda (uid "shop-<itemId>"), preço de cada uid, sub-aba e o 1º toque da venda de item +N.
+var _offers: Array[InventoryState.Item] = []
+var _offer_prices: Dictionary[String, int] = {}
+var _shop_buy: bool = true
+var _sell_confirm_uid: String = ""
+var _shop_section: VBoxContainer = null
+var _shop_tabs: Dictionary[bool, Button] = {}
+var _shop_button: Button = null
+var _pick_label: Label = null
 var _pending_inventory: InventoryState = null
 var _pending_message: String = ""
 var _pending_color: Color = Color.WHITE
@@ -120,8 +138,8 @@ func _ready() -> void:
 	# Abas: Melhorar (moedas) e Fundir (item igual, [JOGO-20]).
 	var tabs: HBoxContainer = HBoxContainer.new()
 	tabs.add_theme_constant_override("separation", 12)
-	for mode: String in ["upgrade", "fuse"]:
-		var tab: Button = PixelMenuPanel.make_button("Melhorar" if mode == "upgrade" else "Fundir")
+	for mode: String in ["upgrade", "fuse", "shop"]:
+		var tab: Button = PixelMenuPanel.make_button(_tab_title(mode))
 		tab.custom_minimum_size = Vector2(0.0, 72.0)
 		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tab.pressed.connect(_set_mode.bind(mode))
@@ -172,11 +190,30 @@ func _ready() -> void:
 	_fuse_button.custom_minimum_size = Vector2(0.0, UPGRADE_BUTTON_PX)
 	_fuse_button.pressed.connect(_on_fuse_pressed)
 	_fuse_section.add_child(_fuse_button)
+	# Loja ([JOGO-23]): Comprar / Vender e o botão.
+	_shop_section = VBoxContainer.new()
+	_shop_section.add_theme_constant_override("separation", 12)
+	column.add_child(_shop_section)
+	var shop_tabs: HBoxContainer = HBoxContainer.new()
+	shop_tabs.add_theme_constant_override("separation", 12)
+	for buy: bool in [true, false]:
+		var shop_tab: Button = PixelMenuPanel.make_button("Comprar" if buy else "Vender", true)
+		shop_tab.custom_minimum_size = Vector2(0.0, ATTRIBUTE_BUTTON_PX)
+		shop_tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		shop_tab.pressed.connect(_set_shop_buy.bind(buy))
+		shop_tabs.add_child(shop_tab)
+		_shop_tabs[buy] = shop_tab
+	_shop_section.add_child(shop_tabs)
+	_shop_button = PixelMenuPanel.make_button("Comprar")
+	_shop_button.custom_minimum_size = Vector2(0.0, UPGRADE_BUTTON_PX)
+	_shop_button.pressed.connect(_on_shop_pressed)
+	_shop_section.add_child(_shop_button)
 	_result_label = _label("", 24, SUCCESS_COLOR)
 	_result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(_result_label)
 
-	column.add_child(_label("Seus itens:", 20, Color(1, 1, 1, 0.6)))
+	_pick_label = _label("Seus itens:", 20, Color(1, 1, 1, 0.6))
+	column.add_child(_pick_label)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -252,8 +289,10 @@ func show_notice(text: String) -> void:
 		_forge.abort()
 		_apply_pending()
 	_waiting = false
+	_sell_confirm_uid = ""
 	_show_message(text, FAIL_COLOR)
 	_refresh_button()
+	_refresh_shop()
 
 
 ## Forja fechou: aplica o inventário novo e a mensagem guardados.
@@ -292,7 +331,7 @@ func _all_items() -> Array[InventoryState.Item]:
 
 
 func _find(uid: String) -> InventoryState.Item:
-	for item: InventoryState.Item in _all_items():
+	for item: InventoryState.Item in _pick_items():
 		if item.uid == uid:
 			return item
 	return null
@@ -302,7 +341,8 @@ func _refresh() -> void:
 	_gold_label.text = "%s moedas" % InventoryView.format_gold(_gold)
 	for child: Node in _pick_grid.get_children():
 		child.queue_free()
-	for item: InventoryState.Item in _all_items():
+	_pick_label.text = "À venda (peças +0):" if _in_shop_buy() else "Seus itens:"
+	for item: InventoryState.Item in _pick_items():
 		var view: ItemSlot = ItemSlot.new()
 		view.custom_minimum_size = Vector2(PICK_SLOT_PX, PICK_SLOT_PX)
 		view.show_item(item)
@@ -314,6 +354,7 @@ func _refresh() -> void:
 
 func _select(uid: String) -> void:
 	if uid != _selected_uid:
+		_sell_confirm_uid = ""
 		_selected_attribute = ""
 		_material_uid = ""
 		_result_label.text = ""
@@ -332,6 +373,7 @@ func _refresh_selected() -> void:
 		_selected_name.text = "Escolha um item"
 		_selected_attrs.text = "Toque num item da lista embaixo."
 		_refresh_button()
+		_refresh_shop()
 		return
 	_selected_name.text = item.display_name()
 	var parts: Array[String] = []
@@ -356,6 +398,7 @@ func _refresh_selected() -> void:
 		button.pressed.connect(_choose_attribute.bind(id))
 		_attribute_box.add_child(button)
 	_refresh_button()
+	_refresh_shop()
 
 
 func _choose_attribute(id: String) -> void:
@@ -419,10 +462,116 @@ func _set_mode(mode: String) -> void:
 	for key: String in _tab_buttons.keys():
 		var tab: Button = _tab_buttons[key]
 		tab.modulate = Color(1, 1, 1) if key == mode else Color(1, 1, 1, 0.5)
-		tab.text = ("✓ " if key == mode else "") + ("Melhorar" if key == "upgrade" else "Fundir")
+		tab.text = ("✓ " if key == mode else "") + _tab_title(key)
 	_upgrade_section.visible = mode == "upgrade"
 	_fuse_section.visible = mode == "fuse"
+	_shop_section.visible = mode == "shop"
+	if mode == "shop" and _offers.is_empty():
+		shop_open_requested.emit()
+	_set_shop_buy(_shop_buy)
+
+
+static func _tab_title(mode: String) -> String:
+	match mode:
+		"upgrade":
+			return "Melhorar"
+		"fuse":
+			return "Fundir"
+	return "Loja"
+
+
+# --- Loja ([JOGO-23]) ---
+
+## Lista da Loja chegou do servidor: [param items] (+0) e o preço de cada um ([param prices], mesma ordem).
+func show_shop(items: Array[InventoryState.Item], prices: Array[int]) -> void:
+	_offers = items
+	_offer_prices.clear()
+	for i: int in range(mini(items.size(), prices.size())):
+		_offer_prices[items[i].uid] = prices[i]
+	if is_node_ready() and _in_shop_buy():
+		_refresh()
+
+
+## Compra/venda feita ([signal Network.shop_result]): mensagem com o item e as moedas.
+func show_shop_result(action: String, item_id: String, gold: int) -> void:
+	var item_name: String = "Item"
+	for offer: InventoryState.Item in _offers:
+		if offer.item_id == item_id:
+			item_name = offer.name
+	_waiting = false
+	_sell_confirm_uid = ""
+	if action == "buy":
+		_show_message("Comprou %s por %s moedas (foi para a mochila)." % [item_name, InventoryView.format_gold(gold)], SUCCESS_COLOR)
+	else:
+		_show_message("Vendeu %s por %s moedas." % [item_name, InventoryView.format_gold(gold)], GOLD_COLOR)
+	_refresh_shop()
+
+
+func _in_shop_buy() -> bool:
+	return _mode == "shop" and _shop_buy
+
+
+## O que a lista de baixo mostra: as peças à venda (Loja → Comprar) ou os seus itens.
+func _pick_items() -> Array[InventoryState.Item]:
+	return _offers if _in_shop_buy() else _all_items()
+
+
+func _set_shop_buy(buy: bool) -> void:
+	if buy != _shop_buy:
+		_selected_uid = ""
+	_shop_buy = buy
+	_sell_confirm_uid = ""
+	for key: bool in _shop_tabs.keys():
+		var tab: Button = _shop_tabs[key]
+		tab.button_pressed = key == buy
+		tab.modulate = Color(1, 1, 1) if key == buy else Color(1, 1, 1, 0.5)
 	_refresh()
+
+
+## Texto e estado do botão da Loja: preço da peça (Comprar) ou quanto o ferreiro paga (Vender).
+func _refresh_shop() -> void:
+	if _shop_button == null or _mode != "shop":
+		return
+	var item: InventoryState.Item = _find(_selected_uid)
+	if item == null:
+		_shop_button.text = "Comprar" if _shop_buy else "Vender"
+		_shop_button.disabled = true
+		return
+	if _shop_buy:
+		var price: int = _offer_prices.get(item.uid, 0)
+		_shop_button.text = "Comprar · %s moedas" % InventoryView.format_gold(price)
+		_shop_button.disabled = _waiting or _gold < price
+		if not _waiting and _gold < price and _result_label.text.is_empty():
+			_show_message("Moedas insuficientes.", FAIL_COLOR)
+		return
+	var worn: bool = _inventory != null and not _inventory.bag.has(item)
+	if worn:
+		_shop_button.text = "Tire o item antes de vender"
+		_shop_button.disabled = true
+		return
+	if _sell_confirm_uid == item.uid:
+		_shop_button.text = "Confirmar: vender %s por %s?" % [item.display_name(), InventoryView.format_gold(item.sell_price)]
+	else:
+		_shop_button.text = "Vender por %s moedas" % InventoryView.format_gold(item.sell_price)
+	_shop_button.disabled = _waiting
+
+
+func _on_shop_pressed() -> void:
+	var item: InventoryState.Item = _find(_selected_uid)
+	if item == null or _waiting:
+		return
+	if _shop_buy:
+		_waiting = true
+		_result_label.text = ""
+		shop_buy_requested.emit(item.item_id)
+	elif item.level > 0 and _sell_confirm_uid != item.uid:
+		# Item melhorado: o primeiro toque só pede confirmação ([JOGO-23]).
+		_sell_confirm_uid = item.uid
+	else:
+		_waiting = true
+		_result_label.text = ""
+		shop_sell_requested.emit(item.uid)
+	_refresh_shop()
 
 
 ## Itens iguais ao escolhido na mochila (os que podem ser sacrificados).

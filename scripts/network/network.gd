@@ -46,6 +46,10 @@ signal death_report_received(report: DeathReport)
 ## Resultado de uma fusão no ferreiro ([JOGO-20]): o item [param uid] ganhou [param levels_gained] níveis e
 ## [param xp_gained] de experiência; agora está em [param level] com [param xp] de [param xp_next] rumo ao seguinte.
 signal fuse_result(uid: String, levels_gained: int, xp_gained: float, level: int, xp: float, xp_next: float)
+## Chegou a lista da Loja do Ferreiro ([JOGO-23]): peças +0 e o preço de cada uma (mesma ordem).
+signal shop_received(items: Array[InventoryState.Item], prices: Array[int])
+## Compra ([param action] "buy") ou venda ("sell") feita na Loja do Ferreiro, por [param gold] moedas.
+signal shop_result(action: String, item_id: String, gold: int)
 ## Chegou o que sobrou para você no baú [param chest_id] (resposta a abrir/pegar): itens e moedas.
 signal chest_loot_received(chest_id: String, entries: Array[LootEntry])
 ## Um boneco/monstro está na zona (vem no welcome). [param state] é atualizado ao vivo.
@@ -692,6 +696,24 @@ func send_upgrade(uid: String, attribute: String) -> void:
 		_send(Protocol.MSG_UPGRADE, {"uid": uid, "attribute": attribute})
 
 
+## Loja do Ferreiro ([JOGO-23]): pede a lista à venda (resposta em [signal shop_received]).
+func send_shop_open() -> void:
+	if is_in_zone():
+		_send(Protocol.MSG_SHOP_OPEN, {})
+
+
+## Compra a peça [param item_id] (+0) na Loja do Ferreiro (resposta em [signal shop_result] ou erro).
+func send_shop_buy(item_id: String) -> void:
+	if is_in_zone():
+		_send(Protocol.MSG_SHOP_BUY, {"itemId": item_id})
+
+
+## Vende o item [param uid] da mochila na Loja do Ferreiro (resposta em [signal shop_result] ou erro).
+func send_shop_sell(uid: String) -> void:
+	if is_in_zone():
+		_send(Protocol.MSG_SHOP_SELL, {"uid": uid})
+
+
 ## Destrói para sempre o item [param uid] (vestido ou na mochila, [JOGO-24]). A resposta vem em
 ## [signal inventory_changed] (ou erro).
 ## ATENÇÃO: espelha `item_destroy` em mmo-server/src/net/protocol.ts.
@@ -872,6 +894,17 @@ func _handle_message(text: String) -> void:
 			inventory_changed.emit(inventory)
 		Protocol.MSG_DEATH_REPORT:
 			death_report_received.emit(DeathReport.from_dict(data))
+		Protocol.MSG_SHOP:
+			var items: Array[InventoryState.Item] = []
+			var prices: Array[int] = []
+			for offer: Dictionary in Protocol.read_dict_array(data, "offers"):
+				var item: InventoryState.Item = InventoryState.Item.from_dict(Protocol.read_dict(offer, "item"))
+				if item != null:
+					items.append(item)
+					prices.append(Protocol.read_int(offer, "price"))
+			shop_received.emit(items, prices)
+		Protocol.MSG_SHOP_RESULT:
+			shop_result.emit(Protocol.read_string(data, "action"), Protocol.read_string(data, "itemId"), Protocol.read_int(data, "gold"))
 		Protocol.MSG_FUSE_RESULT:
 			fuse_result.emit(Protocol.read_string(data, "uid"), Protocol.read_int(data, "levelsGained"),
 				Protocol.read_float(data, "xpGained"), Protocol.read_int(data, "level"), Protocol.read_float(data, "xp"),

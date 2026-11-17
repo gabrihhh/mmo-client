@@ -43,6 +43,10 @@ signal chest_open_requested(chest_id: String)
 signal respawn_requested
 ## Ferreiro → Fundir ([JOGO-20]): sacrificar [param material_uid] em [param target_uid].
 signal fuse_requested(target_uid: String, material_uid: String)
+## Loja do Ferreiro ([JOGO-23]): pedir a lista, comprar a peça [param item_id], vender o item [param uid].
+signal shop_open_requested
+signal shop_buy_requested(item_id: String)
+signal shop_sell_requested(uid: String)
 signal chest_take_requested(chest_id: String, loot_id: String)
 ## Pediu os Atributos do jogador [param player_id] ([SOC-02]); a resposta volta por [method show_attributes].
 signal inspect_requested(player_id: String)
@@ -530,6 +534,9 @@ func _build_blacksmith_ui() -> void:
 	_blacksmith_panel.close_pressed.connect(_open_panel.bind(null))
 	_blacksmith_panel.upgrade_requested.connect(upgrade_requested.emit)
 	_blacksmith_panel.fuse_requested.connect(fuse_requested.emit)
+	_blacksmith_panel.shop_open_requested.connect(shop_open_requested.emit)
+	_blacksmith_panel.shop_buy_requested.connect(shop_buy_requested.emit)
+	_blacksmith_panel.shop_sell_requested.connect(shop_sell_requested.emit)
 	_blacksmith_button = PixelMenuPanel.make_button("⚒ Ferreiro")
 	_blacksmith_button.custom_minimum_size = Vector2(260.0, 84.0)
 	_blacksmith_button.visible = false
@@ -620,6 +627,16 @@ func show_chest_loot(chest: ChestInfo, entries: Array[LootEntry]) -> void:
 ## Resultado de uma tentativa no ferreiro ([signal Network.upgrade_result]).
 func show_upgrade_result(uid: String, success: bool, cost: int, attribute: String, level: int, points: int) -> void:
 	_blacksmith_panel.show_result(uid, success, cost, attribute, level, points)
+
+
+## Lista da Loja do Ferreiro chegou ([signal Network.shop_received], [JOGO-23]).
+func show_shop(items: Array[InventoryState.Item], prices: Array[int]) -> void:
+	_blacksmith_panel.show_shop(items, prices)
+
+
+## Compra/venda feita na Loja do Ferreiro ([signal Network.shop_result]).
+func show_shop_result(action: String, item_id: String, gold: int) -> void:
+	_blacksmith_panel.show_shop_result(action, item_id, gold)
 
 
 ## Resultado de uma fusão no ferreiro ([signal Network.fuse_result], [JOGO-20]).
