@@ -97,6 +97,45 @@ const CHARACTERS: Array[Dictionary] = [
 			"res://tools/characters/animations/mixamo_magic_heal.fbx": MIXAMO_MAGIC_HEAL,
 		},
 	},
+	# Corpos anime do VRoid ([ART-12]): sem animação própria; a corrida vem do corpo antigo (outro rig: reconvertida).
+	{
+		"body": "male",
+		"scene": "res://assets/characters/male_anime/male_character.tscn",
+		"output": "res://assets/characters/male_anime/male_animations.tres",
+		"sources": {
+			"res://assets/characters/male/male.glb": {"Running": ["run", 0.0, WHOLE]},
+			"res://tools/characters/animations/male_idle.glb": {"Idle": ["idle", 0.0, WHOLE]},
+			"res://tools/characters/animations/male_idle_sword.glb": MESHY_IDLE_SWORD,
+			"res://tools/characters/animations/male_idle_staff.glb": MESHY_IDLE_STAFF,
+			"res://tools/characters/animations/male_attack2h.glb": MESHY_TWO_HANDED,
+			"res://tools/characters/animations/male_combat.glb": MESHY_ACTIONS,
+			"res://tools/characters/animations/mixamo_great_sword_slash.fbx": MIXAMO_GREAT_SWORD,
+			"res://tools/characters/animations/mixamo_rifle_run.fbx": MIXAMO_RIFLE_RUN,
+			"res://tools/characters/animations/mixamo_firing_rifle.fbx": MIXAMO_FIRING_RIFLE,
+			"res://tools/characters/animations/mixamo_rifle_idle.fbx": MIXAMO_RIFLE_IDLE,
+			"res://tools/characters/animations/mixamo_double_dagger_stab.fbx": MIXAMO_DAGGER_STAB,
+			"res://tools/characters/animations/mixamo_magic_heal.fbx": MIXAMO_MAGIC_HEAL,
+		},
+	},
+	{
+		"body": "female",
+		"scene": "res://assets/characters/female_anime/female_character.tscn",
+		"output": "res://assets/characters/female_anime/female_animations.tres",
+		"sources": {
+			"res://assets/characters/female/female.glb": {"Running": ["run", 0.0, WHOLE]},
+			"res://tools/characters/animations/female_idle.glb": {"Idle": ["idle", 0.0, WHOLE]},
+			"res://tools/characters/animations/female_idle_sword.glb": MESHY_IDLE_SWORD,
+			"res://tools/characters/animations/female_idle_staff.glb": MESHY_IDLE_STAFF,
+			"res://tools/characters/animations/female_attack2h.glb": MESHY_TWO_HANDED,
+			"res://tools/characters/animations/female_combat.glb": MESHY_ACTIONS,
+			"res://tools/characters/animations/mixamo_great_sword_slash.fbx": MIXAMO_GREAT_SWORD,
+			"res://tools/characters/animations/mixamo_rifle_run.fbx": MIXAMO_RIFLE_RUN,
+			"res://tools/characters/animations/mixamo_firing_rifle.fbx": MIXAMO_FIRING_RIFLE,
+			"res://tools/characters/animations/mixamo_rifle_idle.fbx": MIXAMO_RIFLE_IDLE,
+			"res://tools/characters/animations/mixamo_double_dagger_stab.fbx": MIXAMO_DAGGER_STAB,
+			"res://tools/characters/animations/mixamo_magic_heal.fbx": MIXAMO_MAGIC_HEAL,
+		},
+	},
 	{
 		# Zumbi (monstro, [JOGO-13]): modelo do Meshy com rig da API. Anda arrastado: o "Walking" do próprio rig faz
 		# o papel de "run"; o resto vem das animações do masculino (reconvertidas para este esqueleto).

@@ -241,12 +241,21 @@ func _set_two_weights(bones: PackedInt32Array, weights: PackedFloat32Array, per_
 	weights[v * per_vertex + 1] = 1.0 - weight_a
 
 
-## Troca a superfície 0 da malha pelos [param arrays] novos (mesmo material e nome), refazendo os LODs.
+## Troca a superfície 0 da malha (a das mãos: o conversor de corpos põe a pele primeiro) pelos [param arrays] novos
+## (mesmo material e nome), refazendo os LODs dela. As outras superfícies (ex.: o rosto dos corpos anime, [ART-12])
+## são copiadas sem mudança e SEM LOD: a simplificação apagava olhos e sobrancelhas, que são planos e pequenos.
+## (Antes só a superfície 0 sobrevivia e o rosto do VRoid sumia.)
 func _replace_surface(instance: MeshInstance3D, mesh: ArrayMesh, arrays: Array) -> void:
 	var importer: ImporterMesh = ImporterMesh.new()
 	importer.set_blend_shape_mode(mesh.blend_shape_mode)
 	importer.add_surface(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, mesh.surface_get_material(0), mesh.surface_get_name(0))
 	importer.generate_lods(60.0, 0.0, [])
 	var rebuilt: ArrayMesh = importer.get_mesh()
+	for s: int in range(1, mesh.get_surface_count()):
+		var surface: int = rebuilt.get_surface_count()
+		rebuilt.add_surface_from_arrays(mesh.surface_get_primitive_type(s), mesh.surface_get_arrays(s), [], {},
+			mesh.surface_get_format(s) & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS)
+		rebuilt.surface_set_material(surface, mesh.surface_get_material(s))
+		rebuilt.surface_set_name(surface, mesh.surface_get_name(s))
 	rebuilt.resource_name = mesh.resource_name
 	instance.mesh = rebuilt

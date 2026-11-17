@@ -7,8 +7,8 @@ extends RefCounted
 ## Corpo → cena do modelo. ATENÇÃO: corpos = NPC_BODY_TYPES em mmo-server/src/net/protocol.ts (os de jogador e os
 ## de monstro: o zumbi, [JOGO-13]).
 const SCENES: Dictionary[String, String] = {
-	Protocol.BODY_MALE: "res://assets/characters/male/male_character.tscn",
-	Protocol.BODY_FEMALE: "res://assets/characters/female/female_character.tscn",
+	Protocol.BODY_MALE: "res://assets/characters/male_anime/male_character.tscn",
+	Protocol.BODY_FEMALE: "res://assets/characters/female_anime/female_character.tscn",
 	Protocol.BODY_ZOMBIE: "res://assets/characters/zombie/zombie_character.tscn",
 }
 
