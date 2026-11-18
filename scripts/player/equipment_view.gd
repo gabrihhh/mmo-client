@@ -424,6 +424,9 @@ func _refresh() -> void:
 			continue
 		if key == "off_hand" and not ItemModels.is_paired(item_id):
 			continue
+		if key == "foot_right" and ItemModels.is_tailored(item_id, body_id):
+			# Calçado sob medida: os dois pés vêm numa malha só, vestida pelo encaixe do pé esquerdo.
+			continue
 		var model: Node3D = ItemModels.instantiate(item_id, body_id)
 		if model == null:
 			continue
@@ -519,12 +522,13 @@ func _hide_body_feet(hidden: bool) -> void:
 
 ## Troca o item rígido [param model] (no encaixe [param mount], chave [param key]) por malhas com os pesos do corpo
 ## ([BodySkinning]). Peito: fica onde o encaixe pela caixa o pôs. Calçado: encaixado pelo pé do corpo.
-## Peito sob medida ([method ItemModels.is_tailored], [ART-08]): a malha foi modelada em cima do corpo, no espaço do
-## personagem (origem nos pés, metros): fica exatamente onde veio e segue o braço inteiro, como a pele embaixo.
+## Peito ou calçado sob medida ([method ItemModels.is_tailored], [ART-08]): a malha foi modelada em cima do corpo, no
+## espaço do personagem (origem nos pés, metros): fica exatamente onde veio e segue o braço inteiro, como a pele
+## embaixo. O calçado sob medida traz os dois pés numa malha só (vestido só pelo encaixe "foot_left").
 func _dress(model: Node3D, mount: Node3D, key: String) -> void:
 	var data: BodySkinning.BodyData = BodySkinning.sample(body, _skeleton, _body_mesh)
 	var item_id: String = String(_state.look.get(MOUNTS[key][0], "")) if _state != null else ""
-	var tailored: bool = key == "chest" and ItemModels.is_tailored(item_id, body_id)
+	var tailored: bool = ItemModels.is_tailored(item_id, body_id)
 	var rest: Transform3D
 	if tailored:
 		# Espaço do personagem (raiz do CharacterModel) → espaço do esqueleto, vezes o próprio item.

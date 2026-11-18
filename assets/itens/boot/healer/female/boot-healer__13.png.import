@@ -2,21 +2,21 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d31l75xgj6ffx"
-path.s3tc="res://.godot/imported/boot-healer_0.jpg-522cb8b83d1df99ab8a953c4af9703c5.s3tc.ctex"
-path.etc2="res://.godot/imported/boot-healer_0.jpg-522cb8b83d1df99ab8a953c4af9703c5.etc2.ctex"
+uid="uid://fa6cvjlnsdcr"
+path.s3tc="res://.godot/imported/boot-healer__13.png-7bb7f5701c465161c7cd75a3f2b9a10e.s3tc.ctex"
+path.etc2="res://.godot/imported/boot-healer__13.png-7bb7f5701c465161c7cd75a3f2b9a10e.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "3f3cbae40f0d0cbe39fcc4aa3c644248"
+"md5": "ebc4119cf623af9c2227c79e7a1b3637"
 }
 
 [deps]
 
-source_file="res://assets/itens/boot/healer/female/boot-healer_0.jpg"
-dest_files=["res://.godot/imported/boot-healer_0.jpg-522cb8b83d1df99ab8a953c4af9703c5.s3tc.ctex", "res://.godot/imported/boot-healer_0.jpg-522cb8b83d1df99ab8a953c4af9703c5.etc2.ctex"]
+source_file="res://assets/itens/boot/healer/female/boot-healer__13.png"
+dest_files=["res://.godot/imported/boot-healer__13.png-7bb7f5701c465161c7cd75a3f2b9a10e.s3tc.ctex", "res://.godot/imported/boot-healer__13.png-7bb7f5701c465161c7cd75a3f2b9a10e.etc2.ctex"]
 
 [params]
 
@@ -41,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=256
+process/size_limit=1024
 detect_3d/compress_to=1

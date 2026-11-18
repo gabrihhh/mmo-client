@@ -164,8 +164,9 @@ static func model_path(item_id: String, body: String) -> String:
 ## true se a malha de [param item_id] para [param body] é **sob medida** ([ART-08]): um .glb direto na pasta do próprio
 ## corpo (sem .tscn), modelado em cima dele no Blender, no espaço do personagem (origem nos pés, metros, frente +Z).
 ## O jogo não estica (sem encaixe pela caixa) e, no peito, a roupa segue o braço inteiro. A genérica (Meshy, com
-## .tscn de escala/origem, ou cópia de outro corpo) é encaixada como antes ([ART-04]). Hoje vale para peito e cabeça
-## (cabeça: peça rígida que segue o osso Head, no lugar em que foi modelada) e para os itens de mão que flutuam
+## .tscn de escala/origem, ou cópia de outro corpo) é encaixada como antes ([ART-04]). Hoje vale para peito, calçado
+## (os dois pés numa malha, ex.: as do VRoid de [ART-12]), cabeça (peça rígida que segue o osso Head, no lugar em que
+## foi modelada) e para os itens de mão que flutuam
 ## ([method floats]; esses vêm no espaço do próprio objeto, a posição é a de [member _FLOATING]).
 static func is_tailored(item_id: String, body: String) -> bool:
 	var path: String = model_path(item_id, body)

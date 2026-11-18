@@ -2,23 +2,25 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cdd1y285smxal"
-path="res://.godot/imported/chest-healer__palette.png-e9197c9c265a0c7a6ec24c1ffde994ac.ctex"
+uid="uid://c1xs8v1ee4yxp"
+path.s3tc="res://.godot/imported/chest-healer__14.png-2a7e83436d422b0d51df8e2a532e7f7d.s3tc.ctex"
+path.etc2="res://.godot/imported/chest-healer__14.png-2a7e83436d422b0d51df8e2a532e7f7d.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
-"md5": "7319dc013b3ec5a2319bb76e515270b2"
+"md5": "c8968c01a90e5ce552ba819a66267c7f"
 }
 
 [deps]
 
-source_file="res://assets/itens/chest/healer/female/chest-healer__palette.png"
-dest_files=["res://.godot/imported/chest-healer__palette.png-e9197c9c265a0c7a6ec24c1ffde994ac.ctex"]
+source_file="res://assets/itens/chest/healer/female/chest-healer__14.png"
+dest_files=["res://.godot/imported/chest-healer__14.png-2a7e83436d422b0d51df8e2a532e7f7d.s3tc.ctex", "res://.godot/imported/chest-healer__14.png-2a7e83436d422b0d51df8e2a532e7f7d.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

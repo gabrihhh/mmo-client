@@ -13,7 +13,7 @@
 | Corpo | Arquivo | Escala na cena | Situação |
 |---|---|---|---|
 | Masculino | `male/boot-healer.tscn` | ×1, origem do modelo em (0; 0; 0) m | ✅ própria |
-| Feminino | `female/boot-healer.tscn` | ×1, origem do modelo em (0; 0; 0) m | ⚠ cópia idêntica da masculina — falta a malha feita para este corpo |
+| Feminino | `female/boot-healer.glb` | ×1 (o .glb direto, no espaço do personagem) | ✅ **sob medida** (modelada em cima do corpo no Blender: os dois pés numa malha, entram sem esticar) |
 
 ## Habilidades
 
