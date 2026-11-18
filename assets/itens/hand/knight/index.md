@@ -40,7 +40,7 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
 - Números: **Dano 14** · alcance 4 m · meia-largura 1,2 m · lançamento **0,5 s** · recarga **7 s** · mana **12**.
 - Como funciona: Arraste para apontar a linha (toque = na direção do alvo fixo ou para a frente) e solte; depois de 0,5 s de lançamento (andar nesse tempo cancela), acerta na hora o PRIMEIRO inimigo na linha (até 4 m): tira 14 de vida.
 - Ao segurar (prévia): faixa dourada translúcida saindo do personagem na direção do dedo: 4 m de comprimento × 2,4 m de largura.
-- Os outros veem: aviso no chão (faixa) até o efeito; clarão do golpe à frente (3 m) no momento do efeito. Animação: `heavy_strike` (Meshy; genérica, também em 2 outras).
+- Os outros veem: aviso no chão (faixa) até o efeito; clarão do golpe à frente (3 m) no momento do efeito. Animação: `heavy_strike` (Meshy; genérica, também em 1 outra).
 - Desenho da carta: ✅ `assets/icons/abilities/line_cleave.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Momento do efeito** (golpe acerta / magia sai): **0,5 s = quadro 15** contando do início — é quando o servidor aplica o efeito (fim do lançamento).
@@ -54,7 +54,7 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
 - Números: **Avança 8 m** em 0,4 s · alcance 8 m · meia-largura 1 m · lançamento **instantâneo** · recarga **10 s** · mana **12**.
 - Como funciona: Arraste para escolher a direção e solte (toque = para a frente/para o alvo): leva você 8 m na direção, percorrendo o caminho em 0,4 s. Começa na hora.
 - Ao segurar (prévia): faixa dourada translúcida saindo do personagem na direção do dedo: 8 m de comprimento × 2 m de largura.
-- Os outros veem: só a animação. Animação: `dash` (Meshy; genérica, também em 4 outras).
+- Os outros veem: só a animação. Animação: `dash` (Meshy; genérica, também em 3 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/heroic_charge.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Instantânea:** o efeito acontece no toque (quadro 0); a animação acompanha o efeito, sem preparação.
@@ -69,7 +69,7 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
 - Números: **Provoca** por 4 s · raio 6 m · lançamento **0,5 s** · recarga **12 s** · mana **20**.
 - Como funciona: Toque e sai (não precisa mirar): depois de 0,5 s de lançamento (andar nesse tempo cancela), todos os monstros inimigos em volta num raio de 6 m: provoca: atacam só você por 4 s e sua ameaça neles vira 110% da maior ([JOGO-14]).
 - Ao segurar (prévia): círculo dourado translúcido de raio 6 m em volta do personagem.
-- Os outros veem: **sem aviso no chão** (o servidor não manda o ponto do "ao redor"); clarão do golpe em anel de 6 m no momento do efeito. Animação: `heavy_strike` (Meshy; genérica, também em 2 outras).
+- Os outros veem: **sem aviso no chão** (o servidor não manda o ponto do "ao redor"); clarão do golpe em anel de 6 m no momento do efeito. Animação: `heavy_strike` (Meshy; genérica, também em 1 outra).
 - Desenho da carta: ✅ `assets/icons/abilities/challenge.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Momento do efeito** (golpe acerta / magia sai): **0,5 s = quadro 15** contando do início — é quando o servidor aplica o efeito (fim do lançamento).

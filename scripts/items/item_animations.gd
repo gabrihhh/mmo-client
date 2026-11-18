@@ -11,17 +11,6 @@ extends RefCounted
 const SKILL_PREFIX: String = "skill_"
 ## abilityId → pasta da animação própria (sem barra no fim).
 const FOLDERS: Dictionary[String, String] = {
-	"sword_attack": "res://assets/itens/hand/training-sword/animation-attack",
-	"heavy_strike": "res://assets/itens/hand/training-sword/animation-skill-1",
-	"dash": "res://assets/itens/hand/training-sword/animation-skill-2",
-	"spin": "res://assets/itens/hand/training-sword/animation-skill-3",
-	"staff_attack": "res://assets/itens/hand/training-staff/animation-attack",
-	"fireball": "res://assets/itens/hand/training-staff/animation-skill-1",
-	"meteor": "res://assets/itens/hand/training-staff/animation-skill-2",
-	"bolt": "res://assets/itens/hand/training-staff/animation-skill-3",
-	"heal": "res://assets/itens/head/training/animation-skill-1",
-	"shield": "res://assets/itens/chest/training/animation-skill-1",
-	"sprint": "res://assets/itens/boot/training/animation-skill-1",
 	"arcane_attack": "res://assets/itens/hand/mage/animation-attack",
 	"ice_lance": "res://assets/itens/hand/mage/animation-skill-1",
 	"arcane_nova": "res://assets/itens/hand/mage/animation-skill-2",

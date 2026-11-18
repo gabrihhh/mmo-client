@@ -18,8 +18,8 @@ const POSES: Array[Array] = [
 const SPACING: float = 1.1
 ## O que o boneco veste em cada opção da linha de comando.
 const _KITS: Dictionary[String, Dictionary] = {
-	"espada": {"hand": "training_sword", "head": "training_hood"},
-	"cajado": {"hand": "training_staff", "head": "training_hood"},
+	"espada": {"hand": "knight_sword", "head": "knight_helm"},
+	"cajado": {"hand": "arcane_staff", "head": "mage_hat"},
 	"mago": {"hand": "arcane_staff", "head": "mage_hat", "chest": "mage_tunic", "feet": "mage_shoes"},
 	"cavaleiro": {"hand": "knight_sword", "head": "knight_helm", "chest": "knight_plate", "feet": "knight_greaves"},
 }

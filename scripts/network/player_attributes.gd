@@ -13,7 +13,7 @@ class EquippedItem:
 	var item_id: String = ""
 	## Nome exibido.
 	var name: String = ""
-	## Conjunto ("Treino", "Mago"...): cor da moldura ([method ItemIcons.set_color]).
+	## Conjunto ("Mago", "Cavaleiro"...): cor da moldura ([method ItemIcons.set_color]).
 	var set_name: String = ""
 
 ## Id do jogador.

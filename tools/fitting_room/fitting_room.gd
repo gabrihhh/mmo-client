@@ -8,7 +8,7 @@ extends Node3D
 ##   godot --path . res://tools/fitting_room/fitting_room.tscn
 ##
 ## Controles (botões na tela; atalhos no teclado):
-## - Conjunto ◀ ▶ (A / D) — treino, mago, cavaleiro, atirador, assassino, curandeiro, sem roupa.
+## - Conjunto ◀ ▶ (A / D) — mago, cavaleiro, atirador, assassino, curandeiro, sem roupa.
 ## - Nível ◀ ▶ (Q / E) — nível de melhoria de todas as peças (0, 1, 5, 10… 70): o brilho de [ItemGlow] ([JOGO-17]).
 ## - Animação ◀ ▶ (W / S) — parado, correndo e cada ação da biblioteca (ataques, magias), repetindo.
 ## - Velocidade (1 / 2 / 3 = 100% / 50% / 25%), Pausa (espaço), Girar sozinho (R), Pose T (T: esqueleto em repouso).
@@ -19,7 +19,6 @@ extends Node3D
 
 ## Conjuntos: nome na tela → o que veste. ATENÇÃO: mesmos itens de tools/placeholders/preview_fit.gd (KITS).
 const KITS: Array[Array] = [
-	["Treino", {"hand": "training_sword", "head": "training_hood", "chest": "training_vest"}],
 	["Mago", {"hand": "arcane_staff", "head": "mage_hat", "chest": "mage_tunic", "feet": "mage_shoes"}],
 	["Cavaleiro", {"hand": "knight_sword", "head": "knight_helm", "chest": "knight_plate", "feet": "knight_greaves"}],
 	["Atirador", {"hand": "ranger_crossbow", "head": "ranger_hood", "chest": "ranger_jerkin", "feet": "ranger_boots"}],

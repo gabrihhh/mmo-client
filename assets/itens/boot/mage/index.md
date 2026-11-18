@@ -13,7 +13,7 @@
 | Corpo | Arquivo | Escala na cena | Situação |
 |---|---|---|---|
 | Masculino | `male/boot-mage.tscn` | ×(0,366; 0,35; 0,334), origem do modelo em (0,01; -0,05; 0,08) m | ✅ própria |
-| Feminino | `female/boot-mage.tscn` | ×(0,366; 0,35; 0,334), origem do modelo em (0,01; -0,05; 0,08) m | ⚠ cópia idêntica da masculina — falta a malha feita para este corpo |
+| Feminino | `female/boot-mage.glb` | ×1 (o .glb direto, no espaço do personagem) | ✅ **sob medida** (modelada em cima do corpo no Blender: os dois pés numa malha, entram sem esticar) |
 
 ## Habilidades
 
@@ -31,7 +31,7 @@ Este item não tem ataque simples (só a arma tem); pasta reservada.
 - Números: **Avança 7 m** em 0,1 s · alcance 7 m · meia-largura 0,6 m · lançamento **instantâneo** · recarga **10 s** · mana **15**.
 - Como funciona: Arraste para escolher a direção e solte (toque = para a frente/para o alvo): leva você 7 m na direção, percorrendo o caminho em 0,1 s. Começa na hora.
 - Ao segurar (prévia): faixa dourada translúcida saindo do personagem na direção do dedo: 7 m de comprimento × 1,2 m de largura.
-- Os outros veem: só a animação. Animação: `dash` (Meshy; genérica, também em 4 outras).
+- Os outros veem: só a animação. Animação: `dash` (Meshy; genérica, também em 3 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/blink.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Instantânea:** o efeito acontece no toque (quadro 0); a animação acompanha o efeito, sem preparação.

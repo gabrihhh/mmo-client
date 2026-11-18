@@ -56,7 +56,7 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
 - Números: **Dano 22** · alcance 13 m · raio 2,5 m · lançamento **1 s** · recarga **10 s** · mana **25**.
 - Como funciona: Arraste para pôr o círculo no chão (até 13 m; toque = no alvo fixo ou à frente) e solte; depois de 1 s de lançamento (andar nesse tempo cancela), todos os inimigos dentro do raio de 2,5 m: tira 22 de vida.
 - Ao segurar (prévia): círculo dourado translúcido de raio 2,5 m no ponto do dedo (até 13 m), com a linha até ele.
-- Os outros veem: aviso no chão (círculo) até o efeito. Animação: `cast_up` (Meshy; genérica, também em 5 outras).
+- Os outros veem: aviso no chão (círculo) até o efeito. Animação: `cast_up` (Meshy; genérica, também em 4 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/bolt_rain.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Momento do efeito** (golpe acerta / magia sai): **1 s = quadro 30** contando do início — é quando o servidor aplica o efeito (fim do lançamento).

@@ -31,7 +31,7 @@ Este item não tem ataque simples (só a arma tem); pasta reservada.
 - Números: **Recebe 60% do dano** por 4 s · lançamento **instantâneo** · recarga **18 s** · mana **15**.
 - Como funciona: Toque e sai, em você mesmo: faz você receber só 60% do dano por 4 s na hora.
 - Ao segurar (prévia): nenhuma (não há o que mirar; soltar só lança).
-- Os outros veem: só a animação. Animação: `buff` (Meshy; genérica, também em 14 outras).
+- Os outros veem: só a animação. Animação: `buff` (Meshy; genérica, também em 11 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/grace.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Instantânea:** o efeito acontece no toque (quadro 0); a animação acompanha o efeito, sem preparação.

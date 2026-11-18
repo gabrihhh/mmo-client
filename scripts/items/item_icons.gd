@@ -14,7 +14,6 @@ const ABILITIES_DIR: String = "res://assets/icons/abilities/"
 
 ## Cor da moldura por conjunto (campo `set` do item): reconhece o conjunto de relance.
 const SET_COLORS: Dictionary[String, Color] = {
-	"Treino": Color(0.72, 0.52, 0.3),
 	"Mago": Color(0.62, 0.45, 1.0),
 	"Cavaleiro": Color(0.5, 0.72, 1.0),
 	"Atirador": Color(0.45, 0.8, 0.4),

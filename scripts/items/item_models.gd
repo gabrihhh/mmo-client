@@ -12,11 +12,6 @@ extends RefCounted
 
 ## itemId → pasta do item (res://assets/itens/<slot>/<nome>; slot: hand, head, chest, boot).
 const _FOLDERS: Dictionary[String, String] = {
-	"training_sword": "res://assets/itens/hand/training-sword",
-	"training_staff": "res://assets/itens/hand/training-staff",
-	"training_hood": "res://assets/itens/head/training",
-	"training_vest": "res://assets/itens/chest/training",
-	"training_boots": "res://assets/itens/boot/training",
 	"arcane_staff": "res://assets/itens/hand/mage",
 	"mage_hat": "res://assets/itens/head/mage",
 	"mage_tunic": "res://assets/itens/chest/mage",
@@ -49,7 +44,6 @@ static var _path_cache: Dictionary[String, String] = {}
 ## 90 = "lâmina para a frente" (espada: com o braço caído aponta para a frente); 0 = em pé (cajado);
 ## −90 = **pegada invertida** (a ponta sai por trás da mão, ao longo do antebraço: as adagas do assassino, 2026-11-14).
 const _GRIP_PITCH: Dictionary[String, float] = {
-	"training_staff": 0.0,
 	"arcane_staff": 0.0,
 	"assassin_daggers": -90.0,
 }
@@ -62,8 +56,6 @@ const DEFAULT_GRIP_PITCH: float = 90.0
 ## apontava para cima e o cajado deitava para trás correndo (ou ficava de ponta-cabeça ao erguer o braço). Puxão > 1
 ## garante a direção; durante a ação a espada é puxada pouco, para o golpe seguir a mão.
 const _HOLD: Dictionary[String, Array] = {
-	"training_sword": [Vector3(0.0, 0.55, 1.0), 2.0, 2.0, true],
-	"training_staff": [Vector3(0.0, 1.0, 0.3), 4.0, 4.0, false],
 	"knight_sword": [Vector3(0.0, 0.55, 1.0), 2.0, 2.0, true],
 	"arcane_staff": [Vector3(0.0, 1.0, 0.3), 4.0, 4.0, false],
 }
@@ -71,15 +63,11 @@ const _HOLD: Dictionary[String, Array] = {
 ## [onde fica a pegada da mão direita, direção do comprimento]. As mãos vão até a arma por IK ([EquipmentView]).
 ## Perto o bastante do ombro para o braço alcançar (~0,45 m do ombro).
 const _CARRY: Dictionary[String, Array] = {
-	"training_sword": [Vector3(-0.10, 1.10, 0.30), Vector3(0.0, 0.6, 1.0)],
-	"training_staff": [Vector3(-0.24, 1.12, 0.26), Vector3(0.0, 1.0, 0.18)],
 	"knight_sword": [Vector3(-0.10, 1.10, 0.30), Vector3(0.0, 0.6, 1.0)],
 	"arcane_staff": [Vector3(-0.24, 1.12, 0.26), Vector3(0.0, 1.0, 0.18)],
 }
 ## Postura parada por arma na mão ([CharacterAnimator.set_idle_animation]); sem linha = "idle".
 const _IDLE: Dictionary[String, String] = {
-	"training_sword": "idle_sword",
-	"training_staff": "idle_staff",
 	"knight_sword": "idle_sword",
 	"arcane_staff": "idle_staff",
 	"ranger_crossbow": "idle_rifle",
@@ -99,7 +87,6 @@ const _RUN: Dictionary[String, String] = {
 ## Armas de duas mãos: onde a mão esquerda segura (m, no espaço do modelo do item: comprimento em +Y, origem na mão
 ## direita). A mão esquerda vai até lá por IK ([EquipmentView]).
 const _OFF_HAND_GRIP: Dictionary[String, Vector3] = {
-	"training_sword": Vector3(0.0, -0.11, 0.0),
 	"knight_sword": Vector3(0.0, -0.09, 0.0),
 }
 ## Itens de mão que FLUTUAM perto do personagem em vez de ficar na mão ([EquipmentView], [ART-09]): a mão fica
@@ -118,7 +105,11 @@ const _PAIRED: Array[String] = ["assassin_daggers"]
 ## Itens de cabeça que **escondem o cabelo de trás** (capuzes e elmo): o cabelo da nuca e o rabo de cavalo são
 ## recolhidos para dentro do crânio ([method BodySkinning.hair_hidden_mesh]) e não atravessam a peça (2026-11-14).
 ## Chapéu do mago e tiara do curandeiro deixam o cabelo à mostra.
-const _HIDES_HAIR: Array[String] = ["training_hood", "assassin_hood", "ranger_hood", "knight_helm"]
+const _HIDES_HAIR: Array[String] = ["assassin_hood", "ranger_hood", "knight_helm"]
+## Peças **invisíveis de propósito** num corpo ("itemId|corpo"): o item existe (atributos, cartas, ficha), mas não
+## aparece nada no boneco e não esconde o cabelo. Pedido do dono (2026-11-17): nas femininas feitas no VRoid
+## ([ART-13]) a cabeça não tem peça visível (a tiara do curandeiro continua).
+const _INVISIBLE: Array[String] = ["mage_hat|female", "knight_helm|female", "ranger_hood|female", "assassin_hood|female"]
 
 
 ## Começa a carregar, em segundo plano, os modelos de todos os itens (chamar ao abrir a zona). Sem isso, a primeira
@@ -138,14 +129,15 @@ static func folder(item_id: String) -> String:
 
 
 ## Cena da malha de [param item_id] feita para o corpo [param body] ("male"/"female"): o .tscn da pasta do corpo
-## (ou o .glb, se não tiver cena). Sem malha desse corpo, a do outro corpo (reserva). "" = o item não tem malha.
+## (ou o .glb, se não tiver cena). Sem malha desse corpo, a do outro corpo (reserva). "" = o item não tem malha ou é
+## invisível nesse corpo ([method is_invisible]: sem reserva).
 static func model_path(item_id: String, body: String) -> String:
 	var key: String = "%s|%s" % [item_id, body]
 	if _path_cache.has(key):
 		return _path_cache[key]
 	var result: String = ""
 	var item_folder: String = folder(item_id)
-	if not item_folder.is_empty():
+	if not item_folder.is_empty() and not is_invisible(item_id, body):
 		# Nome do arquivo = "<slot>-<nome>", das duas últimas partes da pasta (ex.: head/healer → head-healer).
 		var file_name: String = "%s-%s" % [item_folder.get_base_dir().get_file(), item_folder.get_file()]
 		var order: Array[String] = [body]
@@ -252,9 +244,15 @@ static func idle_animation(item_id: String) -> String:
 	return _IDLE.get(item_id, "idle")
 
 
-## true se o item de cabeça [param item_id] esconde o cabelo de trás ([member _HIDES_HAIR]).
-static func hides_hair(item_id: String) -> bool:
-	return item_id in _HIDES_HAIR
+## true se o item de cabeça [param item_id] esconde o cabelo de trás no corpo [param body] ([member _HIDES_HAIR]; peça
+## invisível nesse corpo não esconde, [method is_invisible]).
+static func hides_hair(item_id: String, body: String) -> bool:
+	return item_id in _HIDES_HAIR and not is_invisible(item_id, body)
+
+
+## true se [param item_id] é invisível de propósito no corpo [param body] ([member _INVISIBLE]): sem malha no boneco.
+static func is_invisible(item_id: String, body: String) -> bool:
+	return "%s|%s" % [item_id, body] in _INVISIBLE
 
 
 ## true se [param item_id] é um par (uma cópia espelhada vai na mão esquerda).

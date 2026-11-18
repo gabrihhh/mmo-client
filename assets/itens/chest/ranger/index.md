@@ -31,7 +31,7 @@ Este item não tem ataque simples (só a arma tem); pasta reservada.
 - Números: **Escudo 35** por 4 s · lançamento **0,2 s** · recarga **18 s** · mana **20**.
 - Como funciona: Toque e sai, em você mesmo: dá um escudo que absorve 35 de dano por 4 s depois de 0,2 s de lançamento (andar nesse tempo cancela).
 - Ao segurar (prévia): nenhuma (não há o que mirar; soltar só lança).
-- Os outros veem: só a animação. Animação: `buff` (Meshy; genérica, também em 14 outras).
+- Os outros veem: só a animação. Animação: `buff` (Meshy; genérica, também em 11 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/leather_guard.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Momento do efeito** (golpe acerta / magia sai): **0,2 s = quadro 6** contando do início — é quando o servidor aplica o efeito (fim do lançamento).

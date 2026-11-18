@@ -13,7 +13,7 @@
 | Corpo | Arquivo | Escala na cena | Situação |
 |---|---|---|---|
 | Masculino | `male/boot-assassin.tscn` | ×1, origem do modelo em (0; 0; 0) m | ✅ própria |
-| Feminino | `female/boot-assassin.tscn` | ×1, origem do modelo em (0; 0; 0) m | ⚠ cópia idêntica da masculina — falta a malha feita para este corpo |
+| Feminino | `female/boot-assassin.glb` | ×1 (o .glb direto, no espaço do personagem) | ✅ **sob medida** (modelada em cima do corpo no Blender: os dois pés numa malha, entram sem esticar) |
 
 ## Habilidades
 
@@ -31,7 +31,7 @@ Este item não tem ataque simples (só a arma tem); pasta reservada.
 - Números: **Velocidade ×1,8** por 3 s · lançamento **instantâneo** · recarga **16 s** · mana **10**.
 - Como funciona: Toque e sai, em você mesmo: deixa você 1,8× mais rápido por 3 s na hora.
 - Ao segurar (prévia): nenhuma (não há o que mirar; soltar só lança).
-- Os outros veem: só a animação. Animação: `buff` (Meshy; genérica, também em 14 outras).
+- Os outros veem: só a animação. Animação: `buff` (Meshy; genérica, também em 11 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/shadow_step.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Instantânea:** o efeito acontece no toque (quadro 0); a animação acompanha o efeito, sem preparação.

@@ -1,8 +1,8 @@
 class_name BotFight
 extends Node
-## Ferramenta de desenvolvimento (`-- --bot-fight`): o jogador local veste o kit de treino com o cajado e luta sozinho
-## contra o boneco de treino mais perto — ataque simples + uma carta por vez (Bola de fogo, Meteoro, Raio, Cura, Escudo).
-## `-- --bot-fight=espada`: kit de treino com a espada, anda até o boneco e usa Golpe forte e Giro.
+## Ferramenta de desenvolvimento (`-- --bot-fight`): o jogador local veste o conjunto do Mago (cajado) e luta sozinho
+## contra o boneco de treino mais perto — ataque simples + uma carta por vez.
+## `-- --bot-fight=espada`: conjunto do Cavaleiro (espada), anda até o boneco e bate (o kit de treino saiu em 2026-11-17).
 ## `-- --bot-fight=mago` / `=cavaleiro` / `=atirador` / `=assassino` / `=curandeiro`: veste o conjunto inteiro
 ## ([JOGO-03], [JOGO-09]) e usa as cartas dele.
 ## A conta nasce pelada ([JOGO-04]): o bot veste da mochila o que faltar antes de lutar.
@@ -14,11 +14,8 @@ extends Node
 const ARG: String = "--bot-fight"
 ## Intervalo (s) entre uma carta e outra.
 const CAST_INTERVAL: float = 2.2
-## Ordem das cartas (cajado) e (espada).
 ## Modo → [itens a vestir (o primeiro é a arma), cartas em ordem, anda até o boneco (corpo a corpo)?].
 const MODES: Dictionary[String, Array] = {
-	"": [["training_staff", "training_hood", "training_vest", "training_boots"], ["fireball", "meteor", "bolt", "heal", "shield"], false],
-	"espada": [["training_sword", "training_hood", "training_vest", "training_boots"], ["heavy_strike", "spin"], true],
 	"mago": [["arcane_staff", "mage_hat", "mage_tunic", "mage_shoes"], ["ice_lance", "arcane_nova", "starfall", "meditation", "arcane_barrier"], false],
 	"cavaleiro": [["knight_sword", "knight_helm", "knight_plate", "knight_greaves"], ["line_cleave", "challenge", "rallying_cry", "steel_wall", "iron_stance"], true],
 	"atirador": [["ranger_crossbow", "ranger_hood", "ranger_jerkin", "ranger_boots"], ["piercing_bolt", "bolt_rain", "quick_shot", "bandage", "leather_guard"], false],
@@ -26,6 +23,8 @@ const MODES: Dictionary[String, Array] = {
 	# Curandeiro não dá dano ([JOGO-09]): o ataque simples não pega o boneco; as cartas curam/protegem o próprio bot.
 	"curandeiro": [["healer_tome", "healer_circlet", "healer_robe", "healer_sandals"], ["greater_heal", "healing_circle", "holy_shield", "grace", "aegis"], false],
 }
+## Modos de antes com outro nome: sem modo = "mago" (cajado), "espada" = "cavaleiro".
+const MODE_ALIASES: Dictionary[String, String] = {"": "mago", "espada": "cavaleiro"}
 ## Corpo a corpo: chega até esta distância (m) do boneco antes de bater.
 const MELEE_DISTANCE: float = 1.8
 
@@ -48,6 +47,7 @@ static func attach_if_requested(parent: Node, player: LocalPlayer) -> void:
 	for arg: String in OS.get_cmdline_user_args():
 		if arg == ARG or arg.begins_with(ARG + "="):
 			mode = arg.trim_prefix(ARG).trim_prefix("=")
+			mode = MODE_ALIASES.get(mode, mode)
 			found = MODES.has(mode)
 	if not found:
 		return
@@ -97,11 +97,11 @@ func _process(delta: float) -> void:
 	var me: Vector3 = _player.global_position
 	var to_dummy: Vector3 = dummy.position - me
 	match ability:
-		"fireball", "ice_lance", "line_cleave":
+		"ice_lance", "line_cleave", "piercing_bolt":
 			network.send_cast(ability, "", to_dummy.x, to_dummy.z)
-		"meteor", "starfall":
+		"starfall", "bolt_rain":
 			network.send_cast(ability, "", dummy.x, dummy.z)
-		"bolt":
+		"quick_shot", "backstab":
 			network.send_cast(ability, dummy.id)
 		_:
 			network.send_cast(ability)

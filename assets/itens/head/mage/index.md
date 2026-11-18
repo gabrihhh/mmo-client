@@ -13,7 +13,7 @@
 | Corpo | Arquivo | Escala na cena | Situação |
 |---|---|---|---|
 | Masculino | `male/head-mage.tscn` | ×0,46, origem do modelo em (0; 0,42; 0) m | ✅ própria |
-| Feminino | `female/head-mage.tscn` | ×0,46, origem do modelo em (0; 0,42; 0) m | ⚠ cópia idêntica da masculina — falta a malha feita para este corpo |
+| Feminino | `female/` (vazia) | — | 👻 **invisível de propósito** (o item existe, nada aparece no boneco; `ItemModels._INVISIBLE`) |
 
 ## Habilidades
 
@@ -31,7 +31,7 @@ Este item não tem ataque simples (só a arma tem); pasta reservada.
 - Números: **Cura 30** · lançamento **1,5 s** · recarga **18 s** · mana **15**.
 - Como funciona: Toque e sai, em você mesmo: cura 30 depois de 1,5 s de lançamento (andar nesse tempo cancela).
 - Ao segurar (prévia): nenhuma (não há o que mirar; soltar só lança).
-- Os outros veem: brilho na mão durante o lançamento. Animação: `buff` (Meshy; genérica, também em 14 outras).
+- Os outros veem: brilho na mão durante o lançamento. Animação: `buff` (Meshy; genérica, também em 11 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/meditation.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Momento do efeito** (golpe acerta / magia sai): **1,5 s = quadro 45** contando do início — é quando o servidor aplica o efeito (fim do lançamento).

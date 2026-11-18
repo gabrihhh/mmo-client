@@ -31,7 +31,7 @@ Este item não tem ataque simples (só a arma tem); pasta reservada.
 - Números: **Escudo 40** por 5 s · lançamento **0,3 s** · recarga **18 s** · mana **25**.
 - Como funciona: Toque e sai, em você mesmo: dá um escudo que absorve 40 de dano por 5 s depois de 0,3 s de lançamento (andar nesse tempo cancela).
 - Ao segurar (prévia): nenhuma (não há o que mirar; soltar só lança).
-- Os outros veem: brilho na mão durante o lançamento. Animação: `buff` (Meshy; genérica, também em 14 outras).
+- Os outros veem: brilho na mão durante o lançamento. Animação: `buff` (Meshy; genérica, também em 11 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/arcane_barrier.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Momento do efeito** (golpe acerta / magia sai): **0,3 s = quadro 9** contando do início — é quando o servidor aplica o efeito (fim do lançamento).

@@ -8,18 +8,7 @@ extends RefCounted
 
 ## Habilidade → animação do personagem (por tipo de arma no ataque simples; cardápio genérico nas cartas).
 const ANIMATIONS: Dictionary[String, String] = {
-	"sword_attack": "attack_sword",
-	"staff_attack": "attack_staff",
 	"punch": "attack_punch",
-	"heavy_strike": "heavy_strike",
-	"dash": "dash",
-	"spin": "spin",
-	"fireball": "cast_forward",
-	"bolt": "cast_forward",
-	"meteor": "cast_up",
-	"heal": "buff",
-	"shield": "buff",
-	"sprint": "buff",
 	# Conjunto do Mago
 	"arcane_attack": "attack_staff",
 	"ice_lance": "cast_forward",
@@ -70,12 +59,6 @@ const ANIMATIONS: Dictionary[String, String] = {
 }
 ## Cor dos efeitos (projétil, aviso no chão).
 const COLORS: Dictionary[String, Color] = {
-	"fireball": Color(1.0, 0.45, 0.1),
-	"meteor": Color(1.0, 0.3, 0.1),
-	"staff_attack": Color(0.7, 0.4, 1.0),
-	"bolt": Color(0.55, 0.9, 1.0),
-	"heal": Color(0.4, 1.0, 0.45),
-	"shield": Color(0.5, 0.75, 1.0),
 	"arcane_attack": Color(0.6, 0.5, 1.0),
 	"ice_lance": Color(0.6, 0.95, 1.0),
 	"arcane_nova": Color(0.85, 0.4, 1.0),
@@ -112,10 +95,7 @@ const COLORS: Dictionary[String, Color] = {
 const DEFAULT_COLOR: Color = Color(1.0, 0.85, 0.5)
 ## Golpes corpo a corpo com clarão no momento do golpe: alcance do clarão (m). Negativo = anel inteiro (ao redor).
 const SLASH_REACH: Dictionary[String, float] = {
-	"sword_attack": 1.8,
-	"heavy_strike": -2.5,
 	"punch": 1.1,
-	"spin": -3.0,
 	"knight_attack": 1.9,
 	"line_cleave": 3.0,
 	"challenge": -6.0,
@@ -129,7 +109,6 @@ const SLASH_REACH: Dictionary[String, float] = {
 }
 ## Magias que acendem um brilho na mão durante o lançamento (mostra aos outros que vem coisa aí).
 const CAST_GLOW: Array[String] = [
-	"fireball", "meteor", "bolt", "heal", "shield",
 	"ice_lance", "arcane_nova", "starfall", "meditation", "arcane_barrier",
 	"bandage", "tome_attack", "greater_heal", "healing_circle", "holy_shield", "aegis",
 ]
@@ -137,8 +116,6 @@ const CAST_GLOW: Array[String] = [
 ## Reserva: o tempo de verdade vem do servidor no `cast_start.release` (AbilityDef.releaseTime em
 ## mmo-server/src/items/catalog.ts); manter igual.
 const HOMING_FLIGHT: Dictionary[String, float] = {
-	"staff_attack": 0.3,
-	"bolt": 0.15,
 	"arcane_attack": 0.3,
 	"crossbow_attack": 0.25,
 	"quick_shot": 0.1,

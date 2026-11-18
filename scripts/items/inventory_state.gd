@@ -15,7 +15,7 @@ class Item:
 	var uid: String = ""
 	var item_id: String = ""
 	var name: String = ""
-	## Frase curta e conjunto ("Treino", "Mago", "Cavaleiro") para a ficha e a cor da moldura ([ItemIcons]).
+	## Frase curta e conjunto ("Mago", "Cavaleiro", "Atirador") para a ficha e a cor da moldura ([ItemIcons]).
 	var description: String = ""
 	var set_name: String = ""
 	## Vida máxima extra enquanto vestido ([JOGO-09]).

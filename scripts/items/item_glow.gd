@@ -8,11 +8,10 @@ extends RefCounted
 ## O efeito é uma passada extra por cima da peça ([member GeometryInstance3D.material_overlay]): leve brilho por
 ## dentro (shader item_glow) + contorno aceso em volta da silhueta (item_glow_outline, encadeado).
 
-## Cor neon de cada conjunto, pela pasta do item em assets/itens (training, mage, knight...).
-## Escolhidas para não repetir: Treino laranja, Mago ciano (o cristal do cajado), Cavaleiro azul, Atirador verde,
+## Cor neon de cada conjunto, pela pasta do item em assets/itens (mage, knight...).
+## Escolhidas para não repetir: Mago ciano (o cristal do cajado), Cavaleiro azul, Atirador verde,
 ## Assassino roxo, Curandeiro dourado.
 const SET_COLORS: Dictionary[String, Color] = {
-	"training": Color(1.0, 0.5, 0.1),
 	"mage": Color(0.15, 0.9, 1.0),
 	"knight": Color(0.2, 0.45, 1.0),
 	"ranger": Color(0.2, 1.0, 0.3),
@@ -96,7 +95,7 @@ static func spark_amount(level: int) -> int:
 	return clampi(4 + 2 * (step(level) - SPARKS_LEVEL / LEVELS_PER_STEP), 4, 12)
 
 
-## Pasta do conjunto do item ("assassin" de res://assets/itens/hand/assassin; "training" de training-sword).
+## Pasta do conjunto do item ("assassin" de res://assets/itens/hand/assassin; a parte antes do "-" em pastas com hífen).
 static func set_folder(item_id: String) -> String:
 	var path: String = ItemModels.folder(item_id)
 	return path.get_file().get_slice("-", 0) if not path.is_empty() else ""

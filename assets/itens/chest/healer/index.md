@@ -31,7 +31,7 @@ Este item não tem ataque simples (só a arma tem); pasta reservada.
 - Números: **Escudo 25** por 4 s · raio 5 m · lançamento **0,4 s** · recarga **20 s** · mana **25**.
 - Como funciona: Toque e sai (não precisa mirar): depois de 0,4 s de lançamento (andar nesse tempo cancela), todos os aliados (e você) em volta num raio de 5 m: dá um escudo que absorve 25 de dano por 4 s.
 - Ao segurar (prévia): círculo dourado translúcido de raio 5 m em volta do personagem.
-- Os outros veem: brilho na mão durante o lançamento; **sem aviso no chão** (o servidor não manda o ponto do "ao redor"). Animação: `cast_up` (Meshy; genérica, também em 5 outras).
+- Os outros veem: brilho na mão durante o lançamento; **sem aviso no chão** (o servidor não manda o ponto do "ao redor"). Animação: `cast_up` (Meshy; genérica, também em 4 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/aegis.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Momento do efeito** (golpe acerta / magia sai): **0,4 s = quadro 12** contando do início — é quando o servidor aplica o efeito (fim do lançamento).

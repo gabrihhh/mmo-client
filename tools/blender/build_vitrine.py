@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Monta a vitrine no testes.blend ([ART-09]): "cria um male e um female vestindo cada classe".
 
-Para cada classe (treino, mago, cavaleiro, atirador, assassino, curandeiro) e corpo, um boneco vestido com as peças de
+Para cada classe (mago, cavaleiro, atirador, assassino, curandeiro) e corpo, um boneco vestido com as peças de
 Itens/<conjunto>/<parte>, em escada na diagonal, com a arma da classe em pé ao lado (coleção `vitrine`). As roupas e
 os corpos da vitrine são cópias ligadas: editar a malha numa muda a original (a que vai para o jogo).
 Faltando peças em Itens, puxe antes: python3 tools/blender/item_to_blender.py <item_id>.
@@ -17,7 +17,7 @@ import sys
 CLIENT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 WORKSPACE = os.path.normpath(os.path.join(CLIENT, "..", "workspace-blender"))
 INNER = os.path.join(CLIENT, "tools", "blender", "blender_build_vitrine.py")
-WEAPONS = ["training_sword", "arcane_staff", "knight_sword", "ranger_crossbow", "assassin_daggers"]
+WEAPONS = ["arcane_staff", "knight_sword", "ranger_crossbow", "assassin_daggers"]
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from export_items import blender_cmd  # noqa: E402

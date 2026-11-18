@@ -31,7 +31,7 @@ Este item não tem ataque simples (só a arma tem); pasta reservada.
 - Números: **Escudo 30** por 3 s · lançamento **0,1 s** · recarga **20 s** · mana **15**.
 - Como funciona: Toque e sai, em você mesmo: dá um escudo que absorve 30 de dano por 3 s depois de 0,1 s de lançamento (andar nesse tempo cancela).
 - Ao segurar (prévia): nenhuma (não há o que mirar; soltar só lança).
-- Os outros veem: só a animação. Animação: `buff` (Meshy; genérica, também em 14 outras).
+- Os outros veem: só a animação. Animação: `buff` (Meshy; genérica, também em 11 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/smoke_veil.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Momento do efeito** (golpe acerta / magia sai): **0,1 s = quadro 3** contando do início — é quando o servidor aplica o efeito (fim do lançamento).

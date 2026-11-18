@@ -8,9 +8,9 @@ import sys
 import bpy
 import mathutils
 
-SETS = ["training", "mage", "knight", "ranger", "assassin", "healer"]
+SETS = ["mage", "knight", "ranger", "assassin", "healer"]
 BODIES = ["female", "male"]
-WEAPONS = {"training": "training_sword", "mage": "arcane_staff", "knight": "knight_sword",
+WEAPONS = {"mage": "arcane_staff", "knight": "knight_sword",
            "ranger": "ranger_crossbow", "assassin": "assassin_daggers"}
 BASE = mathutils.Vector((3.5, -1.5, 0.0))
 STEP = mathutils.Vector((1.3, -1.3, 0.0))

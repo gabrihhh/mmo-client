@@ -1,7 +1,11 @@
 """Roda DENTRO do Blender: tira as roupas de um personagem VRM do VRoid Studio vestido e grava como peças **sob medida**
 do jogo ([ART-12], [ART-08]).
 
-    blender -b --python tools/blender/blender_vrm_to_clothes.py -- <vestido.vrm> <male|female> <item> [--tris-chest N] [--tris-boot N]
+    blender -b --python tools/blender/blender_vrm_to_clothes.py -- <vestido.vrm> <male|female> <item> [--only chest|boot]
+        [--tris-chest N] [--tris-boot N]
+
+`--only chest` grava só o peito (o VRM vestido traz um calçado qualquer que não é o do conjunto); `--only boot`, só o
+calçado.
 
 Exemplo: `... -- healer.vrm female healer` grava
   assets/itens/chest/healer/female/chest-healer.glb  (todas as roupas do VRoid menos o calçado: o peito é o traje
@@ -58,6 +62,7 @@ def main() -> None:
     for flag, slot in (("--tris-chest", "chest"), ("--tris-boot", "boot")):
         if flag in args:
             tris_cap[slot] = int(args[args.index(flag) + 1])
+    slots: list[str] = [args[args.index("--only") + 1]] if "--only" in args else ["chest", "boot"]
     human = humanoid_bones(vrm)
 
     # O importador do Blender só aceita .glb; o VRM é um glb com extensões a mais.
@@ -94,7 +99,7 @@ def main() -> None:
           f"{tuple(round(c, 4) for c in ref_hips)} (Blender, Z p/ cima)")
 
     # 2. Uma malha por peça: copia cada malha, deixa só as faces dos materiais da peça, aplica a transformação.
-    for slot in ("chest", "boot"):
+    for slot in slots:
         parts = []
         for o in meshes:
             names = [m.name if m else "" for m in o.data.materials]

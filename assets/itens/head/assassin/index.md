@@ -13,7 +13,7 @@
 | Corpo | Arquivo | Escala na cena | Situação |
 |---|---|---|---|
 | Masculino | `male/head-assassin.tscn` | ×0,46, origem do modelo em (0; 0,21; 0) m | ✅ própria |
-| Feminino | `female/head-assassin.tscn` | ×0,46, origem do modelo em (0; 0,21; 0) m | ⚠ cópia idêntica da masculina — falta a malha feita para este corpo |
+| Feminino | `female/` (vazia) | — | 👻 **invisível de propósito** (o item existe, nada aparece no boneco; `ItemModels._INVISIBLE`) |
 
 ## Habilidades
 
@@ -31,7 +31,7 @@ Este item não tem ataque simples (só a arma tem); pasta reservada.
 - Números: **Recebe 40% do dano** por 2,5 s · lançamento **instantâneo** · recarga **20 s** · mana **15**.
 - Como funciona: Toque e sai, em você mesmo: faz você receber só 40% do dano por 2,5 s na hora.
 - Ao segurar (prévia): nenhuma (não há o que mirar; soltar só lança).
-- Os outros veem: só a animação. Animação: `buff` (Meshy; genérica, também em 14 outras).
+- Os outros veem: só a animação. Animação: `buff` (Meshy; genérica, também em 11 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/evasion.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Instantânea:** o efeito acontece no toque (quadro 0); a animação acompanha o efeito, sem preparação.

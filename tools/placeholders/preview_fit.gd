@@ -5,7 +5,7 @@ extends SceneTree
 ##
 ## Rodar da pasta mmo-client (precisa de tela, não roda com --headless):
 ##   godot --path . --resolution 1800x720 --script res://tools/placeholders/preview_fit.gd -- saida.png <conjunto> <cena do corpo>
-## Conjuntos: mago, cavaleiro, atirador, assassino, curandeiro, treino, zumbi, zumbi-besta.
+## Conjuntos: mago, cavaleiro, atirador, assassino, curandeiro, zumbi, zumbi-besta.
 ## Ex. de corpo: res://assets/characters/male/male_character.tscn.
 ## 4º argumento opcional `lancando`: todos no meio de um lançamento (o item de mão flutuante aparece aberto).
 
@@ -17,7 +17,6 @@ const VIEWS: Array[Array] = [
 const SPACING: float = 0.85
 ## O que o boneco veste em cada conjunto ([JOGO-03], [JOGO-09]).
 const KITS: Dictionary[String, Dictionary] = {
-	"treino": {"hand": "training_sword", "head": "training_hood", "chest": "training_vest"},
 	"mago": {"hand": "arcane_staff", "head": "mage_hat", "chest": "mage_tunic", "feet": "mage_shoes"},
 	"cavaleiro": {"hand": "knight_sword", "head": "knight_helm", "chest": "knight_plate", "feet": "knight_greaves"},
 	"atirador": {"hand": "ranger_crossbow", "head": "ranger_hood", "chest": "ranger_jerkin", "feet": "ranger_boots"},

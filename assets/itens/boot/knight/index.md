@@ -13,7 +13,7 @@
 | Corpo | Arquivo | Escala na cena | Situação |
 |---|---|---|---|
 | Masculino | `male/boot-knight.tscn` | ×(0,39; 0,357; 0,356), origem do modelo em (0,01; 0,04; 0,08) m | ✅ própria |
-| Feminino | `female/boot-knight.tscn` | ×(0,39; 0,357; 0,356), origem do modelo em (0,01; 0,04; 0,08) m | ⚠ cópia idêntica da masculina — falta a malha feita para este corpo |
+| Feminino | `female/boot-knight.glb` | ×1 (o .glb direto, no espaço do personagem) | ✅ **sob medida** (modelada em cima do corpo no Blender: os dois pés numa malha, entram sem esticar) |
 
 ## Habilidades
 
@@ -31,7 +31,7 @@ Este item não tem ataque simples (só a arma tem); pasta reservada.
 - Números: **Recebe 50% do dano** por 4 s · lançamento **instantâneo** · recarga **16 s** · mana **15**.
 - Como funciona: Toque e sai, em você mesmo: faz você receber só 50% do dano por 4 s na hora.
 - Ao segurar (prévia): nenhuma (não há o que mirar; soltar só lança).
-- Os outros veem: só a animação. Animação: `buff` (Meshy; genérica, também em 14 outras).
+- Os outros veem: só a animação. Animação: `buff` (Meshy; genérica, também em 11 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/iron_stance.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Instantânea:** o efeito acontece no toque (quadro 0); a animação acompanha o efeito, sem preparação.

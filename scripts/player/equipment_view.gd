@@ -406,7 +406,7 @@ func _refresh() -> void:
 	_covers.clear()
 	_covers_key = ""
 	_hide_body_feet(_state != null and _mounts.has("foot_left") and ItemModels.has_model(String(_state.look.get("feet", ""))))
-	_hide_body_hair(_state != null and _mounts.has("head") and ItemModels.hides_hair(String(_state.look.get("head", ""))))
+	_hide_body_hair(_state != null and _mounts.has("head") and ItemModels.hides_hair(String(_state.look.get("head", "")), body_id))
 	var hand_item: String = _state.look.get("hand", "") if _state != null else ""
 	if animator != null:
 		animator.set_idle_animation(ItemModels.idle_animation(hand_item))

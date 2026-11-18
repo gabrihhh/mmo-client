@@ -13,7 +13,7 @@
 | Corpo | Arquivo | Escala na cena | Situação |
 |---|---|---|---|
 | Masculino | `male/head-knight.tscn` | ×0,44, origem do modelo em (0; 0,21; 0) m | ✅ própria |
-| Feminino | `female/head-knight.tscn` | ×0,44, origem do modelo em (0; 0,21; 0) m | ⚠ cópia idêntica da masculina — falta a malha feita para este corpo |
+| Feminino | `female/` (vazia) | — | 👻 **invisível de propósito** (o item existe, nada aparece no boneco; `ItemModels._INVISIBLE`) |
 
 ## Habilidades
 
@@ -31,7 +31,7 @@ Este item não tem ataque simples (só a arma tem); pasta reservada.
 - Números: **Escudo 25** por 5 s · raio 4 m · lançamento **0,3 s** · recarga **18 s** · mana **20**.
 - Como funciona: Toque e sai (não precisa mirar): depois de 0,3 s de lançamento (andar nesse tempo cancela), todos os aliados (e você) em volta num raio de 4 m: dá um escudo que absorve 25 de dano por 5 s.
 - Ao segurar (prévia): círculo dourado translúcido de raio 4 m em volta do personagem.
-- Os outros veem: **sem aviso no chão** (o servidor não manda o ponto do "ao redor"). Animação: `buff` (Meshy; genérica, também em 14 outras).
+- Os outros veem: **sem aviso no chão** (o servidor não manda o ponto do "ao redor"). Animação: `buff` (Meshy; genérica, também em 11 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/rallying_cry.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Momento do efeito** (golpe acerta / magia sai): **0,3 s = quadro 9** contando do início — é quando o servidor aplica o efeito (fim do lançamento).

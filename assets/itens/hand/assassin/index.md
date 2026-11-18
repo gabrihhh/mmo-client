@@ -40,7 +40,7 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
 - Números: **Avança 9 m** em 0,2 s · alcance 9 m · meia-largura 0,6 m · lançamento **instantâneo** · recarga **14 s** · mana **10**.
 - Como funciona: Arraste para escolher a direção e solte (toque = para a frente/para o alvo): leva você 9 m na direção, percorrendo o caminho em 0,2 s. Começa na hora.
 - Ao segurar (prévia): faixa dourada translúcida saindo do personagem na direção do dedo: 9 m de comprimento × 1,2 m de largura.
-- Os outros veem: só a animação. Animação: `dash` (Meshy; genérica, também em 4 outras).
+- Os outros veem: só a animação. Animação: `dash` (Meshy; genérica, também em 3 outras).
 - Desenho da carta: ✅ `assets/icons/abilities/shadow_leap.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Instantânea:** o efeito acontece no toque (quadro 0); a animação acompanha o efeito, sem preparação.
@@ -69,7 +69,7 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
 - Números: **Dano 40** · raio 2,5 m · lançamento **0,3 s** · recarga **16 s** · mana **20**.
 - Como funciona: Toque e sai (não precisa mirar): depois de 0,3 s de lançamento (andar nesse tempo cancela), todos os inimigos em volta num raio de 2,5 m: tira 40 de vida.
 - Ao segurar (prévia): círculo dourado translúcido de raio 2,5 m em volta do personagem.
-- Os outros veem: **sem aviso no chão** (o servidor não manda o ponto do "ao redor"); clarão do golpe em anel de 2,5 m no momento do efeito. Animação: `spin` (Meshy; genérica, também em 1 outra).
+- Os outros veem: **sem aviso no chão** (o servidor não manda o ponto do "ao redor"); clarão do golpe em anel de 2,5 m no momento do efeito. Animação: `spin` (Meshy; própria).
 - Desenho da carta: ✅ `assets/icons/abilities/blade_flurry.png`.
 - **Tempo da animação (Blender, 30 fps):**
   - **Momento do efeito** (golpe acerta / magia sai): **0,3 s = quadro 9** contando do início — é quando o servidor aplica o efeito (fim do lançamento).
