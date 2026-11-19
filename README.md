@@ -4,9 +4,21 @@ Cliente Godot do MMO (Android/iOS). Documentação completa em `../mmo-docs` (co
 
 ## Primeira vez
 
-1. Instale o **Godot 4.4+** (recomendado 4.7.x, versão padrão, não a .NET).
-2. Suba o servidor (`../mmo-server`: `npm start`).
-3. Abra o projeto no Godot e aperte F5. Não há addons para instalar.
+Pasta `comandos/`: cada comando tem versão Linux (`.sh`) e Windows (`.bat`) — mmo-docs [PAD-05].
+
+| | Linux | Windows (clique duplo) |
+|---|---|---|
+| Instalar (Godot 4.7.2 + importar) | `comandos/setup-linux.sh` | `comandos\setup-windows.bat` |
+| Abrir o jogo | `comandos/run-game/linux.sh` | `comandos\run-game\windows.bat` |
+| Abrir o jogo já logado como `Ana` | `comandos/run-game/linux.sh Ana` | `comandos\run-game\windows.bat Ana` (no terminal) |
+| Abrir o editor | `comandos/open-editor/linux.sh` | `comandos\open-editor\windows.bat` |
+
+No Windows é só dar dois cliques no `.bat` (o setup pede permissão de administrador; o jogo e o editor não).
+
+O servidor precisa estar no ar (`../mmo-server/comandos/start-server/`). Cada nome abre uma janela com perfil
+próprio, então `run-game Ana` e `run-game Bia` ao mesmo tempo testam o multiplayer no mesmo PC.
+
+Na mão: instale o **Godot 4.7.x** (versão padrão, não a .NET), suba o servidor, abra o projeto no Godot e aperte F5.
 
 O jogo abre na tela de login: crie uma conta (username, e-mail e senha) ou entre. O aparelho lembra a
 sessão; **Sair** no canto da tela desloga.

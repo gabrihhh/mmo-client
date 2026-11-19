@@ -47,6 +47,7 @@ Seções-chave deste repo: [CLI-02] câmera, [CLI-03] estrutura do cliente, [CLI
 ```
 scenes/            .tscn por domínio (boot/, ui/, world/, player/)
 scripts/           .gd por domínio (boot/, network/, player/, camera/, ui/, input/, world/)
+comandos/          atalhos por sistema: setup-*, run-game/, open-editor/ (linux.sh + windows.bat, [PAD-05])
 tools/             publish_update.sh (publica o .pck no servidor), build_apk.sh (gera o APK), placeholders/ ([ART-02])
 assets/            modelos/materiais exportados do Blender (corpos, ícones, UI, placeholders)
 assets/itens/      um item por pasta: <slot>/<nome>/{index.md, male/, female/, animation-*} ([ART-08])
@@ -55,6 +56,10 @@ assets/itens/      um item por pasta: <slot>/<nome>/{index.md, male/, female/, a
 ## Comandos
 
 ```bash
+# Atalhos por sistema ([PAD-05]): cada pasta tem linux.sh e windows.bat
+comandos/setup-linux.sh                           # máquina nova: Godot 4.7.2 + GODOT_PATH + import (Windows: setup-windows.bat)
+comandos/run-game/linux.sh [Nome] [args]          # abre o jogo; com Nome entra direto como conta de teste (perfil próprio)
+comandos/open-editor/linux.sh                     # abre o editor do Godot
 godot --path . --headless --editor --quit         # importa e acusa erros de script
 godot --path .                                    # roda o jogo (servidor precisa estar no ar)
 godot --path . --headless --quit-after 300 -- --dev-user=Teste   # valida conexão sem clicar ([CLI-05])
