@@ -266,6 +266,26 @@ const ICON_ZONE: Array[String] = [
 	"................",
 	"................",
 ]
+## Botão do chat na HUD: só um balão de fala branco com as reticências (três pontos 2×2) no meio e o rabinho embaixo
+## à esquerda.
+const ICON_SPEECH: Array[String] = [
+	"................",
+	"................",
+	"...wwwwwwwwww...",
+	"..wwwwwwwwwwww..",
+	".wwwwwwwwwwwwww.",
+	".wwwwwwwwwwwwww.",
+	".wwSSwwSSwwSSww.",
+	".wwSSwwSSwwSSww.",
+	".wwwwwwwwwwwwww.",
+	"..wwwwwwwwwwww..",
+	"...wwwwwwwwww...",
+	"....www.........",
+	"....ww..........",
+	"....w...........",
+	"................",
+	"................",
+]
 ## Chat do Grupo: três cabeças verdes (a do meio na frente).
 const ICON_GROUP: Array[String] = [
 	"................",
@@ -493,6 +513,7 @@ func _init() -> void:
 	# Chat ([SOC-09]), Mercado ([JOGO-25]) e Armazém ([JOGO-26]).
 	_save(_outlined(_from_map(ICON_CHAT)), "icon_chat")
 	_save(_outlined(_from_map(ICON_ZONE)), "icon_zone")
+	_save(_outlined(_from_map(ICON_SPEECH)), "icon_speech")
 	_save(_outlined(_from_map(ICON_GROUP)), "icon_group")
 	_save(_outlined(_from_map(ICON_GUILD)), "icon_guild")
 	_save(_outlined(_from_map(ICON_PRIVATE)), "icon_private")

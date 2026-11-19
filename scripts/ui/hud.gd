@@ -242,6 +242,8 @@ var _market_button: Button = null
 ## Chat ([SOC-09]): painel, botão do chat (ícone de balões, com as não lidas) e o resumo das últimas mensagens em cima dos controles.
 var _chat_panel: ChatPanel = null
 var _chat_button: Button = null
+## Bolinha vermelha com o número de não lidas, no canto de cima do balão do chat.
+var _chat_badge: Label = null
 var _chat_unread: int = 0
 var _chat_feed: Label = null
 var _chat_feed_lines: Array[String] = []
@@ -665,7 +667,7 @@ func show_market_sold(item_name: String, price: int, buyer_name: String) -> void
 	show_toast("Mercado: %s vendeu por %s moedas para %s!" % [item_name, InventoryView.format_gold(price), buyer_name])
 
 
-## Chat ([SOC-09]): botão do chat (balões) à direita, logo acima da moldura dos controles (o do Ferreiro/Armazém fica no meio),
+## Chat ([SOC-09]): botão do chat (só o sprite do balão de fala, sem moldura; não lidas numa bolinha vermelha) à direita, logo acima da moldura dos controles (o do Ferreiro/Armazém fica no meio),
 ## o painel na metade de baixo e o resumo das 2 últimas mensagens à esquerda, que some em [constant CHAT_FEED_SECONDS] s.
 func _build_chat_ui() -> void:
 	var root: Control = $Root
@@ -673,9 +675,32 @@ func _build_chat_ui() -> void:
 	root.add_child(_chat_panel)
 	_chat_panel.close_pressed.connect(_open_panel.bind(null))
 	_chat_panel.send_requested.connect(chat_send_requested.emit)
-	_chat_button = PixelMenuPanel.set_icon(PixelMenuPanel.make_button(""), "icon_chat", 48)
-	_chat_button.custom_minimum_size = Vector2(120.0, 84.0)
+	# Só o sprite do balão de fala (`icon_speech`: branco, com as reticências), sem a moldura de botão (flat); escurece um pouco
+	# enquanto é tocado.
+	_chat_button = PixelMenuPanel.set_icon(Button.new(), "icon_speech", 72)
+	_chat_button.flat = true
+	_chat_button.focus_mode = Control.FOCUS_NONE
+	_chat_button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_chat_button.add_theme_color_override("icon_pressed_color", Color(0.7, 0.7, 0.7))
+	_chat_button.add_theme_color_override("icon_hover_pressed_color", Color(0.7, 0.7, 0.7))
+	_chat_button.custom_minimum_size = Vector2(88.0, 88.0)
 	_chat_button.pressed.connect(open_chat)
+	_chat_badge = Label.new()
+	_chat_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_chat_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_chat_badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_chat_badge.add_theme_font_size_override("font_size", 20)
+	_chat_badge.add_theme_color_override("font_color", Color.WHITE)
+	var badge_style: StyleBoxFlat = StyleBoxFlat.new()
+	badge_style.bg_color = Color(0.85, 0.15, 0.12)
+	badge_style.set_corner_radius_all(14)
+	badge_style.content_margin_left = 6.0
+	badge_style.content_margin_right = 6.0
+	_chat_badge.add_theme_stylebox_override("normal", badge_style)
+	_chat_badge.custom_minimum_size = Vector2(28.0, 28.0)
+	_chat_badge.position = Vector2(62.0, -2.0)
+	_chat_badge.visible = false
+	_chat_button.add_child(_chat_badge)
 	root.add_child(_chat_button)
 	root.move_child(_chat_button, _menu_dimmer.get_index())
 	_chat_feed = Label.new()
@@ -704,7 +729,7 @@ func _place_chat_ui() -> void:
 ## Abre o chat (zera as não lidas).
 func open_chat() -> void:
 	_chat_unread = 0
-	_chat_button.text = ""
+	_chat_badge.visible = false
 	_chat_feed.visible = false
 	_open_panel(_chat_panel)
 
@@ -717,7 +742,9 @@ func add_chat_message(message: ChatMessage) -> void:
 		return
 	if message.from_id != _own_id:
 		_chat_unread += 1
-		_chat_button.text = str(_chat_unread)
+		_chat_badge.text = str(_chat_unread) if _chat_unread < 100 else "99+"
+		_chat_badge.reset_size()
+		_chat_badge.visible = true
 	_chat_feed_lines.append(ChatPanel.short_line(message))
 	if _chat_feed_lines.size() > 2:
 		_chat_feed_lines.pop_front()
