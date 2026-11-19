@@ -4,6 +4,7 @@ extends SceneTree
 ## e do Menu (normal e apertado), botão redondo
 ## (ataque e "Desfocar"), espada, espada riscada, os ícones do menu (☰, mochila, mapa, engrenagem, sair), os ícones do
 ## chat (balões, grupo, guilda, envelope, globo), do Mercado/Armazém (moeda, baú, elmo, peitoral, bota, lista, setas;
+## diamante da Loja premium;
 ## a fonte pixel art não tem emoji), o **X vermelho**
 ## dos botões de fechar ([method PixelMenuPanel.make_close_button]) e as peças da
 ## tela de login ([CLI-05]): campo de texto (normal e selecionado) e o piso de pedra do fundo.
@@ -56,6 +57,9 @@ const PALETTE: Dictionary[String, Color] = {
 	"U": Color8(50, 90, 180),
 	"p": Color8(250, 170, 215),
 	"P": Color8(200, 80, 150),
+	# Diamante da Loja premium ([JOGO-27]): ciano claro/escuro.
+	"c": Color8(120, 230, 250),
+	"C": Color8(40, 140, 200),
 }
 
 ## Espada na diagonal, ponta para cima/direita (16×16). w/s = lâmina clara/sombra, g/G = guarda e pomo, b/B = cabo.
@@ -381,6 +385,25 @@ const ICON_COIN: Array[String] = [
 	"................",
 	"................",
 ]
+## Diamante (moeda premium da Loja, [JOGO-27]): lapidado, topo largo e ponta embaixo, com brilho branco.
+const ICON_DIAMOND: Array[String] = [
+	"................",
+	"................",
+	"................",
+	"....CCCCCCCC....",
+	"...CcwcccCccC...",
+	"..CcwcccCcccCC..",
+	"..CCCCCCCCCCCC..",
+	"...CcccCcccCC...",
+	"....CccCccCC....",
+	".....CcCcCC.....",
+	"......CcCC......",
+	".......CC.......",
+	"................",
+	"................",
+	"................",
+	"................",
+]
 ## Baú (Armazém): madeira com faixas e fechadura douradas.
 const ICON_CHEST: Array[String] = [
 	"................",
@@ -519,6 +542,7 @@ func _init() -> void:
 	_save(_outlined(_from_map(ICON_PRIVATE)), "icon_private")
 	_save(_outlined(_from_map(ICON_GLOBAL)), "icon_global")
 	_save(_outlined(_from_map(ICON_COIN)), "icon_coin")
+	_save(_outlined(_from_map(ICON_DIAMOND)), "icon_diamond")
 	_save(_outlined(_from_map(ICON_CHEST)), "icon_chest")
 	_save(_outlined(_from_map(ICON_HELM)), "icon_helm")
 	_save(_outlined(_from_map(ICON_ARMOR)), "icon_armor")

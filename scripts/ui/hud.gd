@@ -35,8 +35,14 @@ signal unequip_requested(slot: String, index: int)
 signal bag_move_requested(from: int, to: int)
 ## Confirmou destruir o item [param uid] na ficha ([JOGO-24]).
 signal item_destroy_requested(uid: String)
-## Ferreiro ([JOGO-16]): apertou "Melhorar" no item [param uid] com o atributo [param attribute].
-signal upgrade_requested(uid: String, attribute: String)
+## Ferreiro ([JOGO-16]): apertou "Melhorar" no item [param uid] com o atributo [param attribute]; [param guaranteed] =
+## gastar uma pedra garantida da Loja premium ([JOGO-27]).
+signal upgrade_requested(uid: String, attribute: String, guaranteed: bool)
+## Loja premium ([JOGO-27]): abriu (pede saldo/catálogo), comprar produto, comprar pacote, pedir o histórico.
+signal premium_open_requested
+signal premium_buy_requested(product_id: String)
+signal premium_pack_requested(pack_id: String)
+signal premium_history_requested
 ## Baú de acampamento ([JOGO-19]): apertou "Abrir baú" perto do baú [param chest_id] / tocou num item dele.
 signal chest_open_requested(chest_id: String)
 ## Tela de morte → "Renascer" ([JOGO-21]).
@@ -222,6 +228,9 @@ var _guild: GuildState = null
 ## Menu → Ranking ([SOC-07]).
 var _ranking_panel: RankingPanel = null
 var _ranking_button: Button = null
+## Menu → Loja premium ([JOGO-27]).
+var _premium_panel: PremiumShopPanel = null
+var _premium_button: Button = null
 ## Ferreiro ([JOGO-16]): tela de melhoria e o botão que aparece perto dele.
 var _blacksmith_panel: BlacksmithPanel = null
 ## Baú do acampamento ([JOGO-19]): botão "Abrir baú" (perto de um baú aberto), a janela e o baú de perto ("" = nenhum).
@@ -558,6 +567,7 @@ func _build_social_panels() -> void:
 	_build_friends_ui()
 	_build_guild_ui()
 	_build_ranking_ui()
+	_build_premium_ui()
 	_build_social_settings()
 	_build_perf_setting()
 	_build_blacksmith_ui()
@@ -983,6 +993,47 @@ func _build_ranking_ui() -> void:
 	_refresh_menu_height()
 
 
+## Loja premium ([JOGO-27]): painel do Menu → Loja e o botão "Loja" (ícone de diamante, logo depois de "Ranking").
+func _build_premium_ui() -> void:
+	_premium_panel = PremiumShopPanel.new()
+	$Root.add_child(_premium_panel)
+	_premium_panel.close_pressed.connect(_open_panel.bind(null))
+	_premium_panel.back_pressed.connect(_open_panel.bind(_menu_panel))
+	_premium_panel.open_requested.connect(premium_open_requested.emit)
+	_premium_panel.buy_requested.connect(func(product_id: String) -> void: premium_buy_requested.emit(product_id))
+	_premium_panel.pack_requested.connect(func(pack_id: String) -> void: premium_pack_requested.emit(pack_id))
+	_premium_panel.history_requested.connect(premium_history_requested.emit)
+	_premium_button = _ranking_button.duplicate() as Button
+	_premium_button.name = "PremiumButton"
+	_premium_button.text = "Loja"
+	PixelMenuPanel.set_icon(_premium_button, "icon_diamond")
+	_ranking_button.add_sibling(_premium_button)
+	_premium_button.pressed.connect(_open_panel.bind(_premium_panel))
+	_refresh_menu_height()
+
+
+## Loja premium: estado novo (saldo, efeitos, catálogo); o ferreiro mostra as pedras garantidas.
+func show_premium(state: PremiumState) -> void:
+	_premium_panel.show_state(state)
+	_blacksmith_panel.set_upgrade_stones(state.upgrade_stones)
+
+
+## Loja premium: compra feita (mensagem na Loja e aviso na tela).
+func show_premium_result(kind: String, _id: String, item_name: String, diamonds: int) -> void:
+	_premium_panel.show_result(kind, item_name, diamonds)
+	show_toast("+%s Diamantes" % InventoryView.format_gold(diamonds) if kind == "pack" else "Comprado: %s" % item_name)
+
+
+## Loja premium: histórico de compras chegou.
+func show_premium_history(entries: Array[PremiumState.HistoryEntry]) -> void:
+	_premium_panel.show_history(entries)
+
+
+## Loja premium: recusou por falta de Diamantes (a Loja abre os pacotes).
+func show_premium_not_enough() -> void:
+	_premium_panel.show_not_enough()
+
+
 ## Troca ([SOC-05]): a janela da troca (no ciclo dos painéis: pausa os controles enquanto aberta).
 func _build_trade_ui() -> void:
 	_trade_panel = TradePanel.new()
@@ -1180,9 +1231,9 @@ func _refresh_social_buttons() -> void:
 		button.modulate = Color(1, 1, 1) if selected else Color(1, 1, 1, 0.5)
 
 
-## Altura do Menu: os botões da cena + "Amigos" + "Guilda" + "Ranking" + "Grupo" (só com grupo), centralizado.
+## Altura do Menu: os botões da cena + "Amigos" + "Guilda" + "Ranking" + "Loja" + "Grupo" (só com grupo), centralizado.
 func _refresh_menu_height() -> void:
-	var extra_rows: int = (1 if _friends_button != null else 0) + (1 if _guild_button != null else 0) + (1 if _ranking_button != null else 0) + (1 if _group != null else 0)
+	var extra_rows: int = (1 if _friends_button != null else 0) + (1 if _guild_button != null else 0) + (1 if _ranking_button != null else 0) + (1 if _premium_button != null else 0) + (1 if _group != null else 0)
 	var height: float = _menu_base_height + extra_rows * (PixelMenuPanel.BUTTON_HEIGHT_PX + 20.0)
 	_menu_panel.offset_top = -height / 2.0
 	_menu_panel.offset_bottom = height / 2.0
@@ -1370,7 +1421,7 @@ func _on_player_option(option_id: String) -> void:
 
 ## Todos os painéis do menu (um aberto por vez).
 func _all_panels() -> Array[PanelContainer]:
-	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel, _guild_panel, _ranking_panel, _blacksmith_panel, _storage_panel, _market_panel, _chat_panel, _chest_panel, _trade_panel]
+	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel, _guild_panel, _ranking_panel, _premium_panel, _blacksmith_panel, _storage_panel, _market_panel, _chat_panel, _chest_panel, _trade_panel]
 
 
 ## Abre [param panel] e fecha os outros; null fecha tudo. Com menu aberto, os controles do jogo param.

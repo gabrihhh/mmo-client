@@ -143,6 +143,16 @@ func _ready() -> void:
 	# Ranking ([SOC-07]): a HUD pede a tabela; a resposta volta para ela.
 	_hud.ranking_requested.connect(Network.instance.send_ranking_request)
 	Network.instance.ranking_received.connect(_hud.show_ranking)
+	# Loja premium ([JOGO-27]): a HUD pede/compra; estado, resultado e histórico voltam para ela.
+	_hud.premium_open_requested.connect(Network.instance.send_premium_open)
+	_hud.premium_buy_requested.connect(Network.instance.send_premium_buy)
+	_hud.premium_pack_requested.connect(Network.instance.send_premium_pack)
+	_hud.premium_history_requested.connect(Network.instance.send_premium_history)
+	Network.instance.premium_received.connect(_hud.show_premium)
+	Network.instance.premium_result.connect(_hud.show_premium_result)
+	Network.instance.premium_history_received.connect(_hud.show_premium_history)
+	if Network.instance.premium != null:
+		_hud.show_premium(Network.instance.premium)
 	# Troca ([SOC-05]): pedir/responder/oferta/confirmar/cancelar vão ao servidor; pedido, estado e fim voltam para a HUD.
 	_hud.trade_request_requested.connect(Network.instance.send_trade_request)
 	_hud.trade_answered.connect(Network.instance.send_trade_answer)
@@ -520,6 +530,8 @@ func _on_server_error(code: String, message: String) -> void:
 	_hud.show_toast(message)
 	if code == Protocol.ERR_PLAYER_NOT_FOUND:
 		_hud.show_attributes_error(message)
+	elif code == Protocol.ERR_NOT_ENOUGH_DIAMONDS:
+		_hud.show_premium_not_enough()
 	if _local_player != null:
 		_local_player.cancel_prediction()
 

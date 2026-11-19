@@ -170,6 +170,8 @@ func _begin_forge() -> void:
 	_forge.start(ItemIcons.item(piece.item.item_id), ItemIcons.set_color(piece.item.set_name))
 	if _report.broken:
 		_forge.set_result(false, "Seu item quebrou!", "%s sumiu do inventário" % piece.item.display_name())
+	elif _report.protected_item:
+		_forge.set_result(true, "Proteção usada", "%s preservado" % piece.item.display_name())
 	else:
 		_forge.set_result(true, "Item preservado", piece.item.display_name())
 
@@ -196,7 +198,7 @@ func _show_summary() -> void:
 		_item_line.text = "Seu item quebrou: %s" % piece.item.display_name()
 		_item_line.add_theme_color_override("font_color", FAIL_RED)
 	else:
-		_item_line.text = "Item preservado: %s" % piece.item.display_name()
+		_item_line.text = ("Proteção usada · item preservado: %s" if _report.protected_item else "Item preservado: %s") % piece.item.display_name()
 		_item_line.add_theme_color_override("font_color", GOLD)
 	_summary.visible = true
 

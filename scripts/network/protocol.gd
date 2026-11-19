@@ -49,7 +49,10 @@ extends RefCounted
 ## v38: chat ([SOC-09]): [constant MSG_CHAT_SEND] → [constant MSG_CHAT] / [constant MSG_CHAT_REFUSED].
 ## v39: Mercado ([JOGO-25]): market_list/market_mine/market_sell/market_buy/market_cancel → market_page/
 ## market_mine_list/market_result/market_sold; NPC com service "market".
-const VERSION: int = 39
+## v40: Loja premium ([JOGO-27]): premium_open/premium_buy/premium_pack/premium_history → premium/premium_result/
+## premium_history_list; [code]guaranteed[/code] no [constant MSG_UPGRADE]; [code]protected[/code] no
+## [constant MSG_DEATH_REPORT].
+const VERSION: int = 40
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
@@ -118,9 +121,18 @@ const MSG_MARKET_SELL: String = "market_sell"
 const MSG_MARKET_BUY: String = "market_buy"
 ## Cancelar (ativo) / retirar (vencido) { listingId }: item e taxa voltam.
 const MSG_MARKET_CANCEL: String = "market_cancel"
-## Tenta melhorar um item no ferreiro (perto dele, com moedas). data: { uid, attribute: id de [ItemAttributes] }.
+## Tenta melhorar um item no ferreiro (perto dele, com moedas). data: { uid, attribute: id de [ItemAttributes],
+## guaranteed: bool (pedra garantida da Loja premium, [JOGO-27]) }.
 ## Resposta: [constant MSG_UPGRADE_RESULT] (+ inventário se subiu) ou erro (not_enough_gold, too_far...). [JOGO-16]
 const MSG_UPGRADE: String = "upgrade"
+## Loja premium ([JOGO-27]): abre (sem payload; resposta [constant MSG_PREMIUM]).
+const MSG_PREMIUM_OPEN: String = "premium_open"
+## Compra um produto com Diamantes: { productId }. Resposta: [constant MSG_PREMIUM_RESULT] + [constant MSG_PREMIUM].
+const MSG_PREMIUM_BUY: String = "premium_buy"
+## Compra um pacote de Diamantes: { packId } (hoje só a compra de teste do servidor de dev). Mesma resposta.
+const MSG_PREMIUM_PACK: String = "premium_pack"
+## Pede o histórico de compras (sem payload; resposta [constant MSG_PREMIUM_HISTORY_LIST]).
+const MSG_PREMIUM_HISTORY: String = "premium_history"
 ## Abre o baú de um acampamento (perto e aberto): {chestId}. Resposta: [constant MSG_CHEST_LOOT] ou erro. [JOGO-19]
 ## ATENÇÃO: ClientMessageType.ChestOpen em mmo-server/src/net/protocol.ts.
 const MSG_CHEST_OPEN: String = "chest_open"
@@ -271,9 +283,15 @@ const MSG_MARKET_SOLD: String = "market_sold"
 const MSG_CHAT_REFUSED: String = "chat_refused"
 ## Compra/venda feita: { action: "buy"|"sell", itemId, gold } ([JOGO-23]).
 const MSG_SHOP_RESULT: String = "shop_result"
-## Você morreu: {killer, goldLost, xpLost, equipped: [{slot, item}], pickedSlot, broken, autoRespawnSeconds}. [JOGO-21]
-## ATENÇÃO: DeathReportData em mmo-server/src/net/protocol.ts.
+## Você morreu: {killer, goldLost, xpLost, equipped: [{slot, item}], pickedSlot, broken, protected,
+## autoRespawnSeconds}. [JOGO-21] ATENÇÃO: DeathReportData em mmo-server/src/net/protocol.ts.
 const MSG_DEATH_REPORT: String = "death_report"
+## Loja premium: saldo, efeitos, produtos e pacotes ([PremiumState], [JOGO-27]).
+const MSG_PREMIUM: String = "premium"
+## Loja premium: compra feita { kind: "pack"|"product", id, name, diamonds }.
+const MSG_PREMIUM_RESULT: String = "premium_result"
+## Loja premium: histórico { entries: [{ at (ms), kind, name, diamonds, test }] }.
+const MSG_PREMIUM_HISTORY_LIST: String = "premium_history_list"
 ## Atributos de um jogador (resposta ao [constant MSG_INSPECT]). data: { id, name, level, maxHp, maxMana,
 ## power: { damage, healing, shield } (multiplicadores pelo nível, 1 = nível 0), equipped: { hand, head, chest, feet:
 ## { itemId, name, set } ou null }, stats: { monsterXp, kills, deaths } ([SOC-08]) }. Perfil fechado para mim:
@@ -367,6 +385,8 @@ const ERR_FRIEND_REQUEST_PENDING: String = "friend_request_pending"
 const ERR_FRIEND_REQUEST_NOT_FOUND: String = "friend_request_not_found"
 const ERR_FRIEND_LIST_FULL: String = "friend_list_full"
 const ERR_NOT_FRIENDS: String = "not_friends"
+## Loja premium ([JOGO-27]): Diamantes a menos que o preço (a Loja leva aos pacotes).
+const ERR_NOT_ENOUGH_DIAMONDS: String = "not_enough_diamonds"
 
 # --- Regras de conta (só para avisar na hora; quem decide é o servidor) ---
 ## Username: 3 a 16 caracteres, letras sem acento, números e _. Único sem diferenciar maiúsculas,

@@ -100,6 +100,12 @@ signal guild_list_received(query: String, guilds: Array[GuildState.Summary])
 signal guild_info_received(info: GuildState.Info)
 ## Chegou uma tabela de ranking ([SOC-07]), resposta ao [method send_ranking_request].
 signal ranking_received(ranking: RankingData)
+## Loja premium ([JOGO-27]): saldo/efeitos/catálogo novos (também em [member premium]).
+signal premium_received(state: PremiumState)
+## Loja premium: compra feita ([param kind] "pack" = entraram [param diamonds]; "product" = saíram).
+signal premium_result(kind: String, id: String, name: String, diamonds: int)
+## Loja premium: histórico de compras (mais nova primeiro).
+signal premium_history_received(entries: Array[PremiumState.HistoryEntry])
 ## Troca ([SOC-05]): alguém quer trocar comigo; responder com [method send_trade_answer] em até [param expires_in] s.
 signal trade_requested(from_id: String, from_name: String, expires_in: float)
 ## A MINHA troca aberta mudou (abriu, ofertas, confirmações, contagem).
@@ -222,6 +228,8 @@ var social_group_invites: String = Protocol.SOCIAL_ALWAYS
 var social_guild_invites: String = Protocol.SOCIAL_ALWAYS
 ## Minha guilda segundo o servidor ([SOC-06]); null = sem guilda. Guildeiros não se atingem e aparecem em azul.
 var guild: GuildState = null
+## Loja premium ([JOGO-27]): Diamantes, VIP, pedras... (vem logo depois de autenticar e a cada compra); null = ainda não chegou.
+var premium: PremiumState = null
 ## Quem vê o meu perfil ([SOC-08]): [constant Protocol.PROFILE_PUBLIC] / FRIENDS / NOBODY.
 var social_profile: String = Protocol.PROFILE_PUBLIC
 ## "Pedidos de troca" ([SOC-05]): mostrar ou recusar sozinho.
@@ -700,9 +708,35 @@ func send_respawn() -> void:
 		_send(Protocol.MSG_RESPAWN, {})
 
 
-func send_upgrade(uid: String, attribute: String) -> void:
+## Ferreiro ([JOGO-16]): melhora [param uid] em [param attribute]; [param guaranteed] = gastar uma pedra garantida da
+## Loja premium ([JOGO-27]; o servidor só gasta se a chance for menor que 100%).
+func send_upgrade(uid: String, attribute: String, guaranteed: bool = false) -> void:
 	if _authenticated:
-		_send(Protocol.MSG_UPGRADE, {"uid": uid, "attribute": attribute})
+		_send(Protocol.MSG_UPGRADE, {"uid": uid, "attribute": attribute, "guaranteed": guaranteed})
+
+
+## Loja premium ([JOGO-27]): pede saldo/catálogo (resposta em [signal premium_received]).
+func send_premium_open() -> void:
+	if _authenticated:
+		_send(Protocol.MSG_PREMIUM_OPEN, {})
+
+
+## Compra o produto [param product_id] com Diamantes (resposta: [signal premium_result] + [signal premium_received]).
+func send_premium_buy(product_id: String) -> void:
+	if _authenticated:
+		_send(Protocol.MSG_PREMIUM_BUY, {"productId": product_id})
+
+
+## Compra o pacote de Diamantes [param pack_id] (hoje só a compra de teste do servidor de dev).
+func send_premium_pack(pack_id: String) -> void:
+	if _authenticated:
+		_send(Protocol.MSG_PREMIUM_PACK, {"packId": pack_id})
+
+
+## Pede o histórico de compras da Loja (resposta em [signal premium_history_received]).
+func send_premium_history() -> void:
+	if _authenticated:
+		_send(Protocol.MSG_PREMIUM_HISTORY, {})
 
 
 ## Mercado ([JOGO-25]): busca [param query] (nome do item ou do conjunto), [param slot] ("" = todos), ordem
@@ -1041,6 +1075,13 @@ func _handle_message(text: String) -> void:
 			guild_info_received.emit(GuildState.Info.from_dict(data))
 		Protocol.MSG_RANKING:
 			ranking_received.emit(RankingData.from_dict(data))
+		Protocol.MSG_PREMIUM:
+			premium = PremiumState.from_dict(data)
+			premium_received.emit(premium)
+		Protocol.MSG_PREMIUM_RESULT:
+			premium_result.emit(Protocol.read_string(data, "kind"), Protocol.read_string(data, "id"), Protocol.read_string(data, "name"), Protocol.read_int(data, "diamonds"))
+		Protocol.MSG_PREMIUM_HISTORY_LIST:
+			premium_history_received.emit(PremiumState.HistoryEntry.list_from(data))
 		Protocol.MSG_TRADE_REQUESTED:
 			trade_requested.emit(Protocol.read_string(data, "fromId"), Protocol.read_string(data, "fromName"), Protocol.read_float(data, "expiresIn", 30.0))
 		Protocol.MSG_TRADE_STATE:
@@ -1278,6 +1319,7 @@ func _on_closed() -> void:
 	social_guild_invites = Protocol.SOCIAL_ALWAYS
 	social_trade_requests = Protocol.SOCIAL_ALWAYS
 	guild = null
+	premium = null
 	_npcs.clear()
 	chests.clear()
 	attack_target = ""

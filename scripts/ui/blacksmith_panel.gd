@@ -28,9 +28,11 @@ extends PanelContainer
 ## Terceira aba, **Loja** ([JOGO-23]): **Comprar** lista as peças +0 de todos os conjuntos (vem do servidor em
 ## [method show_shop]) e **Vender** usa os seus itens (vestido não vende; item +1 ou mais pede um segundo toque para
 ## confirmar). Preços prontos do servidor (oferta e [member InventoryState.Item.sell_price]).
+## Pedra de melhoria garantida (Loja premium, [JOGO-27]): com pedras e chance menor que 100%, aparece o botão
+## "Usar pedra garantida" embaixo do "Melhorar"; ligado, a melhoria não falha e gasta uma pedra (o servidor decide).
 
-## Apertou "Melhorar": item [param uid] com o atributo [param attribute].
-signal upgrade_requested(uid: String, attribute: String)
+## Apertou "Melhorar": item [param uid] com o atributo [param attribute]; [param guaranteed] = usar a pedra garantida.
+signal upgrade_requested(uid: String, attribute: String, guaranteed: bool)
 ## Apertou "Fundir": sacrificar [param material_uid] (da mochila) em [param target_uid] (o mesmo item). [JOGO-20]
 signal fuse_requested(target_uid: String, material_uid: String)
 ## Abriu a aba Loja sem a lista ainda: pedir ao servidor ([JOGO-23]).
@@ -60,6 +62,10 @@ var _selected_uid: String = ""
 var _selected_attribute: String = ""
 ## Esperando a resposta de uma tentativa (o botão fica desligado).
 var _waiting: bool = false
+## Pedras de melhoria garantida da conta ([JOGO-27]) e se a próxima melhoria usa uma.
+var _stones: int = 0
+var _use_stone: bool = false
+var _stone_button: Button = null
 
 var _gold_label: Label = null
 var _selected_slot: ItemSlot = null
@@ -174,6 +180,14 @@ func _ready() -> void:
 	_upgrade_button.custom_minimum_size = Vector2(0.0, UPGRADE_BUTTON_PX)
 	_upgrade_button.pressed.connect(_on_upgrade_pressed)
 	_upgrade_section.add_child(_upgrade_button)
+	_stone_button = PixelMenuPanel.set_icon(PixelMenuPanel.make_button(""), "icon_diamond", 40)
+	_stone_button.custom_minimum_size = Vector2(0.0, ATTRIBUTE_BUTTON_PX)
+	_stone_button.add_theme_font_size_override("font_size", 24)
+	_stone_button.visible = false
+	_stone_button.pressed.connect(func() -> void:
+		_use_stone = not _use_stone
+		_refresh_button())
+	_upgrade_section.add_child(_stone_button)
 
 	# Fundir ([JOGO-20]): itens iguais da mochila e o botão.
 	_fuse_section = VBoxContainer.new()
@@ -255,6 +269,15 @@ func set_gold(amount: int) -> void:
 	_gold = amount
 	if is_node_ready():
 		_gold_label.text = "%s moedas" % InventoryView.format_gold(amount)
+		_refresh_button()
+
+
+## Pedras de melhoria garantida da conta (Loja premium, [JOGO-27]); acabaram → desliga o "usar pedra".
+func set_upgrade_stones(count: int) -> void:
+	_stones = count
+	if _stones <= 0:
+		_use_stone = false
+	if is_node_ready():
 		_refresh_button()
 
 
@@ -410,11 +433,20 @@ func _choose_attribute(id: String) -> void:
 ## Texto e estado do "Melhorar": preço e chance do item escolhido; desligado sem item/atributo, sem moedas ou esperando.
 func _refresh_button() -> void:
 	var item: InventoryState.Item = _find(_selected_uid)
+	# Pedra garantida ([JOGO-27]): só quando há pedra e a chance não é 100%.
+	var stone_useful: bool = item != null and _stones > 0 and item.upgrade_chance < 1.0
+	_stone_button.visible = stone_useful
+	if not stone_useful:
+		_use_stone = false
+	_stone_button.text = ("✓ Usando pedra garantida (%d)" if _use_stone else "Usar pedra garantida (%d)") % _stones
+	_stone_button.modulate = Color(1, 1, 1) if _use_stone else Color(1, 1, 1, 0.6)
 	if item == null:
 		_upgrade_button.text = "Melhorar"
 		_upgrade_button.disabled = true
 		return
 	var chance: String = "%d%%" % roundi(item.upgrade_chance * 100.0) if item.upgrade_chance >= 0.01 else "1%"
+	if _use_stone:
+		chance = "100%"
 	_upgrade_button.text = "Melhorar para +%d · %s moedas · %s" % [item.level + 1, InventoryView.format_gold(item.upgrade_cost), chance]
 	_upgrade_button.disabled = _waiting or _selected_attribute.is_empty() or _gold < item.upgrade_cost
 	if not _waiting and _selected_attribute.is_empty() and _result_label.text.is_empty():
@@ -432,7 +464,8 @@ func _on_upgrade_pressed() -> void:
 	_refresh_button()
 	var item: InventoryState.Item = _find(_selected_uid)
 	_forge.start(ItemIcons.item(item.item_id) if item != null else null, ItemIcons.set_color(item.set_name) if item != null else GOLD_COLOR)
-	upgrade_requested.emit(_selected_uid, _selected_attribute)
+	upgrade_requested.emit(_selected_uid, _selected_attribute, _use_stone)
+	_use_stone = false
 
 
 # --- Fundir ([JOGO-20]) ---

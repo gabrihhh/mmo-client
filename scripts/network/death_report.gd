@@ -20,6 +20,8 @@ var equipped: Array[Piece] = []
 ## Slot sorteado ("" = nenhum) e se a peça quebrou.
 var picked_slot: String = ""
 var broken: bool = false
+## Uma proteção da roleta da Loja premium ([JOGO-27]) foi gasta: a peça sorteada não quebrou.
+var protected_item: bool = false
 var auto_respawn_seconds: float = 60.0
 
 
@@ -47,5 +49,7 @@ static func from_dict(data: Dictionary) -> DeathReport:
 	report.picked_slot = Protocol.read_string(data, "pickedSlot")
 	var broken_value: Variant = data.get("broken")
 	report.broken = broken_value is bool and broken_value == true
+	var protected_value: Variant = data.get("protected")
+	report.protected_item = protected_value is bool and protected_value == true
 	report.auto_respawn_seconds = Protocol.read_float(data, "autoRespawnSeconds", 60.0)
 	return report
