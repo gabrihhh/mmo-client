@@ -54,7 +54,7 @@ extends RefCounted
 ## [constant MSG_DEATH_REPORT].
 ## v41: Coliseu ([JOGO-28]): colosseum_open/queue/leave/accept/decline/point/leave_match → colosseum_info/found/
 ## accept_status/cancelled/state/result; [code]kind[/code]/[code]arena[/code] no welcome; categorias colosseum_* no
-## ranking; erros in_colosseum e colosseum_*. ⏳ telas do cliente nas etapas 4–5 do plan-1.
+## ranking; erros in_colosseum e colosseum_*; [code]pieces[/code] (minhas peças de arena) no colosseum_state.
 const VERSION: int = 41
 
 # --- Cliente → servidor ---
@@ -320,7 +320,7 @@ const MSG_COLOSSEUM_ACCEPT_STATUS: String = "colosseum_accept_status"
 ## A partida encontrada caiu: { reason: "you_refused"|"other_refused", requeued, banSeconds }.
 const MSG_COLOSSEUM_CANCELLED: String = "colosseum_cancelled"
 ## Placar: { mode, phase: "prep"|"round"|"pause"|"over", round, score: [a, b], secondsLeft, choicesLeft, team,
-## teams: [[{ id, name, build, abandoned }], [...]] }.
+## teams: [[{ id, name, build, abandoned }], [...]], pieces: [{ slot, set, itemId, attrs, allowed }] }.
 const MSG_COLOSSEUM_STATE: String = "colosseum_state"
 ## Fim para você: { mode, outcome: "win"|"loss"|"draw"|"abandon", annulled, winner, score, gold, xp, points,
 ## ratingDelta, rating, rewarded, level }.

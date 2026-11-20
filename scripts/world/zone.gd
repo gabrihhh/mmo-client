@@ -168,8 +168,9 @@ func _ready() -> void:
 	_hud.trade_cancel_requested.connect(Network.instance.send_trade_cancel)
 	Network.instance.trade_requested.connect(_hud.show_trade_request)
 	Network.instance.trade_changed.connect(_hud.show_trade)
-	Network.instance.trade_done.connect(func(partner_name: String) -> void: _hud.end_trade("Troca com %s feita!" % partner_name))
-	Network.instance.trade_notice.connect(func(_code: String, message: String) -> void: _hud.end_trade(message))
+	# Métodos (não lambdas): somem com a cena quando a zona troca (arena do Coliseu, [JOGO-28]).
+	Network.instance.trade_done.connect(_on_trade_done)
+	Network.instance.trade_notice.connect(_on_trade_notice)
 	# Recusas que não são de login (ex.: mochila cheia) viram aviso na tela.
 	Network.instance.server_error.connect(_on_server_error)
 	# Coliseu ([JOGO-28]): Menu → Coliseu, fila, partida encontrada, placar e fim; na arena a HUD entra no modo arena
@@ -184,9 +185,12 @@ func _ready() -> void:
 	Network.instance.colosseum_accept_status.connect(_hud.show_colosseum_accept_status)
 	Network.instance.colosseum_cancelled.connect(_hud.show_colosseum_cancelled)
 	Network.instance.colosseum_state_changed.connect(_on_colosseum_state)
-	Network.instance.colosseum_result_received.connect(_hud.show_colosseum_result)
+	Network.instance.colosseum_result_received.connect(_on_colosseum_result)
+	_hud.colosseum_point_requested.connect(Network.instance.send_colosseum_point)
 	_hud.set_arena_mode(Network.instance.is_arena())
 	_hud.set_colosseum_state(Network.instance.colosseum_state)
+	# Fim de partida que chegou junto com o welcome da volta (antes desta cena existir).
+	_on_colosseum_result(null)
 	_start_colosseum_bot()
 
 	_aim_preview = AimPreview.new()
@@ -292,6 +296,16 @@ func _on_player_added(player_id: String, state: PlayerState) -> void:
 	_update_online_status()
 
 
+## Troca feita ([SOC-05]).
+func _on_trade_done(partner_name: String) -> void:
+	_hud.end_trade("Troca com %s feita!" % partner_name)
+
+
+## Troca acabou sem acontecer ([SOC-05]).
+func _on_trade_notice(_code: String, message: String) -> void:
+	_hud.end_trade(message)
+
+
 ## Dev/testes do Coliseu ([JOGO-28]): `-- --colosseum=1x1` (ou 2x2/3x3; `--colosseum-healer` = mão Curandeiro) entra na
 ## fila sozinho ao chegar na zona comum (nas pedras da praça) e aceita a partida encontrada. Duas janelas com isso
 ## jogam uma partida sem clicar.
@@ -300,21 +314,63 @@ const COLOSSEUM_BOT_HEALER_ARG: String = "--colosseum-healer"
 
 
 func _start_colosseum_bot() -> void:
-	var mode: String = ""
+	_bot_mode = ""
 	for arg: String in OS.get_cmdline_user_args():
 		if arg.begins_with(COLOSSEUM_BOT_ARG):
-			mode = arg.substr(COLOSSEUM_BOT_ARG.length())
-	if mode.is_empty() or Network.instance.is_arena():
+			_bot_mode = arg.substr(COLOSSEUM_BOT_ARG.length())
+	if _bot_mode.is_empty():
+		return
+	# Métodos (não lambdas): o Godot desliga sozinho quando a cena é descartada na troca de zona.
+	if Network.instance.is_arena():
+		Network.instance.colosseum_state_changed.connect(_bot_on_state)
+		_bot_on_state(Network.instance.colosseum_state)
+		return
+	Network.instance.colosseum_found.connect(_bot_on_found)
+	Network.instance.colosseum_result_received.connect(_bot_on_result)
+	# Um pouco depois de entrar (o servidor já pôs o jogador na praça).
+	get_tree().create_timer(1.0).timeout.connect(_bot_queue)
+
+
+## Modo do bot do Coliseu ("" = desligado).
+var _bot_mode: String = ""
+
+
+func _bot_queue() -> void:
+	if not is_inside_tree():
 		return
 	var hand: String = ColosseumData.HEALER_SET if COLOSSEUM_BOT_HEALER_ARG in OS.get_cmdline_user_args() else "Mago"
 	var build: Dictionary[String, String] = {"hand": hand, "head": "Cavaleiro", "chest": "Cavaleiro", "feet": "Atirador"}
-	Network.instance.colosseum_found.connect(func(_mode: String, _seconds: int, _total: int) -> void:
-		Network.instance.send_colosseum_answer(true))
-	# Um pouco depois de entrar (o servidor já pôs o jogador na praça).
-	get_tree().create_timer(1.0).timeout.connect(func() -> void:
-		if is_inside_tree():
-			print("[coliseu-bot] entrando na fila %s" % mode)
-			Network.instance.send_colosseum_queue(mode, build))
+	print("[coliseu-bot] entrando na fila %s" % _bot_mode)
+	Network.instance.send_colosseum_queue(_bot_mode, build)
+
+
+func _bot_on_found(_mode: String, _seconds: int, _total: int) -> void:
+	Network.instance.send_colosseum_answer(true)
+
+
+## Na preparação faz 5 escolhas (1º atributo da peça da mão) e deixa o resto para o sorteio do servidor.
+func _bot_on_state(state: ColosseumData.MatchState) -> void:
+	if state == null:
+		return
+	print("[coliseu-bot] placar: %s round %d %d x %d, escolhas %d" % [state.phase, state.round, state.score[0], state.score[1], state.choices_left])
+	if state.phase == ColosseumData.PHASE_PREP and state.choices_left > 15 and not state.pieces.is_empty() and not state.pieces[0].allowed.is_empty():
+		Network.instance.send_colosseum_point(state.pieces[0].slot, state.pieces[0].allowed[0])
+
+
+func _bot_on_result(result: ColosseumData.Result) -> void:
+	if result != null:
+		print("[coliseu-bot] resultado: %s (anulada %s) ranking %d" % [result.outcome, str(result.annulled), result.rating])
+
+
+## Fim da partida do Coliseu ([JOGO-28]): mostra a tela de fim — mas só na cena certa. O resultado chega logo depois do
+## welcome da volta; se esta cena ainda é a da arena (vai trocar), fica guardado no [Network] para a praça mostrar.
+func _on_colosseum_result(_result: ColosseumData.Result) -> void:
+	if scene_file_path != Network.instance.zone_scene() or Network.instance.is_arena():
+		return
+	var pending: ColosseumData.Result = Network.instance.take_colosseum_result()
+	if pending != null:
+		print("[coliseu] fim da partida: %s (anulada %s), ranking %d" % [pending.outcome, str(pending.annulled), pending.rating])
+		_hud.show_colosseum_result(pending)
 
 
 ## Placar novo do Coliseu ([JOGO-28]): a HUD mostra; os jogadores remotos pegam a cor de aliado do meu time.

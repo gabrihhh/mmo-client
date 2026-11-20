@@ -1,7 +1,8 @@
 class_name RankingPanel
 extends PixelMenuPanel
 ## Menu → "Ranking" ([SOC-07]). Abas de cima: **Monstros** (XP ganha matando monstros), **PvP** (jogadores mortos) e
-## **Guilda** (com as sub-abas Monstros / PvP: soma dos membros atuais). Abas de baixo: **Diário**, **Semanal** e
+## **Guilda** (com as sub-abas Monstros / PvP: soma dos membros atuais) e **Coliseu** ([JOGO-28], sub-abas 1x1 / 2x2 /
+## 3x3: global = pontos de ranking atuais, diário/semanal = pontos ganhos no período). Abas de baixo: **Diário**, **Semanal** e
 ## **Global**. A lista mostra o top 100 ("1. Nome ...... valor", os três primeiros em ouro/prata/bronze) e embaixo a
 ## minha posição (ou a da minha guilda). Ao abrir ou trocar de aba pede a tabela ([signal ranking_requested]); a
 ## [Hud] devolve a resposta por [method show_ranking]. O servidor recalcula no máximo a cada minuto.
@@ -16,8 +17,12 @@ const PODIUM_COLORS: Array[Color] = [Color(1.0, 0.84, 0.3), Color(0.85, 0.88, 0.
 const KEY_COLOR: Color = Color(1, 1, 1, 0.7)
 const VALUE_COLOR: Color = Color(1, 0.85, 0.6)
 ## Abas de cima: id → texto ("guild" abre as sub-abas).
-const _TOP_TABS: Dictionary[String, String] = {"monsters": "Monstros", "pvp": "PvP", "guild": "Guilda"}
+const _TOP_TABS: Dictionary[String, String] = {"monsters": "Monstros", "pvp": "PvP", "guild": "Guilda", "colosseum": "Coliseu"}
 const _GUILD_TABS: Dictionary[String, String] = {"monsters": "Monstros", "pvp": "PvP"}
+## Sub-abas do Coliseu ([JOGO-28]): um ranking por modo.
+const _COLOSSEUM_TABS: Dictionary[String, String] = {
+	RankingData.CATEGORY_COLOSSEUM_1X1: "1x1", RankingData.CATEGORY_COLOSSEUM_2X2: "2x2", RankingData.CATEGORY_COLOSSEUM_3X3: "3x3",
+}
 const _PERIOD_TABS: Dictionary[String, String] = {
 	RankingData.PERIOD_DAILY: "Diário", RankingData.PERIOD_WEEKLY: "Semanal", RankingData.PERIOD_GLOBAL: "Global",
 }
@@ -25,12 +30,16 @@ const _PERIOD_TABS: Dictionary[String, String] = {
 ## Aba de cima escolhida ("monsters", "pvp" ou "guild"), sub-aba da guilda e período.
 var _top: String = "monsters"
 var _guild_kind: String = "monsters"
+## Sub-aba do Coliseu (categoria colosseum_*).
+var _colosseum_kind: String = RankingData.CATEGORY_COLOSSEUM_1X1
 var _period: String = RankingData.PERIOD_DAILY
 
 var _top_buttons: Dictionary[String, Button] = {}
 var _guild_buttons: Dictionary[String, Button] = {}
 var _period_buttons: Dictionary[String, Button] = {}
 var _guild_row: HBoxContainer = null
+var _colosseum_buttons: Dictionary[String, Button] = {}
+var _colosseum_row: HBoxContainer = null
 var _info: Label = null
 var _list: VBoxContainer = null
 var _me_label: Label = null
@@ -42,6 +51,8 @@ func _init() -> void:
 	body.add_child(_make_tabs(_TOP_TABS, _top_buttons, _on_top_tab))
 	_guild_row = _make_tabs(_GUILD_TABS, _guild_buttons, _on_guild_tab)
 	body.add_child(_guild_row)
+	_colosseum_row = _make_tabs(_COLOSSEUM_TABS, _colosseum_buttons, _on_colosseum_tab)
+	body.add_child(_colosseum_row)
 	body.add_child(_make_tabs(_PERIOD_TABS, _period_buttons, _on_period_tab))
 	_info = PixelMenuPanel.make_label("", KEY_COLOR)
 	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -67,6 +78,8 @@ func _init() -> void:
 
 ## Categoria escolhida agora ([RankingData] CATEGORY_*).
 func current_category() -> String:
+	if _top == "colosseum":
+		return _colosseum_kind
 	if _top != "guild":
 		return _top
 	return RankingData.CATEGORY_GUILD_MONSTERS if _guild_kind == "monsters" else RankingData.CATEGORY_GUILD_PVP
@@ -80,6 +93,9 @@ func show_ranking(ranking: RankingData, has_guild: bool) -> void:
 	var guild: bool = RankingData.is_guild(ranking.category)
 	var xp: bool = ranking.category == RankingData.CATEGORY_MONSTERS or ranking.category == RankingData.CATEGORY_GUILD_MONSTERS
 	var measure: String = "XP de monstros" if xp else "Jogadores mortos"
+	if RankingData.is_colosseum(ranking.category):
+		# Global = pontos atuais do modo; diário/semanal = pontos ganhos no período ([JOGO-28]).
+		measure = "Pontos de ranking" if ranking.period == RankingData.PERIOD_GLOBAL else "Pontos ganhos"
 	_info.text = "%s · %s" % [measure, _reset_text(ranking.resets_in)]
 	if ranking.rows.is_empty():
 		var empty: Label = PixelMenuPanel.make_label("Ninguém pontuou ainda.", KEY_COLOR)
@@ -114,6 +130,12 @@ func _on_guild_tab(id: String) -> void:
 	_request()
 
 
+func _on_colosseum_tab(id: String) -> void:
+	_colosseum_kind = id
+	_refresh_tabs()
+	_request()
+
+
 func _on_period_tab(id: String) -> void:
 	_period = id
 	_refresh_tabs()
@@ -138,7 +160,9 @@ func _refresh_tabs() -> void:
 	_mark(_top_buttons, _TOP_TABS, _top)
 	_mark(_guild_buttons, _GUILD_TABS, _guild_kind)
 	_mark(_period_buttons, _PERIOD_TABS, _period)
+	_mark(_colosseum_buttons, _COLOSSEUM_TABS, _colosseum_kind)
 	_guild_row.visible = _top == "guild"
+	_colosseum_row.visible = _top == "colosseum"
 
 
 func _mark(buttons: Dictionary[String, Button], texts: Dictionary[String, String], selected: String) -> void:

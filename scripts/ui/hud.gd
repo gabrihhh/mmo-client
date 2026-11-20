@@ -121,6 +121,8 @@ signal colosseum_queue_requested(mode: String, build: Dictionary[String, String]
 signal colosseum_leave_requested
 signal colosseum_answered(accept: bool)
 signal colosseum_leave_match_requested
+## Coliseu: uma das 20 escolhas da preparação (peça [param slot] → [param attribute]).
+signal colosseum_point_requested(slot: String, attribute: String)
 
 ## Quantas cartas de habilidade a HUD mostra ([JOGO-01]: 3 da arma + cabeça + peito + pés).
 const CARD_COUNT: int = 6
@@ -248,6 +250,12 @@ var _arena_bar: Label = null
 var _arena_mode: bool = false
 ## Toque em "Sair da partida" armado (o 2º toque confirma); volta a desarmar sozinho.
 var _leave_match_armed: bool = false
+## Preparação (20 escolhas, embaixo; não pausa), o botão "Escolhas" que a mostra de novo e se o jogador escondeu.
+var _prep_panel: ColosseumPrepPanel = null
+var _prep_button: Button = null
+var _prep_hidden: bool = false
+## Tela de fim da partida (já na praça).
+var _colosseum_result_panel: ColosseumResultPanel = null
 ## Ferreiro ([JOGO-16]): tela de melhoria e o botão que aparece perto dele.
 var _blacksmith_panel: BlacksmithPanel = null
 ## Baú do acampamento ([JOGO-19]): botão "Abrir baú" (perto de um baú aberto), a janela e o baú de perto ("" = nenhum).
@@ -1076,7 +1084,42 @@ func _build_colosseum_ui() -> void:
 	_arena_bar.visible = false
 	root.add_child(_arena_bar)
 	root.move_child(_arena_bar, _menu_dimmer.get_index())
+	_prep_panel = ColosseumPrepPanel.new()
+	root.add_child(_prep_panel)
+	root.move_child(_prep_panel, _menu_dimmer.get_index())
+	_prep_panel.point_chosen.connect(func(slot: String, attribute: String) -> void: colosseum_point_requested.emit(slot, attribute))
+	_prep_panel.hide_pressed.connect(func() -> void:
+		_prep_hidden = true
+		_refresh_prep())
+	_prep_button = PixelMenuPanel.make_button("Escolhas")
+	_prep_button.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_prep_button.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_prep_button.offset_top = 270.0
+	_prep_button.offset_left = -150.0
+	_prep_button.offset_right = 150.0
+	_prep_button.visible = false
+	_prep_button.pressed.connect(func() -> void:
+		_prep_hidden = false
+		_refresh_prep())
+	root.add_child(_prep_button)
+	root.move_child(_prep_button, _menu_dimmer.get_index())
+	_colosseum_result_panel = ColosseumResultPanel.new()
+	root.add_child(_colosseum_result_panel)
+	_colosseum_result_panel.close_pressed.connect(_open_panel.bind(null))
+	_colosseum_result_panel.back_pressed.connect(_open_panel.bind(null))
 	_refresh_menu_height()
+
+
+## Preparação: o painel das escolhas aparece enquanto há escolhas (e o jogador não escondeu); escondido, fica o botão
+## "Escolhas" com quantas faltam.
+func _refresh_prep() -> void:
+	if _prep_panel == null:
+		return
+	var choosing: bool = _arena_mode and _prep_panel.has_choices()
+	_prep_panel.visible = choosing and not _prep_hidden
+	_prep_button.visible = choosing and _prep_hidden
+	if _prep_button.visible and _arena_state != null:
+		_prep_button.text = "Escolhas (%d)" % _arena_state.choices_left
 
 
 ## Liga/desliga o modo arena do Coliseu ([JOGO-28]): na arena o inventário real, a Loja, o Grupo e o Coliseu somem
@@ -1122,9 +1165,12 @@ func show_colosseum_cancelled(reason: String, requeued: bool, ban_seconds: int) 
 	_colosseum_panel.show_message(text, not requeued)
 
 
-## Coliseu: recusa do servidor (praça, bloqueio, healer no 1x1...) aparece no painel, se aberto.
+## Coliseu: recusa do servidor (praça, bloqueio, healer no 1x1...) aparece no painel, se aberto; uma escolha da
+## preparação recusada libera o painel das escolhas de novo.
 func show_colosseum_error(message: String) -> void:
 	_colosseum_panel.show_message(message)
+	if _arena_state != null:
+		_prep_panel.set_state(_arena_state)
 
 
 ## Coliseu: placar novo da partida (fase, round, tempo).
@@ -1132,19 +1178,15 @@ func set_colosseum_state(state: ColosseumData.MatchState) -> void:
 	_arena_state = state
 	if state != null:
 		_colosseum_found.close()
+		_prep_panel.set_state(state)
 	_refresh_arena_bar()
+	_refresh_prep()
 
 
-## Coliseu: fim da partida (o prêmio já entrou na conta). Por enquanto um aviso; a tela de fim é a etapa 5.
+## Coliseu: fim da partida (o prêmio já entrou na conta): abre a tela de fim.
 func show_colosseum_result(result: ColosseumData.Result) -> void:
-	var titles: Dictionary[String, String] = {"win": "Vitória!", "loss": "Derrota", "draw": "Empate", "abandon": "Você abandonou"}
-	var text: String = "Coliseu: %s %d x %d" % [titles.get(result.outcome, result.outcome), result.score[0], result.score[1]]
-	if result.annulled:
-		text = "Coliseu: partida anulada (abandono no 1º round)"
-	elif result.rewarded:
-		text += " · +%d moedas · +%s XP · +%d pontos" % [result.gold, str(snappedf(result.xp, 0.1)), result.points]
-	text += " · ranking %d (%+d)" % [result.rating, result.rating_delta]
-	show_toast(text)
+	_colosseum_result_panel.show_result(result)
+	_open_panel(_colosseum_result_panel)
 
 
 ## Placar da partida e se estou morto (faixa do topo na arena).
@@ -1608,7 +1650,7 @@ func _on_player_option(option_id: String) -> void:
 
 ## Todos os painéis do menu (um aberto por vez).
 func _all_panels() -> Array[PanelContainer]:
-	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel, _guild_panel, _ranking_panel, _premium_panel, _colosseum_panel, _blacksmith_panel, _storage_panel, _market_panel, _chat_panel, _chest_panel, _trade_panel]
+	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel, _guild_panel, _ranking_panel, _premium_panel, _colosseum_panel, _colosseum_result_panel, _blacksmith_panel, _storage_panel, _market_panel, _chat_panel, _chest_panel, _trade_panel]
 
 
 ## Abre [param panel] e fecha os outros; null fecha tudo. Com menu aberto, os controles do jogo param.

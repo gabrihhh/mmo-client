@@ -266,6 +266,9 @@ var arena_team: int = 0
 var arena_barrier_gap: float = 0.5
 ## Último placar da partida do Coliseu; null fora de uma partida.
 var colosseum_state: ColosseumData.MatchState = null
+## Fim da partida ainda não mostrado ([JOGO-28]): chega junto com o welcome da volta à praça, quando a cena ainda vai
+## trocar; a zona que abrir mostra e limpa ([method take_colosseum_result]).
+var _pending_colosseum_result: ColosseumData.Result = null
 ## Cena da zona comum e da arena (a tela de login, a escolha de personagem e a própria zona abrem a certa).
 const ZONE_SCENE: String = "res://scenes/world/zone_1.tscn"
 const ARENA_SCENE: String = "res://scenes/world/arena.tscn"
@@ -528,6 +531,13 @@ func is_arena_enemy(id: String) -> bool:
 		return false
 	var team: int = colosseum_state.team_of(id)
 	return team >= 0 and team != arena_team
+
+
+## Fim da partida do Coliseu esperando para aparecer (e o esquece); null = nenhum.
+func take_colosseum_result() -> ColosseumData.Result:
+	var result: ColosseumData.Result = _pending_colosseum_result
+	_pending_colosseum_result = null
+	return result
 
 
 ## Cena da zona atual: a arena do Coliseu ou a zona comum.
@@ -1219,7 +1229,8 @@ func _handle_message(text: String) -> void:
 			colosseum_state = ColosseumData.MatchState.from_dict(data)
 			colosseum_state_changed.emit(colosseum_state)
 		Protocol.MSG_COLOSSEUM_RESULT:
-			colosseum_result_received.emit(ColosseumData.Result.from_dict(data))
+			_pending_colosseum_result = ColosseumData.Result.from_dict(data)
+			colosseum_result_received.emit(_pending_colosseum_result)
 		Protocol.MSG_UPDATE_REQUIRED:
 			# Fecha já (o servidor também fecharia, com 4003, um pouco depois); no fechamento abre o LiveUpdater ([INFRA-08]).
 			_update_version = maxi(Protocol.read_int(data, "version"), 1)

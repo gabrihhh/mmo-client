@@ -65,6 +65,39 @@ class Member:
 	var abandoned: bool = false
 
 
+## Uma das minhas 4 peças de arena (tela das 20 escolhas).
+class Piece:
+	extends RefCounted
+	var slot: String = ""
+	## Conjunto escolhido na build.
+	var set_name: String = ""
+	var item_id: String = ""
+	## Pontos que a peça já tem (atributo → pontos).
+	var attrs: Dictionary[String, int] = {}
+	## Atributos que a peça aceita (novo +1, repetido +2).
+	var allowed: Array[String] = []
+
+	## Pontos que uma escolha de [param attribute] dá nesta peça (+1 novo, +2 repetido; espelha o servidor).
+	func gain(attribute: String) -> int:
+		return 2 if attrs.get(attribute, 0) > 0 else 1
+
+	static func from_dict(data: Dictionary) -> Piece:
+		var piece: Piece = Piece.new()
+		piece.slot = Protocol.read_string(data, "slot")
+		piece.set_name = Protocol.read_string(data, "set")
+		piece.item_id = Protocol.read_string(data, "itemId")
+		var attrs: Dictionary = Protocol.read_dict(data, "attrs")
+		for key: Variant in attrs.keys():
+			if key is String:
+				piece.attrs[key as String] = Protocol.read_int(attrs, key as String)
+		var allowed: Variant = data.get("allowed")
+		if allowed is Array:
+			for id: Variant in allowed as Array:
+				if id is String:
+					piece.allowed.append(id as String)
+		return piece
+
+
 ## Placar da partida ([constant Protocol.MSG_COLOSSEUM_STATE]).
 class MatchState:
 	extends RefCounted
@@ -85,6 +118,8 @@ class MatchState:
 	var teams: Array[Array] = [[], []]
 	## Quando chegou (Time.get_ticks_msec), para contar o tempo na tela.
 	var received_ms: int = 0
+	## Minhas 4 peças de arena, na ordem mão, cabeça, peito, pés.
+	var pieces: Array[Piece] = []
 
 	## Barreira do meio e travas ligadas (preparação, pausa, fim): a predição prende no lado do time.
 	func barrier_active() -> bool:
@@ -122,6 +157,8 @@ class MatchState:
 		state.choices_left = Protocol.read_int(data, "choicesLeft")
 		state.team = Protocol.read_int(data, "team")
 		state.received_ms = Time.get_ticks_msec()
+		for piece_data: Dictionary in Protocol.read_dict_array(data, "pieces"):
+			state.pieces.append(Piece.from_dict(piece_data))
 		var teams: Variant = data.get("teams")
 		if teams is Array:
 			var list: Array = teams as Array

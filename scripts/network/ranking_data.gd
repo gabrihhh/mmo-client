@@ -10,7 +10,7 @@ const CATEGORY_MONSTERS: String = "monsters"
 const CATEGORY_PVP: String = "pvp"
 const CATEGORY_GUILD_MONSTERS: String = "guild_monsters"
 const CATEGORY_GUILD_PVP: String = "guild_pvp"
-## Coliseu ([JOGO-28]): ranking por modo. ⏳ aba no Ranking na etapa 5 do plan-1.
+## Coliseu ([JOGO-28]): ranking por modo (aba Coliseu do Ranking).
 const CATEGORY_COLOSSEUM_1X1: String = "colosseum_1x1"
 const CATEGORY_COLOSSEUM_2X2: String = "colosseum_2x2"
 const CATEGORY_COLOSSEUM_3X3: String = "colosseum_3x3"
@@ -67,3 +67,8 @@ static func _row(entry: Dictionary) -> Row:
 ## true para os rankings de guilda.
 static func is_guild(category_id: String) -> bool:
 	return category_id == CATEGORY_GUILD_MONSTERS or category_id == CATEGORY_GUILD_PVP
+
+
+## true se a categoria é um ranking do Coliseu (por modo).
+static func is_colosseum(category_id: String) -> bool:
+	return category_id in [CATEGORY_COLOSSEUM_1X1, CATEGORY_COLOSSEUM_2X2, CATEGORY_COLOSSEUM_3X3]
