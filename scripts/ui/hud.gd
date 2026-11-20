@@ -114,6 +114,13 @@ signal trade_offer_changed(uids: Array[String], gold: int)
 ## Apertou "Confirmar" / fechou a janela de troca (Cancelar, X ou tocando fora).
 signal trade_confirm_requested
 signal trade_cancel_requested
+## Coliseu ([JOGO-28]): abriu a tela (pede o estado), entrar/sair da fila, responder à partida encontrada e o botão
+## "Sair da partida" (abandono) dentro da arena.
+signal colosseum_open_requested
+signal colosseum_queue_requested(mode: String, build: Dictionary[String, String])
+signal colosseum_leave_requested
+signal colosseum_answered(accept: bool)
+signal colosseum_leave_match_requested
 
 ## Quantas cartas de habilidade a HUD mostra ([JOGO-01]: 3 da arma + cabeça + peito + pés).
 const CARD_COUNT: int = 6
@@ -231,6 +238,16 @@ var _ranking_button: Button = null
 ## Menu → Loja premium ([JOGO-27]).
 var _premium_panel: PremiumShopPanel = null
 var _premium_button: Button = null
+## Coliseu ([JOGO-28]): Menu → Coliseu, a janela "Partida encontrada", o botão "Sair da partida" (só na arena, no
+## lugar do Coliseu), a faixa do placar no topo (só na arena) e se a HUD está no modo arena.
+var _colosseum_panel: ColosseumPanel = null
+var _colosseum_button: Button = null
+var _colosseum_found: ColosseumFoundPanel = null
+var _leave_match_button: Button = null
+var _arena_bar: Label = null
+var _arena_mode: bool = false
+## Toque em "Sair da partida" armado (o 2º toque confirma); volta a desarmar sozinho.
+var _leave_match_armed: bool = false
 ## Ferreiro ([JOGO-16]): tela de melhoria e o botão que aparece perto dele.
 var _blacksmith_panel: BlacksmithPanel = null
 ## Baú do acampamento ([JOGO-19]): botão "Abrir baú" (perto de um baú aberto), a janela e o baú de perto ("" = nenhum).
@@ -310,6 +327,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_fade_chat_feed(delta)
+	_process_arena_bar()
 	if _toast_left > 0.0:
 		_toast_left -= delta
 		_toast.modulate.a = clampf(_toast_left / 0.4, 0.0, 1.0)
@@ -568,6 +586,7 @@ func _build_social_panels() -> void:
 	_build_guild_ui()
 	_build_ranking_ui()
 	_build_premium_ui()
+	_build_colosseum_ui()
 	_build_social_settings()
 	_build_perf_setting()
 	_build_blacksmith_ui()
@@ -864,7 +883,13 @@ func show_death(report: DeathReport) -> void:
 
 
 ## Está morto (snapshot): garante a tela (sem o relatório ainda, só "Você morreu" e o botão) e o tempo para renascer.
+## Na arena do Coliseu ([JOGO-28]) não há tela de morte nem renascer: a faixa do placar mostra "Morto — assistindo o
+## time" até o próximo round.
 func set_dead(dead: bool, respawn_in: float) -> void:
+	if _arena_mode:
+		_arena_dead = dead
+		_refresh_arena_bar()
+		return
 	if dead:
 		if not _death_screen.is_showing():
 			_open_panel(null)
@@ -1010,6 +1035,168 @@ func _build_premium_ui() -> void:
 	_ranking_button.add_sibling(_premium_button)
 	_premium_button.pressed.connect(_open_panel.bind(_premium_panel))
 	_refresh_menu_height()
+
+
+## Coliseu ([JOGO-28]): painel do Menu → Coliseu e o botão "Coliseu" (logo depois de "Loja"); a janela "Partida
+## encontrada"; o botão "Sair da partida" (no lugar do Coliseu, só na arena) e a faixa do placar no topo.
+func _build_colosseum_ui() -> void:
+	var root: Control = $Root
+	_colosseum_panel = ColosseumPanel.new()
+	root.add_child(_colosseum_panel)
+	_colosseum_panel.close_pressed.connect(_open_panel.bind(null))
+	_colosseum_panel.back_pressed.connect(_open_panel.bind(_menu_panel))
+	_colosseum_panel.open_requested.connect(colosseum_open_requested.emit)
+	_colosseum_panel.queue_requested.connect(func(mode: String, build: Dictionary[String, String]) -> void: colosseum_queue_requested.emit(mode, build))
+	_colosseum_panel.leave_requested.connect(colosseum_leave_requested.emit)
+	_colosseum_button = _ranking_button.duplicate() as Button
+	_colosseum_button.name = "ColosseumButton"
+	_colosseum_button.text = "Coliseu"
+	_colosseum_button.icon = null
+	_premium_button.add_sibling(_colosseum_button)
+	_colosseum_button.pressed.connect(_open_panel.bind(_colosseum_panel))
+	_leave_match_button = _ranking_button.duplicate() as Button
+	_leave_match_button.name = "LeaveMatchButton"
+	_leave_match_button.text = "Sair da partida"
+	_leave_match_button.icon = null
+	_leave_match_button.visible = false
+	_colosseum_button.add_sibling(_leave_match_button)
+	_leave_match_button.pressed.connect(_on_leave_match_pressed)
+	_colosseum_found = ColosseumFoundPanel.new()
+	root.add_child(_colosseum_found)
+	_colosseum_found.answered.connect(func(accept: bool) -> void: colosseum_answered.emit(accept))
+	_arena_bar = PixelMenuPanel.make_label("")
+	_arena_bar.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_arena_bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_arena_bar.offset_top = 180.0
+	_arena_bar.offset_bottom = 260.0
+	_arena_bar.add_theme_font_size_override("font_size", 32)
+	_arena_bar.add_theme_constant_override("outline_size", 8)
+	_arena_bar.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	_arena_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_arena_bar.visible = false
+	root.add_child(_arena_bar)
+	root.move_child(_arena_bar, _menu_dimmer.get_index())
+	_refresh_menu_height()
+
+
+## Liga/desliga o modo arena do Coliseu ([JOGO-28]): na arena o inventário real, a Loja, o Grupo e o Coliseu somem
+## do Menu (o servidor recusaria com `in_colosseum`) e aparecem "Sair da partida" e a faixa do placar.
+func set_arena_mode(on: bool) -> void:
+	_arena_mode = on
+	_arena_dead = false
+	(%InventoryButton as Button).visible = not on
+	_premium_button.visible = not on
+	_colosseum_button.visible = not on
+	_group_button.visible = not on and _group_button.visible
+	_leave_match_button.visible = on
+	_leave_match_armed = false
+	_leave_match_button.text = "Sair da partida"
+	_arena_bar.visible = on
+	if on:
+		_colosseum_found.close()
+	_refresh_arena_bar()
+
+
+## Coliseu: tela do Coliseu chegou.
+func show_colosseum_info(info: ColosseumData.Info) -> void:
+	_colosseum_panel.show_info(info)
+
+
+## Coliseu: "Partida encontrada" (janela no alto; não pausa o jogo).
+func show_colosseum_found(mode: String, seconds: int, total: int) -> void:
+	_colosseum_found.open(mode, seconds, total)
+
+
+## Coliseu: quantos já aceitaram.
+func show_colosseum_accept_status(accepted: int, total: int) -> void:
+	_colosseum_found.set_accepted(accepted, total)
+
+
+## Coliseu: a partida encontrada caiu.
+func show_colosseum_cancelled(reason: String, requeued: bool, ban_seconds: int) -> void:
+	_colosseum_found.close()
+	var text: String = "Alguém recusou: você voltou para a frente da fila." if requeued else "Você saiu da fila do Coliseu."
+	if reason == "you_refused" and ban_seconds > 0:
+		text = "Recusou 2 vezes seguidas: Coliseu bloqueado por %d min." % ceili(ban_seconds / 60.0)
+	show_toast(text)
+	_colosseum_panel.show_message(text, not requeued)
+
+
+## Coliseu: recusa do servidor (praça, bloqueio, healer no 1x1...) aparece no painel, se aberto.
+func show_colosseum_error(message: String) -> void:
+	_colosseum_panel.show_message(message)
+
+
+## Coliseu: placar novo da partida (fase, round, tempo).
+func set_colosseum_state(state: ColosseumData.MatchState) -> void:
+	_arena_state = state
+	if state != null:
+		_colosseum_found.close()
+	_refresh_arena_bar()
+
+
+## Coliseu: fim da partida (o prêmio já entrou na conta). Por enquanto um aviso; a tela de fim é a etapa 5.
+func show_colosseum_result(result: ColosseumData.Result) -> void:
+	var titles: Dictionary[String, String] = {"win": "Vitória!", "loss": "Derrota", "draw": "Empate", "abandon": "Você abandonou"}
+	var text: String = "Coliseu: %s %d x %d" % [titles.get(result.outcome, result.outcome), result.score[0], result.score[1]]
+	if result.annulled:
+		text = "Coliseu: partida anulada (abandono no 1º round)"
+	elif result.rewarded:
+		text += " · +%d moedas · +%s XP · +%d pontos" % [result.gold, str(snappedf(result.xp, 0.1)), result.points]
+	text += " · ranking %d (%+d)" % [result.rating, result.rating_delta]
+	show_toast(text)
+
+
+## Placar da partida e se estou morto (faixa do topo na arena).
+var _arena_state: ColosseumData.MatchState = null
+var _arena_dead: bool = false
+
+
+func _process_arena_bar() -> void:
+	if _arena_mode:
+		_refresh_arena_bar()
+
+
+## Texto da faixa do placar: fase, round, placar (meu time primeiro), tempo e, morto, "assistindo o time".
+func _refresh_arena_bar() -> void:
+	if _arena_bar == null or not _arena_mode:
+		return
+	var state: ColosseumData.MatchState = _arena_state
+	if state == null:
+		_arena_bar.text = "Coliseu"
+		return
+	var mine: int = state.score[state.team]
+	var theirs: int = state.score[1 - state.team]
+	var seconds: int = state.seconds_now()
+	var clock: String = "%d:%02d" % [seconds / 60, seconds % 60]
+	var text: String = ""
+	match state.phase:
+		ColosseumData.PHASE_PREP:
+			text = "Preparação · %s · escolhas: %d" % [clock, state.choices_left]
+		ColosseumData.PHASE_ROUND:
+			text = "Round %d · Você %d x %d · %s" % [state.round, mine, theirs, clock]
+		ColosseumData.PHASE_PAUSE:
+			text = "Fim do round %d · Você %d x %d · próximo em %d s" % [state.round, mine, theirs, seconds]
+		_:
+			text = "Fim da partida · Você %d x %d" % [mine, theirs]
+	if _arena_dead and state.phase == ColosseumData.PHASE_ROUND:
+		text += "\nMorto — assistindo o time"
+	_arena_bar.text = text
+
+
+## "Sair da partida": 1º toque arma ("Tocar de novo para sair"), 2º confirma o abandono.
+func _on_leave_match_pressed() -> void:
+	if not _leave_match_armed:
+		_leave_match_armed = true
+		_leave_match_button.text = "Sair? Perde ranking (toque de novo)"
+		get_tree().create_timer(4.0).timeout.connect(func() -> void:
+			_leave_match_armed = false
+			if _leave_match_button != null:
+				_leave_match_button.text = "Sair da partida")
+		return
+	_leave_match_armed = false
+	_open_panel(null)
+	colosseum_leave_match_requested.emit()
 
 
 ## Loja premium: estado novo (saldo, efeitos, catálogo); o ferreiro mostra as pedras garantidas.
@@ -1233,7 +1420,7 @@ func _refresh_social_buttons() -> void:
 
 ## Altura do Menu: os botões da cena + "Amigos" + "Guilda" + "Ranking" + "Loja" + "Grupo" (só com grupo), centralizado.
 func _refresh_menu_height() -> void:
-	var extra_rows: int = (1 if _friends_button != null else 0) + (1 if _guild_button != null else 0) + (1 if _ranking_button != null else 0) + (1 if _premium_button != null else 0) + (1 if _group != null else 0)
+	var extra_rows: int = (1 if _friends_button != null else 0) + (1 if _guild_button != null else 0) + (1 if _ranking_button != null else 0) + (1 if _premium_button != null else 0) + (1 if _colosseum_button != null else 0) + (1 if _group != null else 0)
 	var height: float = _menu_base_height + extra_rows * (PixelMenuPanel.BUTTON_HEIGHT_PX + 20.0)
 	_menu_panel.offset_top = -height / 2.0
 	_menu_panel.offset_bottom = height / 2.0
@@ -1421,7 +1608,7 @@ func _on_player_option(option_id: String) -> void:
 
 ## Todos os painéis do menu (um aberto por vez).
 func _all_panels() -> Array[PanelContainer]:
-	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel, _guild_panel, _ranking_panel, _premium_panel, _blacksmith_panel, _storage_panel, _market_panel, _chat_panel, _chest_panel, _trade_panel]
+	return [_menu_panel, _inventory_panel, _settings_panel, _item_detail, _map_panel, _nearby_panel, _actions_panel, _attributes_panel, _group_panel, _friends_panel, _guild_panel, _ranking_panel, _premium_panel, _colosseum_panel, _blacksmith_panel, _storage_panel, _market_panel, _chat_panel, _chest_panel, _trade_panel]
 
 
 ## Abre [param panel] e fecha os outros; null fecha tudo. Com menu aberto, os controles do jogo param.

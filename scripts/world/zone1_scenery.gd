@@ -31,6 +31,7 @@ var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 func _ready() -> void:
 	_rng.seed = SEED
+	ZoneTerrain.flat = false
 	ZoneTerrain.preload_heights()
 	_add_map()
 	_add_field()

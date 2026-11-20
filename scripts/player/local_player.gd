@@ -266,13 +266,14 @@ func _consume_boost_step() -> float:
 
 
 ## Aplica um comando previsto: comando de habilidade (não move), passo da Investida (trecho na direção dela) ou
-## passo normal (com o multiplicador que foi previsto).
+## passo normal (com o multiplicador que foi previsto). Na arena do Coliseu, preso no muro e na barreira como no
+## servidor ([method Network.constrain_arena], [JOGO-28]).
 func _apply_pending(state: Movement.State, input: PendingInput, step_seconds: float, network: Network) -> Movement.State:
 	if input.ability_command:
 		return state.duplicate_state()
 	if input.dash_distance > 0.0:
-		return Movement.dash(state, input.x, input.z, input.dash_distance, network.zone_half_size)
-	return Movement.step(state, input.x, input.z, step_seconds, network.move_speed * input.speed_multiplier, network.zone_half_size)
+		return network.constrain_arena(Movement.dash(state, input.x, input.z, input.dash_distance, network.zone_half_size))
+	return network.constrain_arena(Movement.step(state, input.x, input.z, step_seconds, network.move_speed * input.speed_multiplier, network.zone_half_size))
 
 
 ## Investida/Disparada com predição ([JOGO-07]): o comando entra na MESMA sequência dos passos e vai ao servidor

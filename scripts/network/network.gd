@@ -114,6 +114,18 @@ signal trade_changed(state: TradeState)
 signal trade_done(partner_name: String)
 ## Aviso de troca ([param code]: ver [constant Protocol.MSG_TRADE_NOTICE]); a janela de troca fecha. [param message] vem pronta.
 signal trade_notice(code: String, message: String)
+## Coliseu ([JOGO-28]): tela do Coliseu (ranking, fila, bloqueio).
+signal colosseum_info_received(info: ColosseumData.Info)
+## "Partida encontrada": [param seconds] para aceitar, [param total] jogadores.
+signal colosseum_found(mode: String, seconds: int, total: int)
+## Quantos já aceitaram a partida encontrada.
+signal colosseum_accept_status(accepted: int, total: int)
+## A partida encontrada caiu: [param reason] "you_refused" / "other_refused"; [param requeued] = voltou à fila.
+signal colosseum_cancelled(reason: String, requeued: bool, ban_seconds: int)
+## Placar novo da partida (fase, round, tempo, escolhas); também em [member colosseum_state].
+signal colosseum_state_changed(state: ColosseumData.MatchState)
+## Fim da partida para mim (prêmio já aplicado na conta).
+signal colosseum_result_received(result: ColosseumData.Result)
 
 ## Margem de desenho ([INFRA-12]): os outros (jogadores, monstros) são desenhados este número de ticks antes do tick
 ## atual estimado do servidor. Pequena porque passou do último snapshot o desenho **extrapola** (PlayerState): a
@@ -242,6 +254,21 @@ var casting_remaining: float = 0.0
 
 ## Baús dos acampamentos da zona ([JOGO-19]): id → estado (vem no welcome; o evento `chest` muda o aberto/fechado).
 var chests: Dictionary[String, ChestInfo] = {}
+
+## Tipo da zona atual (do welcome): [constant ZONE_KIND_ZONE] ou [constant ZONE_KIND_ARENA] (Coliseu, [JOGO-28]).
+var zone_kind: String = ZONE_KIND_ZONE
+## Tipos de zona do welcome.
+const ZONE_KIND_ZONE: String = "zone"
+const ZONE_KIND_ARENA: String = "arena"
+## Arena do Coliseu (só valem com [member zone_kind] = arena): raio do muro (m), meu time e a folga da barreira (m).
+var arena_radius: float = 0.0
+var arena_team: int = 0
+var arena_barrier_gap: float = 0.5
+## Último placar da partida do Coliseu; null fora de uma partida.
+var colosseum_state: ColosseumData.MatchState = null
+## Cena da zona comum e da arena (a tela de login, a escolha de personagem e a própria zona abrem a certa).
+const ZONE_SCENE: String = "res://scenes/world/zone_1.tscn"
+const ARENA_SCENE: String = "res://scenes/world/arena.tscn"
 
 ## Estimativa do tick atual do servidor (fracionário), avançada pelo tempo local e ajustada a cada snapshot.
 var _clock_tick: float = 0.0
@@ -478,8 +505,80 @@ func send_inspect(target_id: String) -> void:
 
 
 ## true se [param id] é OUTRO jogador do meu grupo (aliado: não é alvo de ataque, cor de aliado, [SOC-03]).
+## Na arena do Coliseu ([JOGO-28]) o "grupo" é o meu time ([method is_teammate]).
 func is_group_member(id: String) -> bool:
+	if is_arena():
+		return is_teammate(id)
 	return group != null and id != player_id and group.has(id)
+
+
+## true se estou na arena do Coliseu ([JOGO-28]).
+func is_arena() -> bool:
+	return zone_kind == ZONE_KIND_ARENA
+
+
+## true se [param id] é OUTRO jogador do meu time na partida do Coliseu.
+func is_teammate(id: String) -> bool:
+	return is_arena() and id != player_id and colosseum_state != null and colosseum_state.team_of(id) == arena_team
+
+
+## true se [param id] é do outro time na partida do Coliseu (alvo de ataque na arena).
+func is_arena_enemy(id: String) -> bool:
+	if not is_arena() or colosseum_state == null:
+		return false
+	var team: int = colosseum_state.team_of(id)
+	return team >= 0 and team != arena_team
+
+
+## Cena da zona atual: a arena do Coliseu ou a zona comum.
+func zone_scene() -> String:
+	return ARENA_SCENE if is_arena() else ZONE_SCENE
+
+
+## Na arena ([JOGO-28]): prende [param state] no muro redondo e, com a barreira ligada (fora do round), no lado do meu
+## time — a mesma conta do servidor ([method Movement.constrain_arena]). Fora da arena devolve [param state].
+func constrain_arena(state: Movement.State) -> Movement.State:
+	if not is_arena() or arena_radius <= 0.0:
+		return state
+	var barrier: bool = colosseum_state == null or colosseum_state.barrier_active()
+	var side: int = 0 if not barrier else (-1 if arena_team == 0 else 1)
+	return Movement.constrain_arena(state, arena_radius, side, arena_barrier_gap)
+
+
+## Coliseu ([JOGO-28]): pede a tela do Coliseu (resposta em [signal colosseum_info_received]).
+func send_colosseum_open() -> void:
+	if _authenticated:
+		_send(Protocol.MSG_COLOSSEUM_OPEN, {})
+
+
+## Entra na fila do [param mode] com a [param build] (slot → conjunto). O servidor confere praça, bloqueio e healer.
+func send_colosseum_queue(mode: String, build: Dictionary[String, String]) -> void:
+	if is_in_zone():
+		_send(Protocol.MSG_COLOSSEUM_QUEUE, {"mode": mode, "build": build})
+
+
+## Sai da fila (na janela de aceite conta como recusa).
+func send_colosseum_leave() -> void:
+	if _authenticated:
+		_send(Protocol.MSG_COLOSSEUM_LEAVE, {})
+
+
+## Aceita (true) ou recusa (false) a partida encontrada.
+func send_colosseum_answer(accept: bool) -> void:
+	if _authenticated:
+		_send(Protocol.MSG_COLOSSEUM_ACCEPT if accept else Protocol.MSG_COLOSSEUM_DECLINE, {})
+
+
+## Uma das 20 escolhas da preparação: peça [param slot] → [param attribute].
+func send_colosseum_point(slot: String, attribute: String) -> void:
+	if is_in_zone():
+		_send(Protocol.MSG_COLOSSEUM_POINT, {"slot": slot, "attribute": attribute})
+
+
+## Botão "Sair da partida" (abandono: sem prêmio, perde ranking e 10 min sem fila).
+func send_colosseum_leave_match() -> void:
+	if is_in_zone():
+		_send(Protocol.MSG_COLOSSEUM_LEAVE_MATCH, {})
 
 
 ## true se sou o líder do meu grupo.
@@ -962,6 +1061,17 @@ func _handle_message(text: String) -> void:
 			body_chosen.emit(body)
 			_send(Protocol.MSG_JOIN, {"zone": NetworkConfig.ZONE_ID})
 		Protocol.MSG_WELCOME:
+			# Segundo welcome na mesma conexão = o servidor trocou de zona (entrou/saiu da arena do Coliseu, [JOGO-28]):
+			# o que era da zona anterior some (a cena nova cria tudo de novo).
+			if _in_zone:
+				_reset_zone_state()
+			zone_kind = ZONE_KIND_ARENA if Protocol.read_string(data, "kind") == ZONE_KIND_ARENA else ZONE_KIND_ZONE
+			var arena: Dictionary = Protocol.read_dict(data, "arena")
+			arena_radius = Protocol.read_float(arena, "radius")
+			arena_team = Protocol.read_int(arena, "team")
+			arena_barrier_gap = Protocol.read_float(arena, "barrierGap", 0.5)
+			if zone_kind != ZONE_KIND_ARENA:
+				colosseum_state = null
 			var sim: Dictionary = Protocol.read_dict(data, "sim")
 			tick_rate = Protocol.read_float(sim, "tickRate", tick_rate)
 			move_speed = Protocol.read_float(sim, "moveSpeed", move_speed)
@@ -1096,6 +1206,20 @@ func _handle_message(text: String) -> void:
 				_players[guild_player_id].guild_id = Protocol.read_string(data, "guildId")
 				_players[guild_player_id].guild_tag = Protocol.read_string(data, "guildTag")
 				player_guild_changed.emit(guild_player_id)
+		Protocol.MSG_COLOSSEUM_INFO:
+			colosseum_info_received.emit(ColosseumData.Info.from_dict(data))
+		Protocol.MSG_COLOSSEUM_FOUND:
+			colosseum_found.emit(Protocol.read_string(data, "mode"), Protocol.read_int(data, "seconds"), Protocol.read_int(data, "total"))
+		Protocol.MSG_COLOSSEUM_ACCEPT_STATUS:
+			colosseum_accept_status.emit(Protocol.read_int(data, "accepted"), Protocol.read_int(data, "total"))
+		Protocol.MSG_COLOSSEUM_CANCELLED:
+			var requeued_value: Variant = data.get("requeued")
+			colosseum_cancelled.emit(Protocol.read_string(data, "reason"), requeued_value is bool and requeued_value == true, Protocol.read_int(data, "banSeconds"))
+		Protocol.MSG_COLOSSEUM_STATE:
+			colosseum_state = ColosseumData.MatchState.from_dict(data)
+			colosseum_state_changed.emit(colosseum_state)
+		Protocol.MSG_COLOSSEUM_RESULT:
+			colosseum_result_received.emit(ColosseumData.Result.from_dict(data))
 		Protocol.MSG_UPDATE_REQUIRED:
 			# Fecha já (o servidor também fecharia, com 4003, um pouco depois); no fechamento abre o LiveUpdater ([INFRA-08]).
 			_update_version = maxi(Protocol.read_int(data, "version"), 1)
@@ -1297,6 +1421,23 @@ func _remove_player(id: String) -> void:
 		player_removed.emit(id)
 
 
+## Esquece o que era da zona anterior quando o servidor troca de zona (arena do Coliseu, [JOGO-28]): jogadores,
+## NPCs, baús, alvo e o relógio de chegada (cada zona tem o seu tick). Não avisa ninguém: a cena da zona vai ser
+## trocada no [signal joined_zone].
+func _reset_zone_state() -> void:
+	_players.clear()
+	_npcs.clear()
+	chests.clear()
+	_group_far.clear()
+	attack_target = ""
+	casting_target = ""
+	casting_remaining = 0.0
+	_arrival_offsets.clear()
+	_input_sent_usec.clear()
+	interpolation_delay_ticks = START_INTERPOLATION_TICKS
+	_target_delay_ticks = START_INTERPOLATION_TICKS
+
+
 func _on_closed() -> void:
 	var code: int = _socket.get_close_code()
 	var reason: String = _socket.get_close_reason()
@@ -1320,6 +1461,8 @@ func _on_closed() -> void:
 	social_trade_requests = Protocol.SOCIAL_ALWAYS
 	guild = null
 	premium = null
+	zone_kind = ZONE_KIND_ZONE
+	colosseum_state = null
 	_npcs.clear()
 	chests.clear()
 	attack_target = ""

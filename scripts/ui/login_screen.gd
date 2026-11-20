@@ -14,8 +14,6 @@ extends Control
 ## escolheu o corpo ([signal Network.body_choice_needed]) vai antes para a escolha de personagem ([CharacterSelect]).
 ## Se a conexão cair, o jogo volta para cá e mostra [member Network.last_error].
 
-## Cena aberta depois de entrar.
-const ZONE_SCENE: String = "res://scenes/world/zone_1.tscn"
 ## Escolha de personagem (primeira entrada da conta).
 const CHARACTER_SELECT_SCENE: String = "res://scenes/ui/character_select.tscn"
 ## Dev/testes: `-- --body=female` escolhe o corpo sozinho quando a conta do --dev-user ainda não tem (padrão: male).
@@ -237,7 +235,12 @@ func _on_body_choice_needed() -> void:
 
 
 func _on_joined_zone(_player_id: String) -> void:
-	get_tree().change_scene_to_file(ZONE_SCENE)
+	# Dois welcome seguidos (voltou para a arena e a partida acabou na hora): o segundo chega com esta tela já saindo.
+	if not is_inside_tree():
+		return
+	# A zona comum ou, voltando para uma partida em andamento, a arena do Coliseu ([JOGO-28]). A cena aberta confere
+	# de novo o tipo da zona ao abrir (Zone._ready).
+	get_tree().change_scene_to_file.call_deferred(Network.instance.zone_scene())
 
 
 func _on_auth_failed(code: String, message: String) -> void:

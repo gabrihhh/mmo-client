@@ -52,10 +52,17 @@ func _ready() -> void:
 		# Aberta sem passar pelo login (ex.: F6 no editor): volta para lá.
 		_back_to_login.call_deferred()
 		return
+	# A zona mudou enquanto esta cena carregava (ex.: voltou para a arena e a partida acabou na hora, [JOGO-28]):
+	# abre a cena do tipo certo.
+	if not scene_file_path.is_empty() and scene_file_path != Network.instance.zone_scene():
+		_on_zone_changed(Network.instance.player_id)
+		return
 	# Modelos dos itens em segundo plano: sem engasgo quando alguém (ou o atirador de teste) veste um item novo.
 	ItemModels.preload_all()
 	Network.instance.player_added.connect(_on_player_added)
 	Network.instance.player_removed.connect(_on_player_removed)
+	# Outro welcome = o servidor trocou de zona (entrou/saiu da arena do Coliseu, [JOGO-28]): abre a cena certa.
+	Network.instance.joined_zone.connect(_on_zone_changed)
 	Network.instance.left_zone.connect(_on_left_zone)
 	_hud.logout_requested.connect(_on_logout_requested)
 	_hud.equip_requested.connect(Network.instance.send_equip)
@@ -165,6 +172,22 @@ func _ready() -> void:
 	Network.instance.trade_notice.connect(func(_code: String, message: String) -> void: _hud.end_trade(message))
 	# Recusas que não são de login (ex.: mochila cheia) viram aviso na tela.
 	Network.instance.server_error.connect(_on_server_error)
+	# Coliseu ([JOGO-28]): Menu → Coliseu, fila, partida encontrada, placar e fim; na arena a HUD entra no modo arena
+	# e as cores de aliado seguem o time.
+	_hud.colosseum_open_requested.connect(Network.instance.send_colosseum_open)
+	_hud.colosseum_queue_requested.connect(Network.instance.send_colosseum_queue)
+	_hud.colosseum_leave_requested.connect(Network.instance.send_colosseum_leave)
+	_hud.colosseum_answered.connect(Network.instance.send_colosseum_answer)
+	_hud.colosseum_leave_match_requested.connect(Network.instance.send_colosseum_leave_match)
+	Network.instance.colosseum_info_received.connect(_hud.show_colosseum_info)
+	Network.instance.colosseum_found.connect(_hud.show_colosseum_found)
+	Network.instance.colosseum_accept_status.connect(_hud.show_colosseum_accept_status)
+	Network.instance.colosseum_cancelled.connect(_hud.show_colosseum_cancelled)
+	Network.instance.colosseum_state_changed.connect(_on_colosseum_state)
+	Network.instance.colosseum_result_received.connect(_hud.show_colosseum_result)
+	_hud.set_arena_mode(Network.instance.is_arena())
+	_hud.set_colosseum_state(Network.instance.colosseum_state)
+	_start_colosseum_bot()
 
 	_aim_preview = AimPreview.new()
 	_aim_preview.name = "AimPreview"
@@ -196,7 +219,12 @@ func get_targetables() -> Array[RemotePlayer]:
 		var state: PlayerState = Network.instance.get_entity(npc_id)
 		if npc.is_alive() and (state == null or state.targetable):
 			result.append(npc)
-	if Network.instance.pvp:
+	if Network.instance.is_arena():
+		# Arena do Coliseu ([JOGO-28]): o outro time, sem regra de nível nem de praça.
+		for remote: RemotePlayer in _remote_players.values():
+			if remote.is_alive() and Network.instance.is_arena_enemy(remote.session_id):
+				result.append(remote)
+	elif Network.instance.pvp:
 		# PvP ([JOGO-22]): só até 10 níveis de diferença e ninguém em cima das pedras da praça.
 		var me: PlayerState = Network.instance.get_player(Network.instance.player_id)
 		for remote: RemotePlayer in _remote_players.values():
@@ -213,7 +241,8 @@ func get_targetables() -> Array[RemotePlayer]:
 func get_allies() -> Array[RemotePlayer]:
 	var result: Array[RemotePlayer] = []
 	for remote: RemotePlayer in _remote_players.values():
-		if remote.is_alive():
+		# Na arena do Coliseu ([JOGO-28]) só o meu time é aliado.
+		if remote.is_alive() and (not Network.instance.is_arena() or Network.instance.is_teammate(remote.session_id)):
 			result.append(remote)
 	for npc_id: String in _npcs:
 		var npc: RemotePlayer = _npcs[npc_id]
@@ -261,6 +290,47 @@ func _on_player_added(player_id: String, state: PlayerState) -> void:
 		remote.set_ally(Network.instance.is_group_member(player_id))
 		remote.set_guildmate(Network.instance.is_guild_member(player_id))
 	_update_online_status()
+
+
+## Dev/testes do Coliseu ([JOGO-28]): `-- --colosseum=1x1` (ou 2x2/3x3; `--colosseum-healer` = mão Curandeiro) entra na
+## fila sozinho ao chegar na zona comum (nas pedras da praça) e aceita a partida encontrada. Duas janelas com isso
+## jogam uma partida sem clicar.
+const COLOSSEUM_BOT_ARG: String = "--colosseum="
+const COLOSSEUM_BOT_HEALER_ARG: String = "--colosseum-healer"
+
+
+func _start_colosseum_bot() -> void:
+	var mode: String = ""
+	for arg: String in OS.get_cmdline_user_args():
+		if arg.begins_with(COLOSSEUM_BOT_ARG):
+			mode = arg.substr(COLOSSEUM_BOT_ARG.length())
+	if mode.is_empty() or Network.instance.is_arena():
+		return
+	var hand: String = ColosseumData.HEALER_SET if COLOSSEUM_BOT_HEALER_ARG in OS.get_cmdline_user_args() else "Mago"
+	var build: Dictionary[String, String] = {"hand": hand, "head": "Cavaleiro", "chest": "Cavaleiro", "feet": "Atirador"}
+	Network.instance.colosseum_found.connect(func(_mode: String, _seconds: int, _total: int) -> void:
+		Network.instance.send_colosseum_answer(true))
+	# Um pouco depois de entrar (o servidor já pôs o jogador na praça).
+	get_tree().create_timer(1.0).timeout.connect(func() -> void:
+		if is_inside_tree():
+			print("[coliseu-bot] entrando na fila %s" % mode)
+			Network.instance.send_colosseum_queue(mode, build))
+
+
+## Placar novo do Coliseu ([JOGO-28]): a HUD mostra; os jogadores remotos pegam a cor de aliado do meu time.
+func _on_colosseum_state(state: ColosseumData.MatchState) -> void:
+	_hud.set_colosseum_state(state)
+	for remote_id: String in _remote_players:
+		_remote_players[remote_id].set_ally(Network.instance.is_group_member(remote_id))
+
+
+## O servidor mandou outro welcome (entrou/saiu da arena do Coliseu, [JOGO-28]): troca para a cena da zona nova, que
+## cria tudo de novo a partir do [Network].
+func _on_zone_changed(_player_id: String) -> void:
+	if not is_inside_tree():
+		return
+	print("[zona] trocando de cena: %s" % Network.instance.zone_scene())
+	get_tree().change_scene_to_file.call_deferred(Network.instance.zone_scene())
 
 
 func _on_player_removed(player_id: String) -> void:
@@ -532,6 +602,8 @@ func _on_server_error(code: String, message: String) -> void:
 		_hud.show_attributes_error(message)
 	elif code == Protocol.ERR_NOT_ENOUGH_DIAMONDS:
 		_hud.show_premium_not_enough()
+	elif code.begins_with("colosseum_"):
+		_hud.show_colosseum_error(message)
 	if _local_player != null:
 		_local_player.cancel_prediction()
 

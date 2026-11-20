@@ -28,11 +28,16 @@ const WALK_HALF: float = WorldConstants.ZONE_HALF_SIZE
 ## 410 mil pontos de uma vez: no celular isso travava o quadro ao entrar na zona).
 static var _data: PackedByteArray = PackedByteArray()
 static var _side: int = 0
+## Chão plano na altura 0 (arena do Coliseu, [JOGO-28]): [method height_at] ignora o mapa da zona 1. Quem monta o
+## cenário liga/desliga ([ArenaScenery] liga, [Zone1Scenery] desliga).
+static var flat: bool = false
 
 
 ## Altura do chão (m) em ([param x], [param z]): interpolada entre os 4 pontos da grade em volta; fora da grade,
 ## a da borda.
 static func height_at(x: float, z: float) -> float:
+	if flat:
+		return 0.0
 	if _side == 0:
 		_load()
 		if _side == 0:

@@ -8,8 +8,6 @@ extends Node3D
 ## confirmar manda `choose_body` → o servidor salva e o [Network] entra na zona → abre a zona.
 ## Se a conexão cair, volta para o login.
 
-## Cena da zona (aberta quando o Network entra).
-const ZONE_SCENE: String = "res://scenes/world/zone_1.tscn"
 ## Tela de login (se a conexão cair).
 const LOGIN_SCENE: String = "res://scenes/ui/login.tscn"
 ## Distância (m) de cada personagem ao centro, em X.
@@ -109,7 +107,12 @@ func _on_confirm() -> void:
 
 
 func _on_joined_zone(_player_id: String) -> void:
-	get_tree().change_scene_to_file(ZONE_SCENE)
+	# Dois welcome seguidos (voltou para a arena e a partida acabou na hora): o segundo chega com esta tela já saindo.
+	if not is_inside_tree():
+		return
+	# A zona comum ou, voltando para uma partida em andamento, a arena do Coliseu ([JOGO-28]). A cena aberta confere
+	# de novo o tipo da zona ao abrir (Zone._ready).
+	get_tree().change_scene_to_file.call_deferred(Network.instance.zone_scene())
 
 
 ## Recusa do servidor: mostra a mensagem no lugar da dica e deixa escolher de novo.

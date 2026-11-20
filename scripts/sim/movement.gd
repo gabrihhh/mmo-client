@@ -81,3 +81,24 @@ static func dash(state: State, dir_x: float, dir_z: float, distance: float, half
 		atan2(-dx, -dz),
 	)
 
+
+
+## Arena do Coliseu ([JOGO-28]): prende a posição dentro do muro redondo de [param radius] m e, com a barreira ligada
+## ([param side] −1 = time 0 só em x ≤ −[param barrier_gap]; 1 = time 1 só em x ≥ [param barrier_gap]; 0 = sem
+## barreira), no lado do time. Primeiro o muro, depois a barreira; dentro dos limites devolve uma cópia igual (sem
+## quantizar de novo). Roda depois de cada [method step]/[method dash].
+## ATENÇÃO: mesma conta e ordem de constrainArena em mmo-server/src/sim/movement.ts ([INFRA-09]).
+static func constrain_arena(state: State, radius: float, side: int, barrier_gap: float) -> State:
+	var x: float = state.x
+	var z: float = state.z
+	var distance: float = sqrt(x * x + z * z)
+	if distance > radius:
+		x = (x * radius) / distance
+		z = (z * radius) / distance
+	if side < 0:
+		x = minf(x, -barrier_gap)
+	elif side > 0:
+		x = maxf(x, barrier_gap)
+	if x == state.x and z == state.z:
+		return state.duplicate_state()
+	return State.new(quantize(x), state.y, quantize(z), state.rot_y)
