@@ -1,7 +1,8 @@
 class_name AimPreview
 extends Node3D
 ## Prévia translúcida da mira no chão, a partir do personagem ([JOGO-02]): linha (direção/alvo),
-## círculo num ponto (área), anel ao redor (área própria) e o marcador do alvo fixo.
+## leque (golpe do ⚔, [JOGO-05]), círculo num ponto (área), anel ao redor (área própria) e o marcador de quem está
+## sob a mira.
 ## Só visual: não decide nada.
 
 ## Altura acima do chão para não piscar com ele (z-fighting), em metros.
@@ -13,6 +14,9 @@ const _TARGET_COLOR: Color = Color(1.0, 0.35, 0.3, 0.6)
 var _line: MeshInstance3D = null
 var _circle: MeshInstance3D = null
 var _target_ring: MeshInstance3D = null
+var _cone: MeshInstance3D = null
+## Abertura (rad) da malha atual do leque (refeita só quando muda).
+var _cone_arc: float = -1.0
 
 
 func _ready() -> void:
@@ -20,6 +24,8 @@ func _ready() -> void:
 	_line = _make_mesh(_quad(), _COLOR)
 	_circle = _make_mesh(_disc(1.0), _COLOR)
 	_target_ring = _make_mesh(_disc(0.8), _TARGET_COLOR)
+	_cone = _make_mesh(GroundWarning.wedge(PI / 2.0), _COLOR)
+	_cone_arc = PI / 2.0
 	hide_aim()
 	hide_target()
 
@@ -27,6 +33,7 @@ func _ready() -> void:
 ## Linha de [param origin] na [param direction] (XZ, normalizada), com [param length] e [param width] em metros.
 func show_line(origin: Vector3, direction: Vector3, length: float, width: float) -> void:
 	_circle.visible = false
+	_cone.visible = false
 	_line.visible = true
 	_line.scale = Vector3(width, 1.0, maxf(0.01, length))
 	_line.global_position = origin + direction * (length / 2.0) + Vector3.UP * _GROUND_OFFSET
@@ -35,6 +42,7 @@ func show_line(origin: Vector3, direction: Vector3, length: float, width: float)
 
 ## Círculo de [param radius] m centrado em [param center]; com [param line_from] != INF, também a linha até ele.
 func show_circle(center: Vector3, radius: float, line_from: Vector3 = Vector3.INF) -> void:
+	_cone.visible = false
 	_circle.visible = true
 	_circle.scale = Vector3(radius, 1.0, radius)
 	_circle.global_position = center + Vector3.UP * _GROUND_OFFSET
@@ -47,12 +55,27 @@ func show_circle(center: Vector3, radius: float, line_from: Vector3 = Vector3.IN
 			_circle.visible = true
 
 
+## Leque do golpe ([JOGO-05]): sai de [param origin] na [param direction] (XZ, normalizada), alcance [param reach] m e
+## abertura total [param arc] rad.
+func show_cone(origin: Vector3, direction: Vector3, reach: float, arc: float) -> void:
+	_line.visible = false
+	_circle.visible = false
+	if not is_equal_approx(arc, _cone_arc):
+		_cone.mesh = GroundWarning.wedge(arc)
+		_cone_arc = arc
+	_cone.visible = true
+	_cone.scale = Vector3(reach, 1.0, reach)
+	_cone.global_position = origin + Vector3.UP * _GROUND_OFFSET
+	_cone.rotation = Vector3(0.0, atan2(-direction.x, -direction.z), 0.0)
+
+
 func hide_aim() -> void:
 	_line.visible = false
 	_circle.visible = false
+	_cone.visible = false
 
 
-## Marcador do alvo fixo embaixo de [param position].
+## Marcador embaixo de [param position] (quem está sob a mira de uma carta).
 func show_target(target_position: Vector3) -> void:
 	_target_ring.visible = true
 	_target_ring.global_position = target_position + Vector3.UP * (_GROUND_OFFSET * 2.0)

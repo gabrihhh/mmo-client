@@ -23,17 +23,14 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
 
 ### Ataque simples: Ataque — pasta `animation-attack/`
 
-- `crossbow_attack` · mira no alvo. Virote no alvo.
-- Números: **Dano 10** · alcance 11 m · lançamento **1,2 s** · recarga **1,2 s** · sem mana.
-- Como funciona: Toque no ⚔: fixa como alvo o **inimigo mais perto** (até 10 m) e o personagem passa a atacar sozinho a cada 1,2 s, até o alvo morrer ou você soltar (Desfocar). Segurar, arrastar até alguém e soltar escolhe o alvo. O personagem **não anda sozinho** até ele: começa a bater quando você para a até 11 m (+0,5 m de folga). Cada golpe tira 10 de vida depois de 1,2 s de lançamento (andar nesse tempo cancela).
-- Ao segurar (prévia): círculo dourado translúcido (1,5 m) que segue o dedo, com uma linha saindo do personagem; passando sobre um inimigo, aparece o marcador de alvo embaixo dele.
-- Os outros veem: projétil visual que sai da mão e chega junto com o dano. Animação: `shoot_rifle` (Meshy; genérica, também em 2 outras).
+- `crossbow_attack` · mira direção (linha). Virote que voa reto e acerta o primeiro inimigo.
+- Números: **Dano 5** · alcance 11 m · meia-largura 0,3 m · projétil 24 m/s (dá para desviar) · sai na hora · execução **0,6 s** · sem mana.
+- Como funciona: Toque no ⚔: golpe na direção do **inimigo mais perto** (ou para a frente). Arrastar mostra o formato do golpe na direção do dedo e solta ao largar. Sem carregamento: o golpe sai na hora — um projétil a 24 m/s voa reto até 11 m e para no PRIMEIRO que tocar (inimigo) (tira 5 de vida). Depois, 0,6 s de execução em que outro golpe não sai. Dá para andar batendo.
+- Ao segurar (prévia): faixa dourada translúcida saindo do personagem na direção do dedo: 11 m de comprimento × 0,6 m de largura.
+- Os outros veem: o personagem virado para a direção do golpe; projétil voando de verdade. Animação: `shoot_rifle` (Meshy; genérica, também em 2 outras).
 - **Tempo da animação (Blender, 30 fps):**
-  - **Momento do efeito** (golpe acerta / magia sai): **1,2 s = quadro 36** contando do início — é quando o servidor aplica o efeito (fim do lançamento).
-  - O projétil visual **sai da mão em 0,95 s = quadro 28** (voa 0,25 s até o alvo).
-  - Repete a cada **1,2 s**: a animação inteira deve terminar até **1,2 s = quadro 36** para emendar no próximo golpe.
-  - Hoje usa a genérica `shoot_rifle`: dura 0,27 s (quadro 8), golpe em 0,07 s (quadro 2) → o jogo toca a **×0,25** para o golpe cair em 1,2 s.
-  - Fazendo o golpe exatamente no quadro acima, ela toca na velocidade normal (×1). Se ficar em outro quadro, o jogo acelera ou desacelera (entre ×0,25 e ×4) desde que o golpe seja medido em `CharacterAnimator.HIT_TIMES` (`skill_crossbow_attack`).
+  - **Sai na hora** (sem carregamento): o jogo toca a animação acelerada para o golpe cair a ~0,15 s do toque.
+  - Tempo de execução **0,6 s = quadro 18**: a animação inteira deve caber nisso para emendar no próximo golpe (o jogador pode tocar de novo assim que acabar).
 
 ### Habilidade 1: Virote certeiro — pasta `animation-skill-1/`
 

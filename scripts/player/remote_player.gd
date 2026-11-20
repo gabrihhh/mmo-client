@@ -13,6 +13,9 @@ extends Node3D
 
 ## Id do jogador no servidor (playerId).
 var session_id: String = ""
+## Virado para um ponto até um instante ([method face_toward]).
+var _face_point: Vector3 = Vector3.ZERO
+var _face_until_ms: int = 0
 
 ## Nome exibido (username como foi cadastrado).
 var display_name: String:
@@ -126,7 +129,7 @@ func _process(delta: float) -> void:
 	# Altura do chão (só visual, [MUN-03]), suavizada nos degraus.
 	_ground_y = lerpf(_ground_y, ZoneTerrain.height_at(position.x, position.z), 1.0 - exp(-18.0 * delta))
 	position.y += _ground_y
-	rotation.y = _state.sample_rot_y(render_tick)
+	rotation.y = _face_yaw() if Time.get_ticks_msec() < _face_until_ms else _state.sample_rot_y(render_tick)
 	_health_bar.set_values(_state.hp_ratio(), _state.shield_ratio())
 	_refresh_level()
 	_update_cast_bar(delta)
@@ -154,6 +157,19 @@ func _process(delta: float) -> void:
 
 
 ## Liga/desliga a cor de aliado ([param ally] = é do meu grupo, [SOC-03]): nome e barra de vida em verde.
+## Mantém o modelo virado para [param world_point] por [param seconds] (golpe do ataque simples, [JOGO-05]): quem bate
+## andando continua de frente para onde golpeou. Só visual.
+func face_toward(world_point: Vector3, seconds: float) -> void:
+	_face_point = world_point
+	_face_until_ms = Time.get_ticks_msec() + int(maxf(seconds, 0.05) * 1000.0)
+
+
+## Ângulo (rad) para olhar para [member _face_point] de onde está.
+func _face_yaw() -> float:
+	var flat: Vector3 = Vector3(_face_point.x - position.x, 0.0, _face_point.z - position.z)
+	return atan2(-flat.x, -flat.z) if flat.length_squared() > 0.0001 else rotation.y
+
+
 func set_ally(ally: bool) -> void:
 	if ally == _ally:
 		return

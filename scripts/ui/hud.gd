@@ -2,7 +2,7 @@ class_name Hud
 extends CanvasLayer
 ## HUD do jogo em retrato ([CLI-08]): vida/mana numa moldura pixel art (variação de tema `PixelFrame`) no topo;
 ## logo abaixo dela, a linha de XP (cinza, enchendo de ciano) com o quadrado do nível na ponta direita ([JOGO-12]);
-## embaixo, outra moldura igual junta as 6 cartas e a linha joystick | ataque simples (+ "Desfocar" embaixo) | menu,
+## embaixo, outra moldura igual junta as 6 cartas e a linha joystick | ataque simples | menu,
 ## com espaços iguais entre eles e nas bordas. O Menu (Inventário, Configuração, "Sair da conta", cada um com ícone
 ## à esquerda) fecha pelo X no canto ou tocando fora dele (no fundo escurecido). Mapa ([CLI-11], [ZoneMap]): a zona
 ## inteira em pixel art, girada como a câmera, com você, monstros, bonecos/NPCs e jogadores ao vivo (tela inteira). Inventário ([CLI-10]), em tela
@@ -197,8 +197,6 @@ var _bottom_base: Dictionary[Control, Vector2] = {}
 @onready var joystick: TouchJoystick = %TouchJoystick
 ## Botão do ataque simples.
 @onready var attack_button: TouchActionButton = %AttackButton
-## Botão pequeno embaixo do ataque: solta o alvo fixo ([JOGO-02]). Apagado sem alvo.
-@onready var clear_target_button: TouchActionButton = %ClearTargetButton
 @onready var _menu_button: TouchActionButton = %MenuButton
 ## Barra de carregamento do lançamento (acima dos controles, [CLI-08]): o [CombatController] liga e desliga.
 @onready var cast_bar: CastBar = %CastBar
@@ -209,8 +207,6 @@ var _inventory: InventoryState = null
 var _toast_left: float = 0.0
 ## Sobrevida do escudo por cima da barra de vida (criada no primeiro [method set_health]).
 var _shield_fill: ColorRect = null
-## Há alvo fixo agora (liga o "Desfocar"); ver [method set_target_active].
-var _has_target: bool = false
 ## Painéis sociais ([SOC-02]), criados no [method _ready].
 var _nearby_panel: NearbyPlayersPanel = null
 var _actions_panel: PlayerActionsPanel = null
@@ -529,20 +525,6 @@ func show_toast(text: String) -> void:
 	_toast.text = text
 	_toast.modulate.a = 1.0
 	_toast_left = _TOAST_SECONDS
-
-
-## Liga/apaga o "Desfocar" conforme há alvo fixo ([param active]). Chamado a cada quadro pelo
-## [CombatController]; só redesenha quando muda.
-func set_target_active(active: bool) -> void:
-	if active == _has_target:
-		return
-	_has_target = active
-	_refresh_clear_target()
-
-
-func _refresh_clear_target() -> void:
-	clear_target_button.enabled = _has_target and not is_menu_open()
-	clear_target_button.queue_redraw()
 
 
 ## true com algum painel do menu aberto.
@@ -1666,7 +1648,6 @@ func _open_panel(panel: PanelContainer) -> void:
 	joystick.set_process_input(playing)
 	attack_button.enabled = playing
 	_menu_button.enabled = playing
-	_refresh_clear_target()
 	for card: TouchActionButton in _cards:
 		card.enabled = playing and not card.text.is_empty()
 	# Solta o joystick se estava sendo usado quando o menu abriu.

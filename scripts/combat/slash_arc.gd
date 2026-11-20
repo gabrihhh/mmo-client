@@ -12,6 +12,7 @@ const HEIGHT: float = 1.0
 ## Malhas em cache: meia-lua e anel de raio 1 (a escala dá o tamanho).
 static var _arc_mesh: ArrayMesh = null
 static var _ring_mesh: ArrayMesh = null
+static var _arc_cache: Dictionary[int, ArrayMesh] = {}
 
 var _age: float = 0.0
 var _reach: float = 1.0
@@ -19,10 +20,11 @@ var _material: StandardMaterial3D = null
 
 
 ## Clarão em [param origin] (pés de quem bate), virado para [param yaw] (rad, igual ao rotation.y do personagem:
-## a frente é −Z), com alcance [param reach] m. [param full_ring] = anel inteiro (golpe ao redor).
-static func spawn(parent: Node, origin: Vector3, yaw: float, reach: float, full_ring: bool, color: Color) -> void:
+## a frente é −Z), com alcance [param reach] m. [param full_ring] = anel inteiro (golpe ao redor). [param arc] > 0:
+## abertura (rad) do leque de verdade do golpe (ataque simples, [JOGO-05]); 0 = a meia-lua padrão.
+static func spawn(parent: Node, origin: Vector3, yaw: float, reach: float, full_ring: bool, color: Color, arc: float = 0.0) -> void:
 	var slash: SlashArc = SlashArc.new()
-	slash.mesh = _ring() if full_ring else _arc()
+	slash.mesh = _ring() if full_ring else (_arc_of(arc) if arc > 0.0 else _arc())
 	slash._material = StandardMaterial3D.new()
 	slash._material.albedo_color = Color(color, 0.6)
 	slash._material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -51,6 +53,14 @@ static func _arc() -> ArrayMesh:
 	if _arc_mesh == null:
 		_arc_mesh = _band(deg_to_rad(ARC_DEGREES), 12)
 	return _arc_mesh
+
+
+## Meia-lua de abertura [param arc] rad (cache por grau inteiro).
+static func _arc_of(arc: float) -> ArrayMesh:
+	var key: int = roundi(rad_to_deg(arc))
+	if not _arc_cache.has(key):
+		_arc_cache[key] = _band(deg_to_rad(float(key)), maxi(4, key / 10))
+	return _arc_cache[key]
 
 
 static func _ring() -> ArrayMesh:

@@ -23,16 +23,14 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
 
 ### Ataque simples: Toque de luz — pasta `animation-attack/`
 
-- `tome_attack` · mira aliado (ou você). Cura constante no aliado escolhido.
-- Números: **Cura 8** · alcance 9 m · lançamento **1,2 s** · recarga **1,2 s** · sem mana.
-- Como funciona: Toque no ⚔: fixa o **aliado mais perto** (até 10 m) e o personagem passa a curá-lo sozinho a cada 1,2 s (sem aliado por perto: só avisa "Nenhum aliado por perto" — não cura você). Segurar, arrastar até um aliado e soltar escolhe quem. Cada vez cura 8 depois de 1,2 s de lançamento (andar nesse tempo cancela); o aliado precisa estar a até 9 m.
-- Ao segurar (prévia): círculo dourado translúcido (1,5 m) que segue o dedo, com uma linha saindo do personagem; passando sobre um aliado, aparece o marcador de alvo embaixo dele.
-- Os outros veem: brilho na mão durante o lançamento. Animação: `cast_heal` (Meshy; genérica, também em 2 outras).
+- `tome_attack` · mira direção (linha). Raio de luz que voa reto: cura o primeiro aliado ou fere o primeiro inimigo.
+- Números: **Dano 2** · **Cura 4** · alcance 9 m · meia-largura 0,35 m · projétil 16 m/s (dá para desviar) · sai na hora · execução **0,6 s** · sem mana.
+- Como funciona: Toque no ⚔: golpe na direção do **inimigo mais perto** (ou para a frente). Arrastar mostra o formato do golpe na direção do dedo e solta ao largar. Sem carregamento: o golpe sai na hora — um projétil a 16 m/s voa reto até 9 m e para no PRIMEIRO que tocar: aliado é curado, inimigo leva o dano (tira 2 de vida, cura 4). Depois, 0,6 s de execução em que outro golpe não sai. Dá para andar batendo.
+- Ao segurar (prévia): faixa dourada translúcida saindo do personagem na direção do dedo: 9 m de comprimento × 0,7 m de largura.
+- Os outros veem: o personagem virado para a direção do golpe; projétil voando de verdade. Animação: `cast_heal` (Meshy; genérica, também em 2 outras).
 - **Tempo da animação (Blender, 30 fps):**
-  - **Momento do efeito** (golpe acerta / magia sai): **1,2 s = quadro 36** contando do início — é quando o servidor aplica o efeito (fim do lançamento).
-  - Repete a cada **1,2 s**: a animação inteira deve terminar até **1,2 s = quadro 36** para emendar no próximo golpe.
-  - Hoje usa a genérica `cast_heal`: dura 1,6 s (quadro 48), golpe em 0,65 s (quadro 20) → o jogo toca a **×0,54** para o golpe cair em 1,2 s.
-  - Fazendo o golpe exatamente no quadro acima, ela toca na velocidade normal (×1). Se ficar em outro quadro, o jogo acelera ou desacelera (entre ×0,25 e ×4) desde que o golpe seja medido em `CharacterAnimator.HIT_TIMES` (`skill_tome_attack`).
+  - **Sai na hora** (sem carregamento): o jogo toca a animação acelerada para o golpe cair a ~0,15 s do toque.
+  - Tempo de execução **0,6 s = quadro 18**: a animação inteira deve caber nisso para emendar no próximo golpe (o jogador pode tocar de novo assim que acabar).
 
 ### Habilidade 1: Cura maior — pasta `animation-skill-1/`
 

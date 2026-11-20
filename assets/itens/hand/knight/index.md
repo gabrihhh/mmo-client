@@ -23,16 +23,14 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
 
 ### Ataque simples: Ataque — pasta `animation-attack/`
 
-- `knight_attack` · mira no alvo. Golpe de espada longa no alvo.
-- Números: **Dano 8** · alcance 2,8 m · lançamento **1,3 s** · recarga **1,3 s** · sem mana.
-- Como funciona: Toque no ⚔: fixa como alvo o **inimigo mais perto** (até 10 m) e o personagem passa a atacar sozinho a cada 1,3 s, até o alvo morrer ou você soltar (Desfocar). Segurar, arrastar até alguém e soltar escolhe o alvo. O personagem **não anda sozinho** até ele: começa a bater quando você para a até 2,8 m (+0,5 m de folga). Cada golpe tira 8 de vida depois de 1,3 s de lançamento (andar nesse tempo cancela).
-- Ao segurar (prévia): círculo dourado translúcido (1,5 m) que segue o dedo, com uma linha saindo do personagem; passando sobre um inimigo, aparece o marcador de alvo embaixo dele.
-- Os outros veem: clarão do golpe à frente (1,9 m) no momento do efeito. Animação: `attack_greatsword` (Mixamo; própria).
+- `knight_attack` · mira direção (linha). Espada longa em leque de 90° à frente: acerta todos dentro.
+- Números: **Dano 4** · alcance 2,8 m · leque **90°** · sai na hora · execução **0,65 s** · sem mana.
+- Como funciona: Toque no ⚔: golpe na direção do **inimigo mais perto** (ou para a frente). Arrastar mostra o formato do golpe na direção do dedo e solta ao largar. Sem carregamento: o golpe sai na hora — leque de 90° com 2,8 m de alcance centrado na direção: acerta todos os inimigos dentro dele (tira 4 de vida). Depois, 0,65 s de execução em que outro golpe não sai. Dá para andar batendo.
+- Ao segurar (prévia): leque dourado translúcido de 90° e 2,8 m saindo do personagem na direção do dedo.
+- Os outros veem: o personagem virado para a direção do golpe; clarão do leque (90°, 2,8 m) na hora do golpe. Animação: `attack_greatsword` (Mixamo; própria).
 - **Tempo da animação (Blender, 30 fps):**
-  - **Momento do efeito** (golpe acerta / magia sai): **1,3 s = quadro 39** contando do início — é quando o servidor aplica o efeito (fim do lançamento).
-  - Repete a cada **1,3 s**: a animação inteira deve terminar até **1,3 s = quadro 39** para emendar no próximo golpe.
-  - Hoje usa a genérica `attack_greatsword`: dura 1,27 s (quadro 38), golpe em 0,6 s (quadro 18) → o jogo toca a **×0,46** para o golpe cair em 1,3 s.
-  - Fazendo o golpe exatamente no quadro acima, ela toca na velocidade normal (×1). Se ficar em outro quadro, o jogo acelera ou desacelera (entre ×0,25 e ×4) desde que o golpe seja medido em `CharacterAnimator.HIT_TIMES` (`skill_knight_attack`).
+  - **Sai na hora** (sem carregamento): o jogo toca a animação acelerada para o golpe cair a ~0,15 s do toque.
+  - Tempo de execução **0,65 s = quadro 20**: a animação inteira deve caber nisso para emendar no próximo golpe (o jogador pode tocar de novo assim que acabar).
 
 ### Habilidade 1: Corte em linha — pasta `animation-skill-1/`
 

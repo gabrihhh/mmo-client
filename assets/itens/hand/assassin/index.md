@@ -23,16 +23,15 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
 
 ### Ataque simples: Ataque — pasta `animation-attack/`
 
-- `dagger_attack` · mira no alvo. Golpe rápido de adaga no alvo.
-- Números: **Dano 8** · alcance 2,2 m · lançamento **0,7 s** · recarga **0,7 s** · sem mana.
-- Como funciona: Toque no ⚔: fixa como alvo o **inimigo mais perto** (até 10 m) e o personagem passa a atacar sozinho a cada 0,7 s, até o alvo morrer ou você soltar (Desfocar). Segurar, arrastar até alguém e soltar escolhe o alvo. O personagem **não anda sozinho** até ele: começa a bater quando você para a até 2,2 m (+0,5 m de folga). Cada golpe tira 8 de vida depois de 0,7 s de lançamento (andar nesse tempo cancela).
-- Ao segurar (prévia): círculo dourado translúcido (1,5 m) que segue o dedo, com uma linha saindo do personagem; passando sobre um inimigo, aparece o marcador de alvo embaixo dele.
-- Os outros veem: clarão do golpe à frente (1,5 m) no momento do efeito. Animação: `attack_daggers` (Meshy; genérica, também em 1 outra).
+- `dagger_attack` · mira direção (linha). Estocada com um passo à frente (um alvo).
+- Números: **Dano 4** · **Avança 1 m** em 0,15 s · alcance 2,2 m · leque **45°** · **1 alvo** · sai na hora · execução **0,35 s** · sem mana.
+- Como funciona: Toque no ⚔: golpe na direção do **inimigo mais perto** (ou para a frente). Arrastar mostra o formato do golpe na direção do dedo e solta ao largar. Sem carregamento: o golpe sai na hora — dá um passo de 1 m na direção e golpeia em leque de 45° com 2,2 m de alcance centrado na direção: acerta o inimigo mais perto dentro dele (tira 4 de vida, leva você 1 m na direção, percorrendo o caminho em 0,15 s). Depois, 0,35 s de execução em que outro golpe não sai. Dá para andar batendo.
+- Ao segurar (prévia): leque dourado translúcido de 45° e 2,2 m saindo do personagem na direção do dedo.
+- Os outros veem: o personagem virado para a direção do golpe; clarão do leque (45°, 2,2 m) na hora do golpe. Animação: `attack_daggers` (Meshy; genérica, também em 1 outra).
 - **Tempo da animação (Blender, 30 fps):**
-  - **Momento do efeito** (golpe acerta / magia sai): **0,7 s = quadro 21** contando do início — é quando o servidor aplica o efeito (fim do lançamento).
-  - Repete a cada **0,7 s**: a animação inteira deve terminar até **0,7 s = quadro 21** para emendar no próximo golpe.
-  - Hoje usa a genérica `attack_daggers`: dura 1,4 s (quadro 42), golpe em 1 s (quadro 30) → o jogo toca a **×1,43** para o golpe cair em 0,7 s.
-  - Fazendo o golpe exatamente no quadro acima, ela toca na velocidade normal (×1). Se ficar em outro quadro, o jogo acelera ou desacelera (entre ×0,25 e ×4) desde que o golpe seja medido em `CharacterAnimator.HIT_TIMES` (`skill_dagger_attack`).
+  - **Sai na hora** (sem carregamento): o jogo toca a animação acelerada para o golpe cair a ~0,15 s do toque.
+  - Tempo de execução **0,35 s = quadro 10**: a animação inteira deve caber nisso para emendar no próximo golpe (o jogador pode tocar de novo assim que acabar).
+  - O passo dura **0,15 s = quadro 4** (1 m): o jogo move o personagem; a animação fica no lugar.
 
 ### Habilidade 1: Salto sombrio — pasta `animation-skill-1/`
 

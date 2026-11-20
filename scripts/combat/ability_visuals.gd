@@ -93,6 +93,9 @@ const COLORS: Dictionary[String, Color] = {
 	"boss_stomp": Color(0.75, 0.35, 1.0),
 }
 const DEFAULT_COLOR: Color = Color(1.0, 0.85, 0.5)
+## Ataque simples do jogador ([JOGO-05]): sai na hora, então a animação toca rápida para o momento do golpe cair a
+## estes segundos do toque (não no fim do tempo de execução, como num lançamento).
+const INSTANT_HIT_SECONDS: float = 0.15
 ## Golpes corpo a corpo com clarão no momento do golpe: alcance do clarão (m). Negativo = anel inteiro (ao redor).
 const SLASH_REACH: Dictionary[String, float] = {
 	"punch": 1.1,
@@ -116,10 +119,7 @@ const CAST_GLOW: Array[String] = [
 ## Reserva: o tempo de verdade vem do servidor no `cast_start.release` (AbilityDef.releaseTime em
 ## mmo-server/src/items/catalog.ts); manter igual.
 const HOMING_FLIGHT: Dictionary[String, float] = {
-	"arcane_attack": 0.3,
-	"crossbow_attack": 0.25,
 	"quick_shot": 0.1,
-	"zombie_spit": 0.35,
 }
 
 

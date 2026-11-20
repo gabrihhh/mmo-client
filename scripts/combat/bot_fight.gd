@@ -33,6 +33,8 @@ var _wear: Array[String] = []
 var _rotation: Array[String] = []
 var _melee: bool = false
 ## Espera (s) a resposta do último "vestir" antes de pedir outro (senão repete o pedido a cada quadro).
+## Segundos até o próximo golpe do ataque simples.
+var _attack_wait: float = 0.0
 var _equip_wait: float = 0.0
 
 var _player: LocalPlayer = null
@@ -79,12 +81,15 @@ func _process(delta: float) -> void:
 	var dummy: PlayerState = _nearest_dummy(network)
 	if dummy == null:
 		return
-	# Arma de cura (Livro): o ataque simples só pega aliados, então o bot não fixa o boneco ([JOGO-09]).
-	var heals: bool = not _wear.is_empty() and _wear[0] == "healer_tome"
-	if not heals and network.attack_target != dummy.id:
-		network.send_attack(dummy.id)
 	var to_target: Vector3 = dummy.position - _player.global_position
 	to_target.y = 0.0
+	# Ataque simples livre ([JOGO-05]): um golpe na direção do boneco a cada tempo de execução (o raio do Livro também
+	# fere inimigos).
+	_attack_wait -= delta
+	if _attack_wait <= 0.0:
+		var attack: AbilityView = network.inventory.basic_attack()
+		_attack_wait = maxf(attack.cast_time_s, 0.1) + 0.05
+		network.send_cast(attack.id, "", to_target.x, to_target.z)
 	var walk: bool = _melee and to_target.length() > MELEE_DISTANCE
 	_player.bot_direction = Vector2(to_target.x, to_target.z).normalized() if walk else Vector2.ZERO
 	_next_cast -= delta

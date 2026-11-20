@@ -10,7 +10,8 @@ extends RefCounted
 enum AimType {
 	## Em uma unidade (jogador/monstro): toque usa o alvo fixo; arrastar escolhe quem está sob a mira.
 	TARGET,
-	## Numa direção a partir do personagem (linha de [member range_m]).
+	## Numa direção a partir do personagem: linha de [member range_m] ou, com [member arc_rad] > 0, leque (golpe
+	## do ataque simples, [JOGO-05]).
 	DIRECTION,
 	## Área num ponto do chão, até [member range_m] de distância, raio [member radius_m].
 	AREA,
@@ -54,6 +55,13 @@ var heal: float = 0.0
 var shield: float = 0.0
 var shield_seconds: float = 0.0
 var projectile_speed: float = 0.0
+## Golpe em leque ([JOGO-05]): abertura total em radianos (0 = linha) e máximo de alvos (0 = todos). A prévia do ⚔
+## desenha o leque. ATENÇÃO: AbilityDef.arc/maxTargets em mmo-server/src/items/catalog.ts.
+var arc_rad: float = 0.0
+var max_targets: int = 0
+## true no ataque simples da arma (e no soco): golpe livre que sai na hora; [member cast_time_s] é o tempo de
+## execução, não carregamento ([JOGO-05]).
+var is_basic_attack: bool = false
 ## Redução de dano (0..1) e duração (s) ([JOGO-09]); só exibição.
 var damage_reduction: float = 0.0
 var reduction_seconds: float = 0.0
@@ -112,6 +120,8 @@ func with_display(data: Dictionary) -> AbilityView:
 	shield = Protocol.read_float(data, "shield")
 	shield_seconds = Protocol.read_float(data, "shieldSeconds")
 	projectile_speed = Protocol.read_float(data, "projectileSpeed")
+	arc_rad = Protocol.read_float(data, "arc")
+	max_targets = Protocol.read_int(data, "maxTargets")
 	damage_reduction = Protocol.read_float(data, "damageReduction")
 	reduction_seconds = Protocol.read_float(data, "reductionSeconds")
 	taunt_seconds = Protocol.read_float(data, "tauntSeconds")
@@ -135,7 +145,10 @@ enum StatKind { DAMAGE, HEAL, SHIELD, MANA, TIME, OTHER }
 ## ["Recarga 5 s", TIME]. Duração = quanto um efeito dura (escudo, velocidade).
 func stats() -> Array[Array]:
 	var out: Array[Array] = []
-	out.append(["Mira: %s" % AIM_LABELS[aim_type], StatKind.OTHER])
+	if arc_rad > 0.0:
+		out.append(["Mira: leque de %s°%s" % [number(rad_to_deg(arc_rad)), " · 1 alvo" if max_targets == 1 else ""], StatKind.OTHER])
+	else:
+		out.append(["Mira: %s" % AIM_LABELS[aim_type], StatKind.OTHER])
 	if damage > 0.0:
 		out.append(["Dano %s" % number(damage), StatKind.DAMAGE])
 	if heal > 0.0:
@@ -156,8 +169,11 @@ func stats() -> Array[Array]:
 		out.append(["Raio %s m" % number(radius_m), StatKind.OTHER])
 	if projectile_speed > 0.0:
 		out.append(["Projétil %s m/s (dá para desviar)" % number(projectile_speed), StatKind.OTHER])
-	out.append(["Lançamento %s s" % number(cast_time_s) if cast_time_s > 0.0 else "Instantânea", StatKind.TIME])
-	out.append(["Recarga %s s" % number(cooldown_s), StatKind.TIME])
+	if is_basic_attack:
+		out.append(["Sai na hora · execução %s s" % number(cast_time_s), StatKind.TIME])
+	else:
+		out.append(["Lançamento %s s" % number(cast_time_s) if cast_time_s > 0.0 else "Instantânea", StatKind.TIME])
+		out.append(["Recarga %s s" % number(cooldown_s), StatKind.TIME])
 	if mana_cost > 0.0:
 		out.append(["Mana %s" % number(mana_cost), StatKind.MANA])
 	return out

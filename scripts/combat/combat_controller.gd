@@ -1,48 +1,51 @@
 class_name CombatController
 extends Node
-## Liga os gestos da HUD (ataque simples e cartas) ao jogo: alvo fixo, prévia da mira e o pedido da ação.
-## Ver mmo-docs [JOGO-02].
+## Liga os gestos da HUD (ataque simples e cartas) ao jogo: prévia da mira e o pedido da ação.
+## Ver mmo-docs [JOGO-02], [JOGO-05].
 ##
-## - Ataque, toque: pega o alvo mais perto e ataca. Arrastar: mira; soltar sobre alguém fixa o alvo.
-## - "Desfocar" (embaixo do ataque), toque: solta o alvo fixo (o servidor para de atacar).
-## - Carta, toque: habilidade em si mesmo sai na hora; com mira, vai no alvo fixo (ou para a frente).
-##   Arrastar: prévia translúcida saindo do personagem; soltar executa; voltar o dedo à carta cancela.
+## - Ataque (⚔), golpe livre SEM alvo fixo ([JOGO-05]): toque = golpe na direção do inimigo mais perto (ou para a
+##   frente); arrastar = mostra o formato do golpe (leque/linha) na direção do arrasto e solta ao largar o dedo. Um golpe
+##   por toque; enquanto um golpe está sendo executado, outro não sai (o toque é ignorado). Dá para andar batendo.
+## - Carta, toque: habilidade em si mesmo sai na hora; com mira, vai no inimigo mais perto dentro do alcance dela
+##   (aliado: em você). Arrastar: prévia translúcida saindo do personagem; soltar executa; voltar o dedo à carta cancela.
 ## - O desenho da mira **sai de baixo do personagem** e anda como um joystick: a direção do arrasto (relativa à câmera)
 ##   e a distância proporcional ao arrasto ([constant MAX_AIM_DRAG_PX] = alcance máximo). **O efeito cai exatamente onde
 ##   o desenho está** ([method _aim_point] é a mesma conta na prévia e no soltar): alvo/aliado = quem está dentro do
 ##   círculo desenhado; linha = direção desenhada; área = círculo desenhado.
 ##
 ## Ataque e cartas vêm do que está vestido ([InventoryState], mensagem "inventory" do servidor).
-## Ataque simples ([JOGO-05]): manda "attack" com o alvo; o servidor bate sozinho quando em alcance.
-## Cartas ([JOGO-06]): mandam "cast" ([method _cast]); o servidor valida e aplica o efeito.
-## Alvo fixo e relógios seguem o que o servidor confirma.
+## Ataque simples ([JOGO-05]): manda "cast" com o id do ataque da arma e a direção ([method _swing]); o servidor aplica
+## na hora. Cartas ([JOGO-06]): mandam "cast" ([method _cast]); o servidor valida e aplica o efeito.
+## Relógios seguem o que o servidor confirma.
 
 ## Arrastar o dedo esta distância (px) a partir do botão = mira no alcance máximo.
 const MAX_AIM_DRAG_PX: float = 220.0
-## Ao arrastar o ataque simples para fixar o alvo, até onde (m) o círculo de mira vai. Cartas de alvo/aliado vão só até
-## o alcance delas (o círculo nunca mostra alguém que o servidor recusaria por "fora de alcance").
+## Cartas de alvo/aliado sem alcance: até onde (m) o círculo de mira vai. As outras vão só até o alcance delas (o
+## círculo nunca mostra alguém que o servidor recusaria por "fora de alcance").
 const TARGET_PICK_RANGE: float = 15.0
 ## Raio (m) em volta do ponto mirado em que um jogador conta como "debaixo da mira".
 const TARGET_PICK_RADIUS: float = 1.5
-## Toque no ataque: procura o alvo mais perto até esta distância (m).
-const TAP_TARGET_RANGE: float = 10.0
+## Toque no ⚔: mira no inimigo mais perto até o alcance do golpe + esta folga (m) — o corpo a corpo vira para quem
+## está chegando — e nunca menos que [constant TAP_AIM_MIN_RANGE] m. Ninguém: golpe para a frente.
+const TAP_AIM_MARGIN: float = 2.0
+const TAP_AIM_MIN_RANGE: float = 4.0
 
 var _zone: Zone = null
 var _player: LocalPlayer = null
 var _hud: Hud = null
 var _preview: AimPreview = null
 ## Ataque simples e as 6 cartas atuais (do que está vestido, [InventoryState]); null = slot vazio.
-var _attack: AbilityView = AbilityView.new("punch", "Soco", "Arma", AbilityView.AimType.TARGET, 1.5)
+var _attack: AbilityView = AbilityView.new("punch", "Soco", "Arma", AbilityView.AimType.DIRECTION, 1.5)
 var _abilities: Array[AbilityView] = []
-## Id do alvo fixo ("" = nenhum).
-var _target_id: String = ""
 ## Recarga por POSIÇÃO de carta (índice 0..5 → instante em ms em que fica pronta, e a duração total que começou), como
 ## no servidor ([JOGO-06], Zone.cardSlot): trocar de item não zera — a carta nova na mesma posição espera o que
 ## faltava da anterior (o relógio continua o mesmo); depois de usada, vale a recarga dela.
 var _card_ready_ms: Dictionary[int, int] = {}
 var _card_total_s: Dictionary[int, float] = {}
-## Golpe do ataque simples em andamento: instante em que acaba (relógio do botão Atacar).
+## Golpe do ataque simples em execução: instante em que acaba (relógio do ⚔ e trava de um golpe por vez) e quando o
+## último foi pedido (o tempo confirmado pelo servidor conta a partir daí, sem somar o atraso da rede).
 var _attack_ready_ms: int = 0
+var _attack_sent_ms: int = 0
 ## Quem está debaixo da mira durante um arrasto de alvo ("" = ninguém).
 var _hovered_id: String = ""
 
@@ -60,7 +63,6 @@ func setup(zone: Zone, player: LocalPlayer, hud: Hud, preview: AimPreview) -> vo
 	attack_button.aim_moved.connect(func(offset: Vector2) -> void: _on_aim_moved(offset, _attack))
 	attack_button.aim_released.connect(_on_attack_released)
 	attack_button.aim_cancelled.connect(_end_aim)
-	_hud.clear_target_button.tapped.connect(_on_clear_target_tapped)
 	# Cada carta é ligada pelo ÍNDICE: a habilidade dela muda quando o inventário muda.
 	for i: int in range(Hud.CARD_COUNT):
 		var card: TouchActionButton = _hud.get_card(i)
@@ -145,10 +147,9 @@ func _on_card_index_released(offset: Vector2, index: int) -> void:
 		_end_aim()
 
 
-## Lançamento meu confirmado pelo servidor ("cast_start"): ataque simples → relógio do Atacar durante o
-## golpe; carta → começa a recarga dela. "cast_cancel" (andei durante o lançamento, [JOGO-05]/[JOGO-06]): a carta
-## volta pronta (o servidor zerou a recarga e devolveu a mana); o golpe do Atacar some do relógio (recomeça quando
-## eu parar no alcance).
+## Lançamento meu confirmado pelo servidor ("cast_start"): ataque simples → acerta o relógio do ⚔ com o tempo de
+## execução do servidor (já com Velocidade de ataque); carta → começa a recarga dela. "cast_cancel" (andei durante o
+## lançamento da carta, [JOGO-06]): a carta volta pronta (o servidor zerou a recarga e devolveu a mana).
 func _on_combat_event(event: Dictionary) -> void:
 	var type: String = Protocol.read_string(event, "type")
 	if type == "death" and Protocol.read_string(event, "id") == Network.instance.player_id:
@@ -161,10 +162,6 @@ func _on_combat_event(event: Dictionary) -> void:
 		_show_cast_bar(event, ability_id)
 	if type == "cast_cancel":
 		_hud.cast_bar.stop()
-		if ability_id == _attack.id:
-			_attack_ready_ms = 0
-			_hud.attack_button.set_cooldown(0.0, 0.0)
-			return
 		var cancelled: int = _index_of(ability_id)
 		if cancelled >= 0:
 			_card_ready_ms.erase(cancelled)
@@ -175,8 +172,9 @@ func _on_combat_event(event: Dictionary) -> void:
 		return
 	if ability_id == _attack.id:
 		var duration: float = Protocol.read_float(event, "duration")
-		_attack_ready_ms = Time.get_ticks_msec() + int(duration * 1000.0)
-		_hud.attack_button.set_cooldown(duration, duration)
+		_attack_ready_ms = _attack_sent_ms + int(duration * 1000.0)
+		var left: float = maxf(0.0, float(_attack_ready_ms - Time.get_ticks_msec()) / 1000.0)
+		_hud.attack_button.set_cooldown(left, duration)
 		return
 	var started: int = _index_of(ability_id)
 	if started >= 0:
@@ -184,12 +182,11 @@ func _on_combat_event(event: Dictionary) -> void:
 
 
 ## Barra de carregamento ([CastBar], [CLI-08]) do lançamento confirmado em [param event] ("cast_start"): ícone da carta
-## (ou a espada no ataque simples) e o tempo até a ação sair — no projétil, até o tiro sair da mão ("release" s antes
-## do fim). Investida/Disparada não carregam: sem barra.
+## e o tempo até a ação sair — no projétil, até o tiro sair da mão ("release" s antes do fim). Investida/Disparada e
+## o ataque simples ("instant": sai na hora, [JOGO-05]) não carregam: sem barra.
 func _show_cast_bar(event: Dictionary, ability_id: String) -> void:
 	var seconds: float = Protocol.read_float(event, "duration") - Protocol.read_float(event, "release")
-	if ability_id == _attack.id:
-		_hud.cast_bar.start(null, seconds)
+	if ability_id == _attack.id or event.has("instant"):
 		return
 	var index: int = _index_of(ability_id)
 	if index >= 0 and _abilities[index].is_movement():
@@ -206,87 +203,102 @@ func _index_of(ability_id: String) -> int:
 
 
 func _process(_delta: float) -> void:
-	# O alvo fixo de verdade é o do servidor (ele limpa quando o alvo morre ou sai).
-	_target_id = Network.instance.attack_target
-	_hud.set_target_active(not _target_id.is_empty())
-	# Golpe em andamento: o modelo fica virado para o alvo ([JOGO-05]).
+	# Carta "no alvo" em lançamento: o modelo fica virado para o alvo ([JOGO-05]).
 	var casting_node: RemotePlayer = _zone.get_target_node(Network.instance.casting_target) if not Network.instance.casting_target.is_empty() else null
 	if casting_node != null:
 		_player.face_toward(casting_node.global_position, 0.15)
-	# Marcador do alvo fixo segue o alvo; some se ele saiu da zona.
-	if _hovered_id.is_empty():
-		var target: RemotePlayer = _zone.get_target_node(_target_id) if not _target_id.is_empty() else null
-		if target != null:
-			_preview.show_target(target.global_position)
-		else:
-			_target_id = ""
-			_preview.hide_target()
 
 
-# --- Ataque simples ---
+# --- Ataque simples (golpe livre, [JOGO-05]) ---
 
-## Toque: fixa o alvo mais perto e o servidor passa a atacar (não bloqueia na recarga: só troca o alvo).
-## Ataque de cura (Livro, [JOGO-09]): o alvo é o aliado mais perto.
+## Toque: golpe na direção do inimigo mais perto (ou para a frente).
 func _on_attack_tapped() -> void:
-	var heals: bool = _attack.aim_type == AbilityView.AimType.ALLY
-	var nearest: RemotePlayer = _nearest_remote(_player.global_position, TAP_TARGET_RANGE, heals)
-	if nearest == null:
-		_hud.show_toast("Nenhum aliado por perto" if heals else "Ninguém por perto")
-		return
-	_set_attack_target(nearest)
+	_swing(_auto_aim_direction())
 
 
+## Soltar depois de arrastar: golpe na direção desenhada.
 func _on_attack_released(offset: Vector2) -> void:
-	# Quem está dentro do círculo desenhado NA HORA de soltar (o último movimento pode ter sido antes).
-	var under: RemotePlayer = _nearest_remote(_aim_point(offset, _attack), TARGET_PICK_RADIUS, _attack.aim_type == AbilityView.AimType.ALLY)
-	var picked: String = under.session_id if under != null else _hovered_id
+	var direction: Vector3 = _drag_direction(offset)
 	_end_aim()
-	if picked.is_empty():
-		_hud.show_toast("Nenhum alvo ali")
+	_swing(direction)
+
+
+## Pede o golpe na [param direction] (XZ). Ignora se o golpe anterior ainda está em execução (um por vez) ou se estou
+## morto. Anima na hora (o servidor confirma com "cast_start" e acerta o relógio) e vira o modelo para lá durante a
+## execução. Golpe com passo (adagas): vai na fila de passos com predição, como a Investida ([JOGO-07]).
+func _swing(direction: Vector3) -> void:
+	var now: int = Time.get_ticks_msec()
+	var own: PlayerState = Network.instance.get_player(Network.instance.player_id)
+	if now < _attack_ready_ms or (own != null and own.dead):
 		return
-	var target: RemotePlayer = _zone.get_target_node(picked)
-	if target != null:
-		_set_attack_target(target)
+	var flat: Vector3 = Vector3(direction.x, 0.0, direction.z)
+	if flat.length() < 0.01:
+		flat = _player.get_facing()
+	flat = flat.normalized()
+	var execution: float = maxf(_attack.cast_time_s, 0.1)
+	_attack_sent_ms = now
+	_attack_ready_ms = now + int(execution * 1000.0)
+	_hud.attack_button.set_cooldown(execution, execution)
+	_player.face_toward(_player.global_position + flat * 3.0, execution)
+	if _attack.is_movement():
+		if not _player.cast_movement(_attack, flat.x, flat.z):
+			_attack_ready_ms = 0
+			return
+	else:
+		Network.instance.send_cast(_attack.id, "", flat.x, flat.z)
+	_player.predict_action(_attack.id, AbilityVisuals.INSTANT_HIT_SECONDS)
 
 
-## "Desfocar": pede ao servidor para soltar o alvo fixo (attack com alvo vazio, [JOGO-05]). O marcador e o
-## botão apagam quando o servidor confirma (alvo vazio no "me").
-func _on_clear_target_tapped() -> void:
-	if _target_id.is_empty():
-		return
-	Network.instance.send_attack("")
-	_target_id = ""
-	_preview.hide_target()
-	_hud.show_toast("Alvo solto")
+## Direção do toque no ⚔: até o inimigo mais perto no alcance (+ folga); o Livro, sem inimigo, mira o aliado ferido mais
+## perto (o raio cura). Ninguém: para a frente.
+func _auto_aim_direction() -> Vector3:
+	var origin: Vector3 = _player.global_position
+	var reach: float = maxf(_attack.range_m + TAP_AIM_MARGIN, TAP_AIM_MIN_RANGE)
+	var target: RemotePlayer = _nearest_remote(origin, reach)
+	if target == null and _attack.heal > 0.0:
+		target = _nearest_hurt_ally(origin, reach)
+	if target == null:
+		return _player.get_facing()
+	return Vector3(target.global_position.x - origin.x, 0.0, target.global_position.z - origin.z)
 
 
-## Pede ao servidor para atacar [param target]. O marcador muda quando o servidor confirma.
-func _set_attack_target(target: RemotePlayer) -> void:
-	_target_id = target.session_id
-	Network.instance.send_attack(target.session_id)
-	_hud.show_toast("Alvo: %s" % target.display_name)
+## Aliado (jogador) ferido mais perto de [param point] até [param max_distance] m, ou null.
+func _nearest_hurt_ally(point: Vector3, max_distance: float) -> RemotePlayer:
+	var best: RemotePlayer = null
+	var best_distance: float = max_distance
+	for remote: RemotePlayer in _zone.get_allies():
+		var state: PlayerState = Network.instance.get_entity(remote.session_id)
+		if state == null or state.hp >= state.max_hp:
+			continue
+		var offset: Vector3 = remote.global_position - point
+		var distance: float = Vector2(offset.x, offset.z).length()
+		if distance <= best_distance:
+			best = remote
+			best_distance = distance
+	return best
+
+
+## Direção (XZ, normalizada) de um arrasto de [param offset] px, relativa à câmera; parado no centro = para a frente.
+func _drag_direction(offset: Vector2) -> Vector3:
+	var screen_direction: Vector3 = Vector3(offset.x, 0.0, offset.y).rotated(Vector3.UP, _player.get_camera_yaw())
+	return screen_direction.normalized() if screen_direction.length() > 0.01 else _player.get_facing()
 
 
 # --- Cartas ---
 
-## Toque na carta: em si mesmo/ao redor sai na hora; "no alvo" usa o alvo fixo; direção/área vão na
-## direção do alvo fixo ou, sem alvo, para a frente.
+## Toque na carta (sem alvo fixo, [JOGO-05]): em si mesmo/ao redor sai na hora; "no alvo" vai no inimigo mais perto
+## dentro do alcance da carta; aliado = em você; direção/área vão no inimigo mais perto no alcance ou, sem ninguém,
+## para a frente.
 func _on_card_tapped(ability: AbilityView) -> void:
-	var target: RemotePlayer = _zone.get_target_node(_target_id) if not _target_id.is_empty() else null
+	var target: RemotePlayer = _nearest_remote(_player.global_position, ability.range_m) if ability.range_m > 0.0 else null
 	match ability.aim_type:
-		AbilityView.AimType.SELF, AbilityView.AimType.AREA_SELF:
+		AbilityView.AimType.SELF, AbilityView.AimType.AREA_SELF, AbilityView.AimType.ALLY:
 			_cast(ability)
 		AbilityView.AimType.TARGET:
 			if target == null:
-				_hud.show_toast("%s: sem alvo (arraste para mirar)" % ability.title)
+				_hud.show_toast("%s: ninguém no alcance (arraste para mirar)" % ability.title)
 			else:
 				_cast(ability, target.session_id, target.global_position)
-		AbilityView.AimType.ALLY:
-			# Alvo fixo que é aliado (jogador) recebe; senão é em você ([JOGO-09]).
-			if target != null and target in _zone.get_allies():
-				_cast(ability, target.session_id, target.global_position)
-			else:
-				_cast(ability)
 		AbilityView.AimType.DIRECTION, AbilityView.AimType.AREA:
 			var point: Vector3 = target.global_position if target != null else _player.global_position + _player.get_facing() * maxf(ability.range_m, 3.0)
 			_cast(ability, "", point)
@@ -328,6 +340,15 @@ func _on_aim_moved(offset: Vector2, ability: AbilityView) -> void:
 	var flat: Vector3 = Vector3(aim.x - origin.x, 0.0, aim.z - origin.z)
 	var direction: Vector3 = flat.normalized() if flat.length() > 0.01 else _player.get_facing()
 	_hovered_id = ""
+	if ability == _attack:
+		# Golpe livre ([JOGO-05]): só a direção do arrasto importa; mostra o formato de verdade (leque ou linha).
+		var swing: Vector3 = _drag_direction(offset)
+		if ability.arc_rad > 0.0:
+			_preview.show_cone(origin, swing, ability.range_m, ability.arc_rad)
+		else:
+			_preview.show_line(origin, swing, ability.range_m, maxf(0.3, ability.radius_m * 2.0))
+		_preview.hide_target()
+		return
 	match ability.aim_type:
 		AbilityView.AimType.TARGET, AbilityView.AimType.ALLY:
 			_preview.show_circle(aim, TARGET_PICK_RADIUS, origin)
@@ -350,15 +371,16 @@ func _on_aim_moved(offset: Vector2, ability: AbilityView) -> void:
 func _end_aim() -> void:
 	_hovered_id = ""
 	_preview.hide_aim()
+	_preview.hide_target()
 
 
 ## Ponto no chão onde o desenho da mira está (e onde o efeito vai cair): sai do personagem na direção do arrasto
 ## (relativa à câmera), a uma distância proporcional ao arrasto, até o alcance da habilidade (ou
-## [constant TARGET_PICK_RANGE] para escolher alguém). Mesma conta na prévia e no soltar.
+## [constant TARGET_PICK_RANGE] para escolher alguém sem alcance). Mesma conta na prévia e no soltar.
 func _aim_point(offset: Vector2, ability: AbilityView) -> Vector3:
 	var picks_unit: bool = ability.aim_type == AbilityView.AimType.TARGET or ability.aim_type == AbilityView.AimType.ALLY
 	var reach: float = ability.range_m
-	if ability == _attack or (picks_unit and reach <= 0.0):
+	if picks_unit and reach <= 0.0:
 		reach = TARGET_PICK_RANGE
 	var screen_direction: Vector3 = Vector3(offset.x, 0.0, offset.y).rotated(Vector3.UP, _player.get_camera_yaw())
 	var amount: float = clampf(offset.length() / MAX_AIM_DRAG_PX, 0.0, 1.0)

@@ -68,6 +68,7 @@ class Item:
 		var attack: Dictionary = Protocol.read_dict(data, "basicAttack")
 		if not attack.is_empty():
 			item.basic_attack = AbilityView.from_dict(attack, item.slot)
+			item.basic_attack.is_basic_attack = true
 		for ability: Dictionary in Protocol.read_dict_array(data, "abilities"):
 			item.abilities.append(AbilityView.from_dict(ability, item.slot))
 		item.level = Protocol.read_int(data, "level")
@@ -101,7 +102,7 @@ var storage: Array[Item] = []
 var storage_capacity: int = 0
 var storage_tab_cost: int = 0
 ## Ataque simples sem arma.
-var unarmed_attack: AbilityView = AbilityView.new("punch", "Soco", "Arma", AbilityView.AimType.TARGET, 1.5)
+var unarmed_attack: AbilityView = AbilityView.new("punch", "Soco", "Arma", AbilityView.AimType.DIRECTION, 1.5)
 
 
 ## Cria a partir do payload da mensagem "inventory".
@@ -124,6 +125,7 @@ static func from_dict(data: Dictionary) -> InventoryState:
 	var unarmed: Dictionary = Protocol.read_dict(data, "unarmedAttack")
 	if not unarmed.is_empty():
 		state.unarmed_attack = AbilityView.from_dict(unarmed, "hand")
+		state.unarmed_attack.is_basic_attack = true
 	return state
 
 

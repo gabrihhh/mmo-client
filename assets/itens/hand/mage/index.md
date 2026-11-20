@@ -23,17 +23,14 @@ animação genérica indicada. Os dois corpos usam os mesmos tempos. Animação 
 
 ### Ataque simples: Ataque — pasta `animation-attack/`
 
-- `arcane_attack` · mira no alvo. Faísca arcana no alvo.
-- Números: **Dano 9** · alcance 9 m · lançamento **1,1 s** · recarga **1,1 s** · sem mana.
-- Como funciona: Toque no ⚔: fixa como alvo o **inimigo mais perto** (até 10 m) e o personagem passa a atacar sozinho a cada 1,1 s, até o alvo morrer ou você soltar (Desfocar). Segurar, arrastar até alguém e soltar escolhe o alvo. O personagem **não anda sozinho** até ele: começa a bater quando você para a até 9 m (+0,5 m de folga). Cada golpe tira 9 de vida depois de 1,1 s de lançamento (andar nesse tempo cancela).
-- Ao segurar (prévia): círculo dourado translúcido (1,5 m) que segue o dedo, com uma linha saindo do personagem; passando sobre um inimigo, aparece o marcador de alvo embaixo dele.
-- Os outros veem: projétil visual que sai da mão e chega junto com o dano. Animação: `attack_staff` (Meshy; própria).
+- `arcane_attack` · mira direção (linha). Faísca arcana que voa reto e acerta o primeiro inimigo.
+- Números: **Dano 4,5** · alcance 9 m · meia-largura 0,35 m · projétil 18 m/s (dá para desviar) · sai na hora · execução **0,55 s** · sem mana.
+- Como funciona: Toque no ⚔: golpe na direção do **inimigo mais perto** (ou para a frente). Arrastar mostra o formato do golpe na direção do dedo e solta ao largar. Sem carregamento: o golpe sai na hora — um projétil a 18 m/s voa reto até 9 m e para no PRIMEIRO que tocar (inimigo) (tira 4,5 de vida). Depois, 0,55 s de execução em que outro golpe não sai. Dá para andar batendo.
+- Ao segurar (prévia): faixa dourada translúcida saindo do personagem na direção do dedo: 9 m de comprimento × 0,7 m de largura.
+- Os outros veem: o personagem virado para a direção do golpe; projétil voando de verdade. Animação: `attack_staff` (Meshy; própria).
 - **Tempo da animação (Blender, 30 fps):**
-  - **Momento do efeito** (golpe acerta / magia sai): **1,1 s = quadro 33** contando do início — é quando o servidor aplica o efeito (fim do lançamento).
-  - O projétil visual **sai da mão em 0,8 s = quadro 24** (voa 0,3 s até o alvo).
-  - Repete a cada **1,1 s**: a animação inteira deve terminar até **1,1 s = quadro 33** para emendar no próximo golpe.
-  - Hoje usa a genérica `attack_staff`: dura 1,1 s (quadro 33), golpe em 0,47 s (quadro 14) → o jogo toca a **×0,43** para o golpe cair em 1,1 s.
-  - Fazendo o golpe exatamente no quadro acima, ela toca na velocidade normal (×1). Se ficar em outro quadro, o jogo acelera ou desacelera (entre ×0,25 e ×4) desde que o golpe seja medido em `CharacterAnimator.HIT_TIMES` (`skill_arcane_attack`).
+  - **Sai na hora** (sem carregamento): o jogo toca a animação acelerada para o golpe cair a ~0,15 s do toque.
+  - Tempo de execução **0,55 s = quadro 16**: a animação inteira deve caber nisso para emendar no próximo golpe (o jogador pode tocar de novo assim que acabar).
 
 ### Habilidade 1: Lança de gelo — pasta `animation-skill-1/`
 

@@ -56,7 +56,10 @@ extends RefCounted
 ## accept_status/cancelled/state/result; [code]kind[/code]/[code]arena[/code] no welcome; categorias colosseum_* no
 ## ranking; erros in_colosseum e colosseum_*; [code]pieces[/code] (minhas peças de arena) no colosseum_state.
 ## v42: [code]weapon[/code] no [constant MSG_CHOOSE_BODY] (arma inicial, chega vestida, [CLI-09]).
-const VERSION: int = 42
+## v43: ataque simples livre ([JOGO-05]): sai a mensagem attack (alvo fixo) e o [code]target[/code] do me; o golpe vai
+## como [constant MSG_CAST] com o id do ataque da arma e uma direção; [code]arc[/code]/[code]maxTargets[/code] na
+## habilidade e [code]arc[/code]/[code]instant[/code] no cast_start.
+const VERSION: int = 43
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
@@ -162,11 +165,10 @@ const MSG_FUSE: String = "fuse"
 const MSG_RESPAWN: String = "respawn"
 ## Pega um item/moedas do baú: {chestId, lootId}. Resposta: [constant MSG_CHEST_LOOT] atualizado (+ inventário se item).
 const MSG_CHEST_TAKE: String = "chest_take"
-## Fixa (ou limpa, com null) o alvo do ataque simples; o servidor bate sozinho quando em alcance.
-## data: { targetId: String ou null }. Ver mmo-docs [JOGO-05].
-const MSG_ATTACK: String = "attack"
-## Lança uma habilidade vestida. data: { abilityId, targetId?, x?, z?, seq? } (x/z = direção ou ponto, conforme a
-## mira; seq = só Investida/Disparada, na MESMA sequência dos inputs). Ver mmo-docs [JOGO-06], [JOGO-07].
+## Lança uma habilidade vestida ou o ataque simples (o id do ataque da arma + direção x/z: golpe livre, sem alvo
+## fixo, [JOGO-05]). data: { abilityId, targetId?, x?, z?, seq? } (x/z = direção ou ponto, conforme a
+## mira; seq = só Investida/Disparada e o golpe com passo das adagas, na MESMA sequência dos inputs). Ver mmo-docs
+## [JOGO-06], [JOGO-07].
 const MSG_CAST: String = "cast"
 ## Pede os atributos de um jogador da zona (Menu → Jogadores Próximos → Atributos). data: { playerId }.
 ## Resposta: [constant MSG_ATTRIBUTES] ou erro [constant ERR_PLAYER_NOT_FOUND]. Ver mmo-docs [SOC-02].

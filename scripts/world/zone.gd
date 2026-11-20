@@ -526,11 +526,16 @@ func _on_combat_event(event: Dictionary) -> void:
 
 
 ## Alguém começou a lançar: o personagem anima (golpe no fim do lançamento), aparece o aviso no chão das
-## áreas/linhas e, nas habilidades de alvo, um projétil visual que chega junto com o dano ([JOGO-08]).
+## áreas/linhas/leques e, nas habilidades de alvo, um projétil visual que chega junto com o dano ([JOGO-08]).
+## Ataque simples do jogador ("instant", [JOGO-05]): o golpe já saiu — anima rápido, mostra o clarão do leque na hora,
+## vira o personagem para a direção durante a execução e não desenha aviso no chão.
 func _on_cast_start(event: Dictionary) -> void:
 	var source_id: String = Protocol.read_string(event, "source")
 	var ability: String = Protocol.read_string(event, "ability")
 	var duration: float = Protocol.read_float(event, "duration")
+	if event.has("instant"):
+		_on_instant_swing(event, source_id, ability, duration)
+		return
 	# Monstro: barra de lançamento acima da vida ([JOGO-13]).
 	var npc_node: RemotePlayer = get_target_node(source_id)
 	if npc_node != null:
@@ -549,13 +554,17 @@ func _on_cast_start(event: Dictionary) -> void:
 	var caster: Node3D = get_entity_node(source_id)
 	if has_point and radius > 0.0 and duration > 0.0 and caster != null:
 		var point: Vector3 = Vector3(Protocol.read_float(event, "x"), 0.0, Protocol.read_float(event, "z"))
-		if Protocol.read_string(event, "aim") == "direction":
+		if Protocol.read_string(event, "aim") == "direction" and event.has("arc"):
+			# Golpe de monstro em leque ([JOGO-05]): dá para sair antes de ele bater.
+			_cast_warnings[source_id] = GroundWarning.spawn_cone(self, caster.global_position, point, radius, Protocol.read_float(event, "arc"), duration, color)
+		elif Protocol.read_string(event, "aim") == "direction":
 			_cast_warnings[source_id] = GroundWarning.spawn_line(self, caster.global_position, point, radius, duration, color)
 		else:
 			_cast_warnings[source_id] = GroundWarning.spawn_area(self, point.x, point.z, radius, duration, color)
 	var reach: float = AbilityVisuals.slash_reach(ability)
 	if reach != 0.0 and caster != null:
-		get_tree().create_timer(maxf(duration, 0.0)).timeout.connect(_slash.bind(source_id, serial, caster, reach, color))
+		var slash_arc: float = Protocol.read_float(event, "arc")
+		get_tree().create_timer(maxf(duration, 0.0)).timeout.connect(_slash.bind(source_id, serial, caster, reach, color, slash_arc))
 	# Quando o tiro sai da mão: o servidor manda ("release", s antes do fim); depois disso andar não cancela mais.
 	var flight: float = Protocol.read_float(event, "release") if event.has("release") else AbilityVisuals.homing_flight(ability)
 	var target: Node3D = get_entity_node(Protocol.read_string(event, "target"))
@@ -588,11 +597,37 @@ func _is_current_cast(source_id: String, serial: int) -> bool:
 	return _cast_serial.get(source_id, 0) == serial
 
 
-## Clarão do golpe corpo a corpo no momento do golpe, na frente de [param caster] ([JOGO-08]).
-func _slash(source_id: String, serial: int, caster: Node3D, reach: float, color: Color) -> void:
+## Clarão do golpe corpo a corpo no momento do golpe, na frente de [param caster] ([JOGO-08]); [param arc] > 0 = do
+## tamanho do leque de verdade.
+func _slash(source_id: String, serial: int, caster: Node3D, reach: float, color: Color, arc: float = 0.0) -> void:
 	if not _is_current_cast(source_id, serial) or not is_instance_valid(caster) or not caster.is_visible_in_tree():
 		return
-	SlashArc.spawn(self, caster.global_position, caster.global_rotation.y, absf(reach), reach < 0.0, Color(1, 1, 1) if color == AbilityVisuals.DEFAULT_COLOR else color)
+	SlashArc.spawn(self, caster.global_position, caster.global_rotation.y, absf(reach), reach < 0.0, Color(1, 1, 1) if color == AbilityVisuals.DEFAULT_COLOR else color, arc)
+
+
+## Golpe do ataque simples que já saiu ([JOGO-05]): animação rápida (a minha já tocou no toque), personagem virado
+## para a direção durante a execução e, no leque, o clarão na hora, do tamanho do alcance de verdade. Projéteis
+## (cajado, besta, livro) chegam pelo evento "projectile".
+func _on_instant_swing(event: Dictionary, source_id: String, ability: String, duration: float) -> void:
+	_cast_serial[source_id] = _cast_serial.get(source_id, 0) + 1
+	var model: CharacterModel = _character_of(source_id)
+	var mine: bool = _local_player != null and source_id == Network.instance.player_id
+	var already_animated: bool = mine and _local_player.consume_prediction(ability)
+	if model != null and not already_animated:
+		model.play_ability(ability, AbilityVisuals.INSTANT_HIT_SECONDS)
+	var caster: Node3D = get_entity_node(source_id)
+	if caster == null or not event.has("x") or not event.has("z"):
+		return
+	var point: Vector3 = Vector3(Protocol.read_float(event, "x"), caster.global_position.y, Protocol.read_float(event, "z"))
+	var flat: Vector3 = Vector3(point.x - caster.global_position.x, 0.0, point.z - caster.global_position.z)
+	var yaw: float = atan2(-flat.x, -flat.z) if flat.length() > 0.01 else caster.global_rotation.y
+	var remote: RemotePlayer = get_target_node(source_id)
+	if remote != null:
+		remote.face_toward(point, duration)
+	var arc: float = Protocol.read_float(event, "arc")
+	if arc > 0.0 and caster.is_visible_in_tree():
+		var color: Color = AbilityVisuals.color(ability)
+		SlashArc.spawn(self, caster.global_position, yaw, Protocol.read_float(event, "radius"), false, Color(1, 1, 1) if color == AbilityVisuals.DEFAULT_COLOR else color, arc)
 
 
 ## Projétil de alvo (visual): sai da mão de [param model] e chega em [param target] em [param seconds].

@@ -1,4 +1,4 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=20 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/hud.gd" id="1_hud"]
 [ext_resource type="Theme" path="res://assets/ui/theme.tres" id="2_theme"]
@@ -7,7 +7,6 @@
 [ext_resource type="Texture2D" path="res://assets/ui/pixel/round_button.png" id="8_round"]
 [ext_resource type="Texture2D" path="res://assets/ui/pixel/round_button_pressed.png" id="9_round_pressed"]
 [ext_resource type="Texture2D" path="res://assets/ui/pixel/sword.png" id="10_sword"]
-[ext_resource type="Texture2D" path="res://assets/ui/pixel/sword_crossed.png" id="11_sword_crossed"]
 [ext_resource type="Texture2D" path="res://assets/ui/pixel/icon_menu.png" id="12_icon_menu"]
 [ext_resource type="Texture2D" path="res://assets/ui/pixel/icon_bag.png" id="13_icon_bag"]
 [ext_resource type="Texture2D" path="res://assets/ui/pixel/icon_gear.png" id="14_icon_gear"]
@@ -283,18 +282,6 @@ button_texture = ExtResource("8_round")
 button_pressed_texture = ExtResource("9_round_pressed")
 icon_texture = ExtResource("10_sword")
 font_size = 28
-
-[node name="ClearTargetButton" type="Control" parent="Root/ControlsFrame/VBox/BottomRow/AttackColumn"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(64, 64)
-layout_mode = 2
-size_flags_horizontal = 4
-script = ExtResource("3_button")
-shape = 1
-button_texture = ExtResource("8_round")
-button_pressed_texture = ExtResource("9_round_pressed")
-icon_texture = ExtResource("11_sword_crossed")
-enabled = false
 
 [node name="SpacerRight" type="Control" parent="Root/ControlsFrame/VBox/BottomRow"]
 layout_mode = 2

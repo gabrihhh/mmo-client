@@ -246,9 +246,7 @@ var premium: PremiumState = null
 var social_profile: String = Protocol.PROFILE_PUBLIC
 ## "Pedidos de troca" ([SOC-05]): mostrar ou recusar sozinho.
 var social_trade_requests: String = Protocol.SOCIAL_ALWAYS
-## Alvo fixo do ataque simples segundo o SERVIDOR ("" = nenhum).
-var attack_target: String = ""
-## Golpe em andamento segundo o servidor: alvo ("" = nenhum) e segundos que faltam.
+## Lançamento em andamento segundo o servidor (carta): alvo ("" = nenhum) e segundos que faltam.
 var casting_target: String = ""
 var casting_remaining: float = 0.0
 
@@ -440,15 +438,10 @@ func get_entity(id: String) -> PlayerState:
 	return null
 
 
-## Fixa o alvo do ataque simples ([param target_id] vazio = parar). O servidor confirma em [member attack_target].
-func send_attack(target_id: String) -> void:
-	if is_in_zone():
-		_send(Protocol.MSG_ATTACK, {"targetId": target_id if not target_id.is_empty() else null})
-
-
 ## Lança a habilidade [param ability_id] ([JOGO-06]). [param target_id]: mira "no alvo" ("" = nenhum).
 ## [param x]/[param z]: direção (mira "direção") ou ponto no chão (mira "área"); NAN = não enviar.
-## [param seq]: Investida/Disparada vão na fila de movimento com este número ([JOGO-07]); 0 = não enviar.
+## [param seq]: Investida/Disparada (e o golpe com passo das adagas) vão na fila de movimento com este número
+## ([JOGO-07]); 0 = não enviar. Ataque simples ([JOGO-05]): [param ability_id] = id do ataque da arma, x/z = direção.
 func send_cast(ability_id: String, target_id: String = "", x: float = NAN, z: float = NAN, seq: int = 0) -> void:
 	if not is_in_zone():
 		return
@@ -1354,9 +1347,7 @@ func _apply_snapshot(data: Dictionary) -> void:
 	xp = Protocol.read_float(me, "xp", xp)
 	xp_next = Protocol.read_float(me, "xpNext", xp_next)
 	gold = Protocol.read_int(me, "gold", gold)
-	# Alvo e lançamento podem virar null: só mudam quando a chave vem.
-	if me.has("target"):
-		attack_target = Protocol.read_string(me, "target")
+	# O lançamento pode virar null: só muda quando a chave vem.
 	if me.has("casting"):
 		var casting: Dictionary = Protocol.read_dict(me, "casting")
 		casting_target = Protocol.read_string(casting, "target")
@@ -1445,7 +1436,6 @@ func _reset_zone_state() -> void:
 	_npcs.clear()
 	chests.clear()
 	_group_far.clear()
-	attack_target = ""
 	casting_target = ""
 	casting_remaining = 0.0
 	_arrival_offsets.clear()
@@ -1481,7 +1471,6 @@ func _on_closed() -> void:
 	colosseum_state = null
 	_npcs.clear()
 	chests.clear()
-	attack_target = ""
 	set_process(false)
 
 	for id: String in _players.keys():
