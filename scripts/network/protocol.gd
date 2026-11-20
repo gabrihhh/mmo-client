@@ -55,7 +55,8 @@ extends RefCounted
 ## v41: Coliseu ([JOGO-28]): colosseum_open/queue/leave/accept/decline/point/leave_match → colosseum_info/found/
 ## accept_status/cancelled/state/result; [code]kind[/code]/[code]arena[/code] no welcome; categorias colosseum_* no
 ## ranking; erros in_colosseum e colosseum_*; [code]pieces[/code] (minhas peças de arena) no colosseum_state.
-const VERSION: int = 41
+## v42: [code]weapon[/code] no [constant MSG_CHOOSE_BODY] (arma inicial, chega vestida, [CLI-09]).
+const VERSION: int = 42
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
@@ -80,7 +81,7 @@ const MSG_KEEP_ALIVE: String = "ka"
 ## Pede para entrar numa zona (depois de autenticar). data: { zone: String }.
 const MSG_JOIN: String = "join"
 ## Escolhe o corpo do personagem, uma vez só (primeira entrada). data: { body: [constant BODY_MALE] |
-## [constant BODY_FEMALE] }. Resposta: [constant MSG_BODY_CHOSEN]. Ver mmo-docs [INFRA-07].
+## [constant BODY_FEMALE], weapon: itemId da arma inicial (v42; uma das STARTER_WEAPONS do servidor; vem vestida) }. Resposta: [constant MSG_BODY_CHOSEN]. Ver mmo-docs [INFRA-07].
 const MSG_CHOOSE_BODY: String = "choose_body"
 ## Corpos de personagem. ATENÇÃO: espelho de BODY_TYPES em mmo-server/src/net/protocol.ts.
 const BODY_MALE: String = "male"

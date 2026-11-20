@@ -386,10 +386,14 @@ func logout() -> void:
 
 
 ## true enquanto conecta ou está conectado.
-## Escolhe o corpo do personagem ([constant Protocol.BODY_MALE] ou [constant Protocol.BODY_FEMALE]). Vale para
-## sempre; a resposta vem em [signal body_chosen] (e o Network entra na zona) ou como erro.
-func choose_body(new_body: String) -> void:
-	_send(Protocol.MSG_CHOOSE_BODY, {"body": new_body})
+## Escolhe o corpo do personagem ([constant Protocol.BODY_MALE] ou [constant Protocol.BODY_FEMALE]) e a arma
+## inicial [param weapon] (itemId; "" = nenhuma, só dev). Vale para sempre; a resposta vem em [signal body_chosen]
+## (e o Network entra na zona) ou como erro ([CLI-09]).
+func choose_body(new_body: String, weapon: String = "") -> void:
+	var data: Dictionary[String, Variant] = {"body": new_body}
+	if not weapon.is_empty():
+		data["weapon"] = weapon
+	_send(Protocol.MSG_CHOOSE_BODY, data)
 
 
 func is_connecting_or_connected() -> bool:

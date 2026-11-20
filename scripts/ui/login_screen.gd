@@ -18,6 +18,8 @@ extends Control
 const CHARACTER_SELECT_SCENE: String = "res://scenes/ui/character_select.tscn"
 ## Dev/testes: `-- --body=female` escolhe o corpo sozinho quando a conta do --dev-user ainda não tem (padrão: male).
 const DEV_BODY_ARG: String = "--body="
+## Dev/testes: `-- --weapon=knight_sword` escolhe também a arma inicial (padrão: nenhuma), [CLI-09].
+const DEV_WEAPON_ARG: String = "--weapon="
 ## Dev/testes: `-- --dev-user=Nome` entra como Nome (senha [constant DEV_PASSWORD]), criando a conta
 ## (e-mail nome@dev.local) se não existir. Útil no headless e em várias janelas no mesmo PC.
 const DEV_USER_ARG: String = "--dev-user="
@@ -226,10 +228,13 @@ func _on_reset_done() -> void:
 func _on_body_choice_needed() -> void:
 	if not _dev_user.is_empty():
 		var dev_body: String = Protocol.BODY_MALE
+		var dev_weapon: String = ""
 		for arg: String in OS.get_cmdline_user_args():
 			if arg.begins_with(DEV_BODY_ARG):
 				dev_body = arg.trim_prefix(DEV_BODY_ARG)
-		Network.instance.choose_body(dev_body)
+			elif arg.begins_with(DEV_WEAPON_ARG):
+				dev_weapon = arg.trim_prefix(DEV_WEAPON_ARG)
+		Network.instance.choose_body(dev_body, dev_weapon)
 		return
 	get_tree().change_scene_to_file(CHARACTER_SELECT_SCENE)
 
