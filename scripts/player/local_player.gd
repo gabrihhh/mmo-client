@@ -18,10 +18,17 @@ extends Node3D
 ## Joystick de toque; atribuído pela zona ao criar o jogador. Pode ser null.
 var joystick: TouchJoystick = null
 
-## Divergência (m) acima da qual a correção é aplicada na hora, sem suavizar (ex.: teleporte).
 ## Cor da camisa do seu personagem (os outros são vermelhos).
 const SHIRT_COLOR: Color = Color(0.25, 0.5, 1.0)
-const _SNAP_DISTANCE: float = 2.0
+## Divergência (m) acima da qual a correção é aplicada na hora, sem suavizar (teleporte, renascer). Abaixo disso o
+## personagem DESLIZA até a posição certa ([member correction_smoothing]).
+## > mudança (2026-11-20): era 2 m — um buraco de rede de ~1 s no Wi-Fi do celular passava disso e o personagem
+## > teleportava para trás; agora desliza (teleporte de verdade é bem maior).
+const _SNAP_DISTANCE: float = 5.0
+## Correção grande (acima de 1 m, depois de um buraco de rede) some mais devagar que a pequena, para ser um
+## deslize visível em vez de um tranco: taxa (1/s) usada enquanto a correção restante passa disso.
+const _LARGE_CORRECTION: float = 1.0
+const _LARGE_CORRECTION_SMOOTHING: float = 7.0
 ## Abaixo deste comprimento o input conta como parado e não é enviado.
 const _MIN_INPUT: float = 0.01
 ## Dev/testes: `-- --bot-walk` faz o jogador andar em círculo sozinho, usar Disparada e Investida
@@ -178,7 +185,8 @@ func _process(delta: float) -> void:
 
 	# Desenho: entre o tick anterior e o atual, mais a correção visual que está sumindo.
 	var alpha: float = _accumulator / step_seconds
-	_visual_offset *= exp(-correction_smoothing * delta)
+	var smoothing: float = _LARGE_CORRECTION_SMOOTHING if _visual_offset.length() > _LARGE_CORRECTION else correction_smoothing
+	_visual_offset *= exp(-smoothing * delta)
 	global_position = _previous_sim.position().lerp(_sim.position(), alpha) + _visual_offset
 	# Altura do chão (praça, degraus, morros): só visual, o servidor anda no plano ([MUN-03]).
 	_ground_y = lerpf(_ground_y, ZoneTerrain.height_at(global_position.x, global_position.z), 1.0 - exp(-GROUND_FOLLOW * delta))

@@ -252,6 +252,11 @@ var _prep_button: Button = null
 var _prep_hidden: bool = false
 ## Tela de fim da partida (já na praça).
 var _colosseum_result_panel: ColosseumResultPanel = null
+## Fila do Coliseu ([JOGO-28]): aviso pequeno no topo enquanto espera ("Fila do Coliseu 1x1 · 0:42"); tocar reabre o
+## painel (onde fica "Sair da fila"). Modo em que está na fila ("" = fora) e desde quando (relógio do aviso).
+var _queue_chip: Button = null
+var _queued_mode: String = ""
+var _queued_since_ms: int = 0
 ## Ferreiro ([JOGO-16]): tela de melhoria e o botão que aparece perto dele.
 var _blacksmith_panel: BlacksmithPanel = null
 ## Baú do acampamento ([JOGO-19]): botão "Abrir baú" (perto de um baú aberto), a janela e o baú de perto ("" = nenhum).
@@ -1085,6 +1090,19 @@ func _build_colosseum_ui() -> void:
 		_refresh_prep())
 	root.add_child(_prep_button)
 	root.move_child(_prep_button, _menu_dimmer.get_index())
+	_queue_chip = PixelMenuPanel.make_button("")
+	PixelMenuPanel.set_icon(_queue_chip, "sword_crossed", 28)
+	_queue_chip.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_queue_chip.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_queue_chip.offset_top = 270.0
+	_queue_chip.offset_left = -170.0
+	_queue_chip.offset_right = 170.0
+	_queue_chip.add_theme_font_size_override("font_size", 22)
+	_queue_chip.modulate = Color(1, 1, 1, 0.9)
+	_queue_chip.visible = false
+	_queue_chip.pressed.connect(_open_panel.bind(_colosseum_panel))
+	root.add_child(_queue_chip)
+	root.move_child(_queue_chip, _menu_dimmer.get_index())
 	_colosseum_result_panel = ColosseumResultPanel.new()
 	root.add_child(_colosseum_result_panel)
 	_colosseum_result_panel.close_pressed.connect(_open_panel.bind(null))
@@ -1119,12 +1137,36 @@ func set_arena_mode(on: bool) -> void:
 	_arena_bar.visible = on
 	if on:
 		_colosseum_found.close()
+		# A partida começou: a fila acabou (o servidor manda o colosseum_info novo depois).
+		_queued_mode = ""
+	_refresh_queue_chip()
 	_refresh_arena_bar()
 
 
-## Coliseu: tela do Coliseu chegou.
+## Coliseu: tela do Coliseu chegou. Acabou de entrar na fila → fecha o painel e deixa só o aviso pequeno no topo
+## ([method _refresh_queue_chip]); saiu da fila (botão, saiu da praça: o servidor tira e manda isto) → o aviso some.
 func show_colosseum_info(info: ColosseumData.Info) -> void:
 	_colosseum_panel.show_info(info)
+	var entered: bool = _queued_mode.is_empty() and not info.queued.is_empty()
+	if entered:
+		_queued_since_ms = Time.get_ticks_msec()
+		if _colosseum_panel.visible:
+			_open_panel(null)
+	_queued_mode = info.queued
+	_refresh_queue_chip()
+
+
+## Aviso da fila do Coliseu: visível só esperando na fila e fora da arena, com o modo e há quanto tempo espera.
+func _refresh_queue_chip() -> void:
+	if _queue_chip == null:
+		return
+	_queue_chip.visible = not _queued_mode.is_empty() and not _arena_mode
+	if not _queue_chip.visible:
+		return
+	var seconds: int = (Time.get_ticks_msec() - _queued_since_ms) / 1000
+	var text: String = "Fila do Coliseu %s · %d:%02d" % [_queued_mode, seconds / 60, seconds % 60]
+	if _queue_chip.text != text:
+		_queue_chip.text = text
 
 
 ## Coliseu: "Partida encontrada" (janela no alto; não pausa o jogo).
@@ -1179,6 +1221,8 @@ var _arena_dead: bool = false
 func _process_arena_bar() -> void:
 	if _arena_mode:
 		_refresh_arena_bar()
+	elif not _queued_mode.is_empty():
+		_refresh_queue_chip()
 
 
 ## Texto da faixa do placar: fase, round, placar (meu time primeiro), tempo e, morto, "assistindo o time".
