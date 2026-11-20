@@ -18,9 +18,21 @@ static func register_defaults() -> void:
 	_add_keys(MOVE_BACK, [KEY_S, KEY_DOWN])
 
 
-## Vetor de movimento do teclado: x = direita, y = trás (forward é y negativo).
+## Vetor de movimento do teclado: x = direita, y = trás (forward é y negativo). Zero enquanto um campo de texto
+## (chat, busca do Mercado, nome da guilda...) está em foco: digitar "w" não anda.
 static func get_keyboard_vector() -> Vector2:
+	if is_typing():
+		return Vector2.ZERO
 	return Input.get_vector(MOVE_LEFT, MOVE_RIGHT, MOVE_FORWARD, MOVE_BACK)
+
+
+## true se o foco do teclado está num campo de texto ([LineEdit]/[TextEdit]).
+static func is_typing() -> bool:
+	var tree: SceneTree = Engine.get_main_loop() as SceneTree
+	if tree == null:
+		return false
+	var focus: Control = tree.root.gui_get_focus_owner()
+	return focus is LineEdit or focus is TextEdit
 
 
 static func _add_keys(action: StringName, keys: Array[Key]) -> void:
