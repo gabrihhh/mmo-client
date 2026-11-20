@@ -147,7 +147,7 @@ const MSG_COLOSSEUM_LEAVE: String = "colosseum_leave"
 const MSG_COLOSSEUM_ACCEPT: String = "colosseum_accept"
 ## Recusa a partida encontrada (sem payload).
 const MSG_COLOSSEUM_DECLINE: String = "colosseum_decline"
-## Uma das 20 escolhas da preparação: { slot, attribute }.
+## Escolhas da preparação: { slot, attribute, count } (count = quantas de uma vez, 1–20).
 const MSG_COLOSSEUM_POINT: String = "colosseum_point"
 ## Botão "Sair da partida" (abandono; sem payload).
 const MSG_COLOSSEUM_LEAVE_MATCH: String = "colosseum_leave_match"

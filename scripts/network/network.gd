@@ -579,10 +579,11 @@ func send_colosseum_answer(accept: bool) -> void:
 		_send(Protocol.MSG_COLOSSEUM_ACCEPT if accept else Protocol.MSG_COLOSSEUM_DECLINE, {})
 
 
-## Uma das 20 escolhas da preparação: peça [param slot] → [param attribute].
-func send_colosseum_point(slot: String, attribute: String) -> void:
+## [param count] das 20 escolhas da preparação de uma vez: peça [param slot] → [param attribute] (cada uma pela regra
+## +1 novo / +2 repetido; o servidor usa no máximo o que falta).
+func send_colosseum_point(slot: String, attribute: String, count: int = 1) -> void:
 	if is_in_zone():
-		_send(Protocol.MSG_COLOSSEUM_POINT, {"slot": slot, "attribute": attribute})
+		_send(Protocol.MSG_COLOSSEUM_POINT, {"slot": slot, "attribute": attribute, "count": clampi(count, 1, 20)})
 
 
 ## Botão "Sair da partida" (abandono: sem prêmio, perde ranking e 10 min sem fila).

@@ -121,8 +121,8 @@ signal colosseum_queue_requested(mode: String, build: Dictionary[String, String]
 signal colosseum_leave_requested
 signal colosseum_answered(accept: bool)
 signal colosseum_leave_match_requested
-## Coliseu: uma das 20 escolhas da preparação (peça [param slot] → [param attribute]).
-signal colosseum_point_requested(slot: String, attribute: String)
+## Coliseu: [param count] das 20 escolhas da preparação de uma vez (peça [param slot] → [param attribute]).
+signal colosseum_point_requested(slot: String, attribute: String, count: int)
 
 ## Quantas cartas de habilidade a HUD mostra ([JOGO-01]: 3 da arma + cabeça + peito + pés).
 const CARD_COUNT: int = 6
@@ -1059,13 +1059,13 @@ func _build_colosseum_ui() -> void:
 	_colosseum_button = _ranking_button.duplicate() as Button
 	_colosseum_button.name = "ColosseumButton"
 	_colosseum_button.text = "Coliseu"
-	_colosseum_button.icon = null
+	PixelMenuPanel.set_icon(_colosseum_button, "sword_crossed")
 	_premium_button.add_sibling(_colosseum_button)
 	_colosseum_button.pressed.connect(_open_panel.bind(_colosseum_panel))
 	_leave_match_button = _ranking_button.duplicate() as Button
 	_leave_match_button.name = "LeaveMatchButton"
 	_leave_match_button.text = "Sair da partida"
-	_leave_match_button.icon = null
+	PixelMenuPanel.set_icon(_leave_match_button, "icon_exit")
 	_leave_match_button.visible = false
 	_colosseum_button.add_sibling(_leave_match_button)
 	_leave_match_button.pressed.connect(_on_leave_match_pressed)
@@ -1087,7 +1087,7 @@ func _build_colosseum_ui() -> void:
 	_prep_panel = ColosseumPrepPanel.new()
 	root.add_child(_prep_panel)
 	root.move_child(_prep_panel, _menu_dimmer.get_index())
-	_prep_panel.point_chosen.connect(func(slot: String, attribute: String) -> void: colosseum_point_requested.emit(slot, attribute))
+	_prep_panel.point_chosen.connect(func(slot: String, attribute: String, count: int) -> void: colosseum_point_requested.emit(slot, attribute, count))
 	_prep_panel.hide_pressed.connect(func() -> void:
 		_prep_hidden = true
 		_refresh_prep())
