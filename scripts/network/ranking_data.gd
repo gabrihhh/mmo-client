@@ -10,6 +10,10 @@ const CATEGORY_MONSTERS: String = "monsters"
 const CATEGORY_PVP: String = "pvp"
 const CATEGORY_GUILD_MONSTERS: String = "guild_monsters"
 const CATEGORY_GUILD_PVP: String = "guild_pvp"
+## Coliseu ([JOGO-28]): ranking por modo. ⏳ aba no Ranking na etapa 5 do plan-1.
+const CATEGORY_COLOSSEUM_1X1: String = "colosseum_1x1"
+const CATEGORY_COLOSSEUM_2X2: String = "colosseum_2x2"
+const CATEGORY_COLOSSEUM_3X3: String = "colosseum_3x3"
 ## Períodos. ATENÇÃO: RANKING_PERIODS em mmo-server/src/progression/ranking.ts.
 const PERIOD_DAILY: String = "daily"
 const PERIOD_WEEKLY: String = "weekly"

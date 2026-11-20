@@ -52,7 +52,10 @@ extends RefCounted
 ## v40: Loja premium ([JOGO-27]): premium_open/premium_buy/premium_pack/premium_history → premium/premium_result/
 ## premium_history_list; [code]guaranteed[/code] no [constant MSG_UPGRADE]; [code]protected[/code] no
 ## [constant MSG_DEATH_REPORT].
-const VERSION: int = 40
+## v41: Coliseu ([JOGO-28]): colosseum_open/queue/leave/accept/decline/point/leave_match → colosseum_info/found/
+## accept_status/cancelled/state/result; [code]kind[/code]/[code]arena[/code] no welcome; categorias colosseum_* no
+## ranking; erros in_colosseum e colosseum_*. ⏳ telas do cliente nas etapas 4–5 do plan-1.
+const VERSION: int = 41
 
 # --- Cliente → servidor ---
 ## Cria conta. data: { version, client, username, email, password }. As três mensagens de autenticação levam
@@ -133,6 +136,21 @@ const MSG_PREMIUM_BUY: String = "premium_buy"
 const MSG_PREMIUM_PACK: String = "premium_pack"
 ## Pede o histórico de compras (sem payload; resposta [constant MSG_PREMIUM_HISTORY_LIST]).
 const MSG_PREMIUM_HISTORY: String = "premium_history"
+# Coliseu ([JOGO-28]). ATENÇÃO: ClientMessageType.Colosseum* em mmo-server/src/net/protocol.ts.
+## Abre o Menu → Coliseu (sem payload; resposta [constant MSG_COLOSSEUM_INFO]).
+const MSG_COLOSSEUM_OPEN: String = "colosseum_open"
+## Entra na fila (nas pedras da praça): { mode: "1x1"|"2x2"|"3x3", build: { hand, head, chest, feet: conjunto } }.
+const MSG_COLOSSEUM_QUEUE: String = "colosseum_queue"
+## Sai da fila (sem payload; na janela de aceite conta como recusa).
+const MSG_COLOSSEUM_LEAVE: String = "colosseum_leave"
+## Aceita a partida encontrada (sem payload).
+const MSG_COLOSSEUM_ACCEPT: String = "colosseum_accept"
+## Recusa a partida encontrada (sem payload).
+const MSG_COLOSSEUM_DECLINE: String = "colosseum_decline"
+## Uma das 20 escolhas da preparação: { slot, attribute }.
+const MSG_COLOSSEUM_POINT: String = "colosseum_point"
+## Botão "Sair da partida" (abandono; sem payload).
+const MSG_COLOSSEUM_LEAVE_MATCH: String = "colosseum_leave_match"
 ## Abre o baú de um acampamento (perto e aberto): {chestId}. Resposta: [constant MSG_CHEST_LOOT] ou erro. [JOGO-19]
 ## ATENÇÃO: ClientMessageType.ChestOpen em mmo-server/src/net/protocol.ts.
 const MSG_CHEST_OPEN: String = "chest_open"
@@ -292,6 +310,21 @@ const MSG_PREMIUM: String = "premium"
 const MSG_PREMIUM_RESULT: String = "premium_result"
 ## Loja premium: histórico { entries: [{ at (ms), kind, name, diamonds, test }] }.
 const MSG_PREMIUM_HISTORY_LIST: String = "premium_history_list"
+# Coliseu ([JOGO-28]). ATENÇÃO: ServerMessageType.Colosseum* e os payloads em mmo-server/src/net/protocol.ts.
+## Tela do Coliseu: { rating: {modo: n}, points, banSeconds, queued: modo|null, waiting: {modo: n}, rewardsToday, rewardsLimit }.
+const MSG_COLOSSEUM_INFO: String = "colosseum_info"
+## "Partida encontrada": { mode, seconds, total }.
+const MSG_COLOSSEUM_FOUND: String = "colosseum_found"
+## Quantos aceitaram: { accepted, total }.
+const MSG_COLOSSEUM_ACCEPT_STATUS: String = "colosseum_accept_status"
+## A partida encontrada caiu: { reason: "you_refused"|"other_refused", requeued, banSeconds }.
+const MSG_COLOSSEUM_CANCELLED: String = "colosseum_cancelled"
+## Placar: { mode, phase: "prep"|"round"|"pause"|"over", round, score: [a, b], secondsLeft, choicesLeft, team,
+## teams: [[{ id, name, build, abandoned }], [...]] }.
+const MSG_COLOSSEUM_STATE: String = "colosseum_state"
+## Fim para você: { mode, outcome: "win"|"loss"|"draw"|"abandon", annulled, winner, score, gold, xp, points,
+## ratingDelta, rating, rewarded, level }.
+const MSG_COLOSSEUM_RESULT: String = "colosseum_result"
 ## Atributos de um jogador (resposta ao [constant MSG_INSPECT]). data: { id, name, level, maxHp, maxMana,
 ## power: { damage, healing, shield } (multiplicadores pelo nível, 1 = nível 0), equipped: { hand, head, chest, feet:
 ## { itemId, name, set } ou null }, stats: { monsterXp, kills, deaths } ([SOC-08]) }. Perfil fechado para mim:
@@ -384,6 +417,17 @@ const ERR_ALREADY_FRIENDS: String = "already_friends"
 const ERR_FRIEND_REQUEST_PENDING: String = "friend_request_pending"
 const ERR_FRIEND_REQUEST_NOT_FOUND: String = "friend_request_not_found"
 const ERR_FRIEND_LIST_FULL: String = "friend_list_full"
+## Coliseu ([JOGO-28]): pedido que não vale dentro da arena; fila fora da praça; bloqueado; já em fila/partida;
+## healer no 1x1; convidado; aceitar sem partida; escolha fora da preparação; escolhas acabaram.
+const ERR_IN_COLOSSEUM: String = "in_colosseum"
+const ERR_COLOSSEUM_NOT_IN_SQUARE: String = "colosseum_not_in_square"
+const ERR_COLOSSEUM_BANNED: String = "colosseum_banned"
+const ERR_COLOSSEUM_ALREADY_QUEUED: String = "colosseum_already_queued"
+const ERR_COLOSSEUM_HEALER_NOT_ALLOWED: String = "colosseum_healer_not_allowed"
+const ERR_COLOSSEUM_GUEST: String = "colosseum_guest"
+const ERR_COLOSSEUM_NOT_PENDING: String = "colosseum_not_pending"
+const ERR_COLOSSEUM_NOT_IN_PREP: String = "colosseum_not_in_prep"
+const ERR_COLOSSEUM_NO_CHOICES: String = "colosseum_no_choices"
 const ERR_NOT_FRIENDS: String = "not_friends"
 ## Loja premium ([JOGO-27]): Diamantes a menos que o preço (a Loja leva aos pacotes).
 const ERR_NOT_ENOUGH_DIAMONDS: String = "not_enough_diamonds"
